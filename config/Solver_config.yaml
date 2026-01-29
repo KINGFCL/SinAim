@@ -1,0 +1,40 @@
+%YAML:1.0
+---
+
+# 相机内参矩阵 (Camera Matrix)
+camera_matrix: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [1809.530150478524, 0, 710.7671794757036,
+            0, 1808.767628456234, 545.5481376467352,
+            0, 0, 1]
+
+# 畸变系数 (Distortion Coefficients)
+distortion_coeffs: !!opencv-matrix
+   rows: 5
+   cols: 1
+   dt: d
+   data: [-0.08192894058389977,
+      0.2161546445125319,
+      -0.0008743723370508499,
+      -0.0004984677970041216,
+      -0.14854128408273]
+
+# 相机到云台的旋转矩阵 (Rotation Matrix from Camera to Gripper)
+R_Cam_to_gripper: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [-0.006148281120106415, -0.01589050061715646, -0.9998548347782317,
+            0.9999775169218256, -0.002774032538535388, -0.006104948348238425,
+            -0.002676619159991224, -0.9998698899024873, 0.01590719888167279]
+
+# 相机到云台的平移矩阵 (Translation Matrix from Camera to Gripper)
+T_Cam_to_gripper: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [-142.4533492929992,
+            -0.3950223157766824,
+            46.58414809995861]
