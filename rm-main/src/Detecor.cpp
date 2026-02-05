@@ -157,7 +157,7 @@ std::deque<Light> Detector::FindLight(const cv::Mat & binary_img) //寻找灯条
                     bluerate++;
             }
         }
-        return (redrate > bluerate) ? Light::Red : Light::Blue;
+        return (redrate > bluerate) ? Light::Color::Red : Light::Color::Blue;
     };
     if(getLightColor() != this->color) continue; //不是目标颜色
  

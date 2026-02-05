@@ -114,7 +114,7 @@ ArmorPosi Solver::operator () (const Armor& armor)
     P = R * (cv::Mat_<double>(3,1) << 1.0, 0.0, 0.0);
     toward = cv::Point3d(P.at<double>(0,0),P.at<double>(1,0),P.at<double>(2,0));
     
-    return ArmorPosi(posi, face, toward, armor.type, error);
+    return ArmorPosi(posi, face, toward, std::atan2(toward.z,toward.x),armor.type, error);
 }
 
 
