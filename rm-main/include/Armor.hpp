@@ -45,8 +45,8 @@ struct Armor{
     double confidence;
     std::vector<cv::Point2f> Lightcorners; //装甲板四个顶点
     enum class Type : int {base    = 0, hero     = 1, two   = 2,
-                     three   = 3, four     = 4, guard = 5,
-                     outpost = 6, negative = 7} type; 
+                           three   = 3, four     = 4, guard = 5,
+                           outpost = 6, negative = 7} type; 
 };
 
 struct ArmorPosi{

@@ -2,6 +2,7 @@
 #define TARGET_HPP
 
 #include "Armor.hpp"
+#include "EKFKalman.hpp"
 
 #include <deque>
 #include <eigen3/Eigen/Core>
@@ -83,6 +84,9 @@ public:
     */
     void Update(const std::vector<ArmorPosi>& armors, double dt);
 
+    void OneArmor(const ArmorPosi& armor, double dt);
+    void TwoArmor(const std::vector<ArmorPosi>& armors, double dt);
+
     /*!
     @return 返回当前装甲板的朝向角
     */
@@ -110,6 +114,8 @@ public:
 */
     Eigen::Matrix<double, 5, 4> Armors;
 
+    std::array<Eigen::Matrix<double, 4, 4>, 4> CovArmors;
+
     std::array<ArmorView, 4> View = {ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual};
 
 
@@ -119,6 +125,7 @@ public:
     //中心点坐标
     Eigen::Matrix<double,3,1> center{0,0,0};
 
+    EKFKalman Kalman;
 
 private:
 

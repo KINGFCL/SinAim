@@ -23,7 +23,7 @@ int main()
 {
     // 棋盘参数设置
     const Size BOARD_SIZE(11, 8);  // 棋盘内角点数量 (列数, 行数)
-    const float SQUARE_SIZE = 20.0f;  // 每个方格的实际尺寸 (毫米)
+    const double SQUARE_SIZE = 2.0;  // 每个方格的实际尺寸 (厘米)
     
     string config_path = "../Data/Calibration_R_T.yaml";
     string image_path = "../Data/images/*.png";

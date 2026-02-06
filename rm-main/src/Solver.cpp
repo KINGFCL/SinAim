@@ -38,8 +38,8 @@ Solver::Solver(std::string config_path)
     this->SmallArmorCenter = cv::Mat_<double>(3, 1);
 
 
-    this->BigArmorCenter<< 115.0, 27.5, 0.0;
-    this->SmallArmorCenter<< 67.5, 27.5, 0.0;
+    this->BigArmorCenter<< 11.50, 2.75, 0.0;
+    this->SmallArmorCenter<< 6.75, 2.75, 0.0;
 }
 
 //解算单个装甲板的位置

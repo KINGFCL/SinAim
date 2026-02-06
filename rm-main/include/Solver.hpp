@@ -41,8 +41,8 @@ private:
 
     cv::Mat_<double> BigArmorCenter;
     cv::Mat_<double> SmallArmorCenter;
-    std::vector<cv::Point3f> objectBigArmorP{{0,0,0},{230,0,0},{230,55,0},{0,55,0}};
-    std::vector<cv::Point3f> objectSmallArmorP{{0,0,0},{135,0,0},{135,55,0},{0,55,0}};
+    std::vector<cv::Point3f> objectBigArmorP{{0,0,0},{23,0,0},{23,5.5,0},{0,5.5,0}};
+    std::vector<cv::Point3f> objectSmallArmorP{{0,0,0},{13.5,0,0},{13.5,5.5,0},{0,5.5,0}};
 };
 
 #endif

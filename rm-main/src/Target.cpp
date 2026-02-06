@@ -15,82 +15,147 @@
 
 std::array<RobotSize, 5> Robot::Size;
 
-// void Robot::Update(const std::vector<ArmorPosi>& armors, double dt)
-// {
-//     if(armors.empty()) return;
+void Robot::Update(const std::vector<ArmorPosi>& armors, double dt)
+{
+    if(armors.empty()) return;
 
-//     if(!is_init)
-//     {
-//         this->Init(armors);
-//         return;
-//     }
+    if(!is_init)
+    {
+        this->Init(armors);
+        return;
+    }
 
-//     //更新Robot姿态
-//     if(armors.size() >= 2)
-//     {
-//         this->CorrectAxiRH(armors);
-//         this->CorrectAttitude();
-//     }
+    if(armors.size() == 1)
+    {
+        this->OneArmor(armors[0]);
+        return;
+    }
+    else 
+    {
+        this->TwoArmor(armors);
+        return;
+    }
 
-//     #ifdef TargetDebug
-//     // std::cout<<"anxi: "<<this->axis.x<<" "<<this->axis.y<<" "<<this->axis.z<<"\n";
-//     // std::cout<<"r_small: "<<this->Info[static_cast<int>(this->type)-1].Rsmall
-//     //          <<" r_big: "<<this->Info[static_cast<int>(this->type)-1].Rbig
-//     //          <<" h: "<<this->Info[static_cast<int>(this->type)-1].Hdiff<<"\n";
-//     #endif
-//     // 计算装甲板状态
-//     std::vector< Eigen::Matrix<double, 4, 1> > ArmorStates;
-//     std::vector<int> indexs;//存储看见的装甲板的索引
+}
 
-//     ArmorStates.reserve(armors.size());
-//     indexs.reserve(armors.size());
 
-//     for(auto& armor:armors)
-//     {
-//         ArmorStates.emplace_back(armor.posi.x, armor.posi.y, armor.posi.z, this->SolveTheta(armor));
-//     }
+void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
+{    //更新Robot姿态
 
-//     for(auto& armor : ArmorStates)
-//     {
-//         double min_diff = CV_PI; //初始化为180度
-//         int index;
-//         for(int i=0;i<4;i++)
-//         {
-//             double diff = std::abs(armor(3,0) - this->Armors[i](3,0));
-//             diff = std::min(diff, 2 * CV_PI - diff); //取最小角度差
+    // 计算装甲板状态
+    std::vector< Eigen::Matrix<double, 4, 1> > ArmorStates;
+    std::vector<int> IDS;//存储看见的装甲板的索引
 
-//             if(diff < min_diff)
-//             {
-//                 min_diff = diff;
-//                 index = i;
-//             }
-//         }
-//         indexs.emplace_back(index);
-//     }
+    ArmorStates.reserve(armors.size());
+    IDS.reserve(armors.size());
+
+    for(auto& armor:armors)
+    {
+        ArmorStates.emplace_back(armor.posi.x, armor.posi.y, armor.posi.z, this->SolveTheta(armor));
+    }
+
+    //装甲板匹配
+    for(auto& armor : ArmorStates)
+    {
+        double min_diff = CV_PI; //初始化为180度
+        int index;
+        for(int i=0;i<4;i++)
+        {
+            double diff = std::abs(armor(3,0) - this->Armors(3,i));
+            diff = std::min(diff, 2 * CV_PI - diff); //取最小角度差
+
+            if(diff < min_diff)
+            {
+                min_diff = diff;
+                index = i;
+            }
+        }
+        IDS.emplace_back(index);
+    }
+
+//匹配完成,更新半径和中心点
+
+    //更新半径
+    this->Armors(4,IDS[0]) = Robot::Size[static_cast<int>(this->type)-1].radius[std::min( static_cast<int>(armors[0].radius),1 )];
+    this->Armors(4,IDS[1]) = Robot::Size[static_cast<int>(this->type)-1].radius[std::min( static_cast<int>(armors[1].radius),1 )];
+
+    //更新对称半径
+    this->Armors(4,(IDS[0]+2)%4) = this->Armors(4,IDS[0]);
+    this->Armors(4,(IDS[1]+2)%4) = this->Armors(4,IDS[1]);
+
+    //更新中心点
+    for(int i=0; i<4; i++)
+    {
+        if(this->View[i] == ArmorView::Invisual) continue;
+
+        double& theta = this->Armors(3,i);
+        double& radius = this->Armors(4,i);
+        Eigen::Matrix<double, 3, 1> face{radius*std::cos(theta), radius*std::sin(theta), 0};        
+
+        this->center += this->Armors.block<3,1>(0,i) + face;
+        break;
+    }
+
+//采用最优选取一个装甲板用卡尔曼估计速度
+    int index = 0;
+    double minAngle = CV_PI/2.0;
+
+    for(int i=0; i<2; i++)
+    {
+        if(std::abs(armors[i].theta) < minAngle)
+        {
+            minAngle = std::abs(armors[i].theta);
+            index = i;
+        }
+    }
     
-//     //更新装甲板状态
-//     for(auto& view : this->View)
-//     {
-//         view = ArmorView::Invisual;
-//     }
-//     for(auto& i : indexs)
-//     {
-//         this->View[i] = ArmorView::Visual;
-//     }
+    //拿到要用卡尔曼滤波器更新的装甲板的ID
+    int ID = IDS[index];
+    auto& armorView = ArmorStates[index];
 
-//     //kalman滤波更新装甲板状态
-//     //只有一个装甲板时
+    //更新视角
+    this->View = {ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual};
+    this->View[ID] = ArmorView::Visual;
 
-//     if(armors.size() == 1)
-//     {
-//         this->KalmanUpdateOne(ArmorStates[0], dt);
-//         return;
-//     }
-//     //有多个装甲板时
-//     this->KalmanUpdateTwo(ArmorStates, dt);
-// }
+    //卡尔曼滤波
+    Eigen::Matrix<double, 8, 1> State;
+    State.block<4,1>(0,0) = this->Armors.block<4,1>(0,ID);
+    State.block<4,1>(4,0) = this->Speed;
+
+    auto ans = this->Kalman(State, this->CovArmors[ID], armorView, this->center,dt,armors[index].error);
+    
+    //更新Robot信息
+    this->Armors.block<4,1>(0,ID) = ans.block<4,1>(0,0);
+    this->Speed = ans.block<4,1>(4,0);
+
+    //更新中心点
+    double& radius = this->Armors(4,ID);
+    double& theta = this->Armors(3,ID);
+    Eigen::Matrix<double, 3, 1> face{radius*std::cos(theta), radius*std::sin(theta), 0};
+
+    this->center = this->Armors.block<3,1>(0,ID) + face;
+    
+    //更新其他装甲板的位置
+    int NoChooseIndex = 1 - index;
+    this->Armors.block<4,1>(0,IDS[NoChooseIndex]) = ArmorStates[NoChooseIndex];
+
+    //更新没有视野的装甲板位置
+
+    //角度
+    this->Armors(3,(ID+2)%4) = std::remainder(this->Armors(3,ID)+CV_PI, 2.0 * CV_PI);;
+    this->Armors(3,(IDS[NoChooseIndex]+2)%4) = std::remainder(this->Armors(3,IDS[NoChooseIndex])+CV_PI, 2.0 * CV_PI);;
+
+    //位置
+    Armors.block<3,1>(0,(ID+2)%4) = this->Rotate(Armors.block<3,1>(0,ID), CV_PI);
+    Armors.block<3,1>(0,(IDS[NoChooseIndex]+2)%4) = this->Rotate(Armors.block<3,1>(0,IDS[NoChooseIndex]), CV_PI);
+}
 
 
+/**
+ * @brief 如果输入的装甲板数量为2，函数将更新Robot的尺寸
+ * @param armors 输入的装甲板位置，必须包含两个装甲板
+ * @note 如果输入的装甲板数量不为2，函数不会执行任何操作
+ */
  void Robot::SolveRobotSize(std::vector<ArmorPosi>& armors)
 {
     //如果输入的装甲板数量不为2，则函数不会执行任何操作
@@ -161,6 +226,7 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
     if(armors.empty()) return;
     
     this->type = static_cast<Robot::Type>(static_cast<int>(armors[0].type));
+    this->Kalman.Init();
 
     int ID = 0;
     double minAngle = CV_PI/2.0;
@@ -210,18 +276,13 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
 //初始化没看见的装甲板位置信息（x,y,z,theta）
 
         //初始化角度
-        double angle_diff = Armors(3,1) - Armors(3,0);
-
-        Armors(3,2) = Armors(3,0) + angle_diff*2.0;
-        Armors(3,3) = Armors(3,1) + angle_diff*2.0;
-
         //调整角度差到[-pi, pi]
-        this-> Armors(3,2) = std::remainder(this->Armors(3,2), 2.0 * CV_PI);
-        this-> Armors(3,3) = std::remainder(this->Armors(3,3), 2.0 * CV_PI);
+        this-> Armors(3,2) = std::remainder(this->Armors(3,0)+CV_PI, 2.0 * CV_PI);
+        this-> Armors(3,3) = std::remainder(this->Armors(3,1)+CV_PI, 2.0 * CV_PI);
 
         //初始化没看见的装甲板位置x,y,z
-        Armors.block<3,1>(0,2) = this->Rotate(Armors.block<3,1>(0,0), angle_diff*2.0);
-        Armors.block<3,1>(0,3) = this->Rotate(Armors.block<3,1>(0,1), angle_diff*2.0);
+        Armors.block<3,1>(0,2) = this->Rotate(Armors.block<3,1>(0,0), CV_PI);
+        Armors.block<3,1>(0,3) = this->Rotate(Armors.block<3,1>(0,1), CV_PI);
 
         this->is_init = true;
         return;
