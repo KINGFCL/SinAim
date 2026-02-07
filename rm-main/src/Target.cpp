@@ -6,6 +6,7 @@
 #include <eigen3/Eigen/Geometry>
 #include <iostream>
 #include <opencv2/core.hpp>
+#include <opencv2/core/cvdef.h>
 #include <opencv2/core/hal/interface.h>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
@@ -27,17 +28,86 @@ void Robot::Update(const std::vector<ArmorPosi>& armors, double dt)
 
     if(armors.size() == 1)
     {
-        this->OneArmor(armors[0]);
+        this->OneArmor(armors[0],dt);
         return;
     }
     else 
     {
-        this->TwoArmor(armors);
+        this->TwoArmor(armors,dt);
         return;
     }
 
 }
+void Robot::OneArmor(const ArmorPosi& armor, double dt)
+{
+    // 计算装甲板状态
+    Eigen::Matrix<double, 4, 1> ArmorState{armor.posi.x, armor.posi.y, armor.posi.z, this->SolveTheta(armor)};
+    
+    //装甲板匹配
+    int ID = 0; 
+    
+    double min_diff = CV_PI; //初始化为180度
+    for(int i=0;i<4;i++)
+    {
+        double diff = std::abs(ArmorState(3,0) - this->Armors(3,i));
+        diff = std::min(diff, 2 * CV_PI - diff); //取最小角度差
 
+        if(diff < min_diff)
+        {
+            min_diff = diff;
+            ID = i;
+        }
+    }
+
+    auto& armorView = ArmorState;
+
+    //更新视角
+    this->View = {ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual};
+    this->View[ID] = ArmorView::Visual;
+
+    //卡尔曼滤波
+    Eigen::Matrix<double, 8, 1> State;
+    State.block<4,1>(0,0) = this->Armors.block<4,1>(0,ID);
+    State.block<4,1>(4,0) = this->Speed;
+
+    auto ans = this->Kalman(State, this->CovArmors[ID], armorView, this->center,dt,armor.error);
+    
+    //更新Robot信息
+    this->Armors.block<4,1>(0,ID) = ans.block<4,1>(0,0);
+    this->Speed = ans.block<4,1>(4,0);
+
+    //更新中心点
+    double& radius = this->Armors(4,ID);
+    double& theta = this->Armors(3,ID);
+    Eigen::Matrix<double, 3, 1> face{radius*std::cos(theta), radius*std::sin(theta), 0};
+
+    this->center = this->Armors.block<3,1>(0,ID) - face;
+
+    //更新没有视野的装甲板位置
+
+    //角度
+    this->Armors(3,(ID+1)%4) = std::remainder(this->Armors(3,ID)+(CV_PI/2), 2.0 * CV_PI);
+    this->Armors(3,(ID+2)%4) = std::remainder(this->Armors(3,ID)+CV_PI, 2.0 * CV_PI);
+    this->Armors(3,(ID+3)%4) = std::remainder(this->Armors(3,ID)+(3*CV_PI/2), 2.0 * CV_PI);
+
+    //位置
+    double R_ = this->Armors(4,(ID+1)%4);
+    double theta_ = this->Armors(3,(ID+1)%4);
+    
+    this->Armors.block<2,1>(0,(ID+1)%4) = Eigen::Matrix<double,2,1>{this->center(0) + R_*std::cos(theta_), this->center(1) + R_*std::cos(theta_)};
+
+    R_ = this->Armors(4,(ID+2)%4);
+    theta_ = this->Armors(3,(ID+2)%4);
+    
+    this->Armors.block<2,1>(0,(ID+2)%4) = Eigen::Matrix<double,2,1>{this->center(0) + R_*std::cos(theta_), this->center(1) + R_*std::cos(theta_)};    
+
+    R_ = this->Armors(4,(ID+3)%4);
+    theta_ = this->Armors(3,(ID+3)%4);
+    
+    this->Armors.block<2,1>(0,(ID+3)%4) = Eigen::Matrix<double,2,1>{this->center(0) + R_*std::cos(theta_), this->center(1) + R_*std::cos(theta_)};
+
+    //装甲板位置协方差
+}
 
 void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
 {    //更新Robot姿态
@@ -92,7 +162,7 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
         double& radius = this->Armors(4,i);
         Eigen::Matrix<double, 3, 1> face{radius*std::cos(theta), radius*std::sin(theta), 0};        
 
-        this->center += this->Armors.block<3,1>(0,i) + face;
+        this->center = this->Armors.block<3,1>(0,i) - face;
         break;
     }
 
@@ -133,7 +203,7 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
     double& theta = this->Armors(3,ID);
     Eigen::Matrix<double, 3, 1> face{radius*std::cos(theta), radius*std::sin(theta), 0};
 
-    this->center = this->Armors.block<3,1>(0,ID) + face;
+    this->center = this->Armors.block<3,1>(0,ID) - face;
     
     //更新其他装甲板的位置
     int NoChooseIndex = 1 - index;
@@ -142,12 +212,14 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
     //更新没有视野的装甲板位置
 
     //角度
-    this->Armors(3,(ID+2)%4) = std::remainder(this->Armors(3,ID)+CV_PI, 2.0 * CV_PI);;
-    this->Armors(3,(IDS[NoChooseIndex]+2)%4) = std::remainder(this->Armors(3,IDS[NoChooseIndex])+CV_PI, 2.0 * CV_PI);;
+    this->Armors(3,(ID+2)%4) = std::remainder(this->Armors(3,ID)+CV_PI, 2.0 * CV_PI);
+    this->Armors(3,(IDS[NoChooseIndex]+2)%4) = std::remainder(this->Armors(3,IDS[NoChooseIndex])+CV_PI, 2.0 * CV_PI);
 
     //位置
     Armors.block<3,1>(0,(ID+2)%4) = this->Rotate(Armors.block<3,1>(0,ID), CV_PI);
     Armors.block<3,1>(0,(IDS[NoChooseIndex]+2)%4) = this->Rotate(Armors.block<3,1>(0,IDS[NoChooseIndex]), CV_PI);
+
+    //装甲板位置协方差
 }
 
 
@@ -218,13 +290,17 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
 
 double Robot::SolveTheta(const ArmorPosi& armor)
 {
-    return std::atan2(armor.toward.y,armor.toward.x);
+    auto p = armor.toward.cross(cv::Point3d{0,0,1});
+    return std::atan2(p.y,p.x);
 }
 
 void Robot::Init(const std::vector<ArmorPosi>& armors)
 {
     if(armors.empty()) return;
     
+    //装甲板类型检查
+    if(static_cast<int>(armors[0].type) < 1 || static_cast<int>(armors[0].type) > 5) return;
+
     this->type = static_cast<Robot::Type>(static_cast<int>(armors[0].type));
     this->Kalman.Init();
 
@@ -263,13 +339,13 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
         //初始化每个装甲板的半径信息(radius)
         if(armors[0].radius == ArmorPosi::Radius::Short)
         {
-            this->Armors(4,0) = this->Armors(4,2)=  Robot::Size[static_cast<int>(this->type)-1].radius[0];
-            this->Armors(4,1) = this->Armors(4,3)=  Robot::Size[static_cast<int>(this->type)-1].radius[1];
+            this->Armors(4,0) = this->Armors(4,2) =  Robot::Size[static_cast<int>(this->type)-1].radius[0];
+            this->Armors(4,1) = this->Armors(4,3) =  Robot::Size[static_cast<int>(this->type)-1].radius[1];
         }
         else
         {
-            this->Armors(4,1) = this->Armors(4,3)=  Robot::Size[static_cast<int>(this->type)-1].radius[0];
-            this->Armors(4,0) = this->Armors(4,2)=  Robot::Size[static_cast<int>(this->type)-1].radius[1];
+            this->Armors(4,1) = this->Armors(4,3) =  Robot::Size[static_cast<int>(this->type)-1].radius[0];
+            this->Armors(4,0) = this->Armors(4,2) =  Robot::Size[static_cast<int>(this->type)-1].radius[1];
         }
         
 
@@ -300,21 +376,16 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
 //初始化没看见的装甲板位置信息（x,y,z,theta）
 
     //初始化角度
-    double angle_diff = CV_PI / 2.0; //默认90度
-
-    Armors(3,1) = Armors(3,0) + angle_diff;
-    Armors(3,2) = Armors(3,1) + angle_diff;
-    Armors(3,3) = Armors(3,2) + angle_diff;
 
     //调整角度差到[-pi, pi]
-    this-> Armors(3,1) = std::remainder(this->Armors(3,1), 2.0 * CV_PI);
-    this-> Armors(3,2) = std::remainder(this->Armors(3,2), 2.0 * CV_PI);
-    this-> Armors(3,3) = std::remainder(this->Armors(3,3), 2.0 * CV_PI);
+    this-> Armors(3,1) = std::remainder(this->Armors(3,0) + (CV_PI/2),   2.0 * CV_PI);
+    this-> Armors(3,2) = std::remainder(this->Armors(3,0) +  CV_PI,       2.0 * CV_PI);
+    this-> Armors(3,3) = std::remainder(this->Armors(3,0) + (CV_PI*3/2), 2.0 * CV_PI);
 
     //初始化没看见的装甲板位置x,y,z
-    Armors.block<3,1>(0,1) = this->Rotate(Armors.block<3,1>(0,0), angle_diff);
-    Armors.block<3,1>(0,2) = this->Rotate(Armors.block<3,1>(0,1), angle_diff);
-    Armors.block<3,1>(0,3) = this->Rotate(Armors.block<3,1>(0,2), angle_diff);
+    Armors.block<3,1>(0,1) = this->Rotate(Armors.block<3,1>(0,0), CV_PI/2);
+    Armors.block<3,1>(0,2) = this->Rotate(Armors.block<3,1>(0,0), CV_PI);
+    Armors.block<3,1>(0,3) = this->Rotate(Armors.block<3,1>(0,0), CV_PI*3/2);
 
     this->is_init = true;
 
