@@ -88,8 +88,8 @@ ArmorPosi Solver::operator () (const Armor& armor)
     cv::Rodrigues(rvecs.front(), r_0);
     cv::Rodrigues(rvecs.back(), r_1);
 
-    cv::Mat Z_camera_0 = r_0 * Z_vector + tvecs.front();
-    cv::Mat Z_camera_1 = r_1 * Z_vector + tvecs.back();
+    cv::Mat Z_camera_0 = r_0 * Z_vector;
+    cv::Mat Z_camera_1 = r_1 * Z_vector;
 
     cv::Mat R,T;
     // std::cerr<<Z_camera_0.at<double>(2,0)<<" "<<Z_camera_1.at<double>(2,0)<<std::endl;
