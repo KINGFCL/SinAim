@@ -62,7 +62,7 @@ void Robot::OneArmor(const ArmorPosi& armor, double dt)
     auto& armorView = ArmorState;
 
     //更新视角
-    this->View = {ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual};
+    this->View[(ID+1)%4] = this->View[(ID+2)%4] = this->View[(ID+3)%4] = ArmorView::Invisual;
     this->View[ID] = ArmorView::Visual;
 
     //卡尔曼滤波
@@ -70,7 +70,7 @@ void Robot::OneArmor(const ArmorPosi& armor, double dt)
     State.block<4,1>(0,0) = this->Armors.block<4,1>(0,ID);
     State.block<4,1>(4,0) = this->Speed;
 
-    auto ans = this->Kalman(State, this->CovArmors[ID], armorView, this->center,dt,armor.error);
+    auto ans = this->Kalman(State, this->CovArmors[ID], armorView, this->Armors(4,ID),dt,armor.error);
     
     //更新Robot信息
     this->Armors.block<4,1>(0,ID) = ans.block<4,1>(0,0);
@@ -94,19 +94,21 @@ void Robot::OneArmor(const ArmorPosi& armor, double dt)
     double R_ = this->Armors(4,(ID+1)%4);
     double theta_ = this->Armors(3,(ID+1)%4);
     
-    this->Armors.block<2,1>(0,(ID+1)%4) = Eigen::Matrix<double,2,1>{this->center(0) + R_*std::cos(theta_), this->center(1) + R_*std::cos(theta_)};
+    this->Armors.block<2,1>(0,(ID+1)%4) = Eigen::Matrix<double,2,1>{this->center(0) + R_*std::cos(theta_), this->center(1) + R_*std::sin(theta_)};
 
     R_ = this->Armors(4,(ID+2)%4);
     theta_ = this->Armors(3,(ID+2)%4);
     
-    this->Armors.block<2,1>(0,(ID+2)%4) = Eigen::Matrix<double,2,1>{this->center(0) + R_*std::cos(theta_), this->center(1) + R_*std::cos(theta_)};    
+    this->Armors.block<2,1>(0,(ID+2)%4) = Eigen::Matrix<double,2,1>{this->center(0) + R_*std::cos(theta_), this->center(1) + R_*std::sin(theta_)};    
 
     R_ = this->Armors(4,(ID+3)%4);
     theta_ = this->Armors(3,(ID+3)%4);
     
-    this->Armors.block<2,1>(0,(ID+3)%4) = Eigen::Matrix<double,2,1>{this->center(0) + R_*std::cos(theta_), this->center(1) + R_*std::cos(theta_)};
+    this->Armors.block<2,1>(0,(ID+3)%4) = Eigen::Matrix<double,2,1>{this->center(0) + R_*std::cos(theta_), this->center(1) + R_*std::sin(theta_)};
 
     //装甲板位置协方差
+    this->CovArmors[(ID+1)%4] = this->CovArmors[(ID+2)%4] = this->CovArmors[(ID+3)%4]  = this->Kalman.CovStateInit.block<4,4>(0,0);
+    this->CovArmors[ID] = this->Kalman.CovState.block<4,4>(0,0);
 }
 
 void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
@@ -184,7 +186,7 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
     auto& armorView = ArmorStates[index];
 
     //更新视角
-    this->View = {ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual};
+    this->View[(ID+1)%4] = this->View[(ID+2)%4] = this->View[(ID+3)%4] = ArmorView::Invisual;
     this->View[ID] = ArmorView::Visual;
 
     //卡尔曼滤波
@@ -192,7 +194,7 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
     State.block<4,1>(0,0) = this->Armors.block<4,1>(0,ID);
     State.block<4,1>(4,0) = this->Speed;
 
-    auto ans = this->Kalman(State, this->CovArmors[ID], armorView, this->center,dt,armors[index].error);
+    auto ans = this->Kalman(State, this->CovArmors[ID], armorView, this->Armors(4,ID),dt,armors[index].error);
     
     //更新Robot信息
     this->Armors.block<4,1>(0,ID) = ans.block<4,1>(0,0);
@@ -216,10 +218,15 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
     this->Armors(3,(IDS[NoChooseIndex]+2)%4) = std::remainder(this->Armors(3,IDS[NoChooseIndex])+CV_PI, 2.0 * CV_PI);
 
     //位置
-    Armors.block<3,1>(0,(ID+2)%4) = this->Rotate(Armors.block<3,1>(0,ID), CV_PI);
-    Armors.block<3,1>(0,(IDS[NoChooseIndex]+2)%4) = this->Rotate(Armors.block<3,1>(0,IDS[NoChooseIndex]), CV_PI);
+    this->Armors.block<3,1>(0,(ID+2)%4) = this->Rotate(this->Armors.block<3,1>(0,ID), CV_PI);
+    this->Armors.block<3,1>(0,(IDS[NoChooseIndex]+2)%4) = this->Rotate(this->Armors.block<3,1>(0,IDS[NoChooseIndex]), CV_PI);
 
     //装甲板位置协方差
+    this->CovArmors[ID] = this->Kalman.CovState.block<4,4>(0,0);
+    this->CovArmors[IDS[NoChooseIndex]] = this->Kalman.CovView;
+    this->CovArmors[(ID+2)%4] = this->Kalman.CovStateInit.block<4,4>(0,0);
+    this->CovArmors[(IDS[NoChooseIndex]+2)%4] = this->Kalman.CovStateInit.block<4,4>(0,0);
+
 }
 
 
@@ -357,8 +364,12 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
         this-> Armors(3,3) = std::remainder(this->Armors(3,1)+CV_PI, 2.0 * CV_PI);
 
         //初始化没看见的装甲板位置x,y,z
-        Armors.block<3,1>(0,2) = this->Rotate(Armors.block<3,1>(0,0), CV_PI);
-        Armors.block<3,1>(0,3) = this->Rotate(Armors.block<3,1>(0,1), CV_PI);
+        this->Armors.block<3,1>(0,2) = this->Rotate(this->Armors.block<3,1>(0,0), CV_PI);
+        this->Armors.block<3,1>(0,3) = this->Rotate(this->Armors.block<3,1>(0,1), CV_PI);
+
+        //初始化装甲板协方差
+        this->CovArmors[0] = this->CovArmors[1] = this->Kalman.CovView;
+        this->CovArmors[2] = this->CovArmors[3] = this->Kalman.CovStateInit.block<4,4>(0,0);
 
         this->is_init = true;
         return;
@@ -383,10 +394,14 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
     this-> Armors(3,3) = std::remainder(this->Armors(3,0) + (CV_PI*3/2), 2.0 * CV_PI);
 
     //初始化没看见的装甲板位置x,y,z
-    Armors.block<3,1>(0,1) = this->Rotate(Armors.block<3,1>(0,0), CV_PI/2);
-    Armors.block<3,1>(0,2) = this->Rotate(Armors.block<3,1>(0,0), CV_PI);
-    Armors.block<3,1>(0,3) = this->Rotate(Armors.block<3,1>(0,0), CV_PI*3/2);
+    this->Armors.block<3,1>(0,1) = this->Rotate(this->Armors.block<3,1>(0,0), CV_PI/2);
+    this->Armors.block<3,1>(0,2) = this->Rotate(this->Armors.block<3,1>(0,0), CV_PI);
+    this->Armors.block<3,1>(0,3) = this->Rotate(this->Armors.block<3,1>(0,0), CV_PI*3/2);
 
+    //初始化装甲板协方差
+    this->CovArmors[0] = this->Kalman.CovView;
+    this->CovArmors[1] = this->CovArmors[2] = this->CovArmors[3] = this->Kalman.CovStateInit.block<4,4>(0,0);    
+    
     this->is_init = true;
 
     return;

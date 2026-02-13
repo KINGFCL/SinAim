@@ -13,11 +13,11 @@ public:
     Eigen::Matrix<double, 8, 1> operator()(const Eigen::Matrix<double, 8, 1>& State,
                                            const Eigen::Matrix<double, 4, 4>& CovArmor, 
                                            const Eigen::Matrix<double, 4, 1>& View,
-                                           const Eigen::Matrix<double, 3, 1>& Center, 
+                                           double radius, 
                                            double dt,
                                            double err);
 
-private:
+
     Eigen::Matrix<double, 8, 8> CovState;
     const Eigen::Matrix<double, 8, 8> CovStateInit
     {
@@ -41,12 +41,21 @@ private:
         {0,    0,    0,    0.25}
     };
 
-    Eigen::Matrix<double, 4, 4> CovView
+    const Eigen::Matrix<double, 4, 4> CovView
     {
         {4,    0,    0,    0},
         {0,    4,    0,    0},
         {0,    0,    4,    0},
         {0,    0,    0,    0.0004}
+    };
+
+    //观测矩阵
+    const Eigen::Matrix<double, 4, 8> H
+    {
+        {1,    0,    0,    0,    0,    0,    0,    0},
+        {0,    1,    0,    0,    0,    0,    0,    0},
+        {0,    0,    1,    0,    0,    0,    0,    0},
+        {0,    0,    0,    1,    0,    0,    0,    0}
     };
 
 };
