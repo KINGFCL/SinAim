@@ -5,12 +5,11 @@
 
 // ==========================================
 // 【性能核心】固定最大 Batch Size
-// 告诉 GPU 永远只申请 8 张图的显存，
-// 这样就再也不用调用 set_shape 了，速度从 1s 优化到 1ms。
+// 告诉 GPU 永远只申请 MAX_BATCH_SIZE 张图的显存，避免重新编译
 // ==========================================
 static const size_t MAX_BATCH_SIZE = 4;
 
-NumClassifier::NumClassifier(std::string model_path)
+NumClassifier::NumClassifier(std::string model_path,std::string yml_path)
 {
     // 1. 读取模型
     std::shared_ptr<ov::Model> model = core.read_model(model_path);
@@ -99,6 +98,11 @@ NumClassifier::NumClassifier(std::string model_path)
     } catch (...) {}
 }
 
+/**
+ * @brief 将一组图像识别出数字
+ * @param armors_pattern 一组图像 (每个图像的大小为 112x112x3)
+ * @return std::vector<NumClassifier::Ans> 识别结果 (每个结果是一个 std::pair<int, float>，表示识别结果的数字和置信度)
+ */
 std::vector<NumClassifier::Ans> NumClassifier::Classify(const std::vector<cv::Mat>& armors_pattern)
 {
     std::vector<NumClassifier::Ans> ans;

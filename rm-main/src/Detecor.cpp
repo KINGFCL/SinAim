@@ -1,5 +1,4 @@
 #include "../include/Detector.hpp"
-#include "../include/NumClassifier.hpp"
 #include <deque>
 #include <iostream>
 #include <opencv2/core/mat.hpp>
@@ -11,12 +10,17 @@
 // #define Debug
 //Debug
 
-Detector::Detector(Light::Color color,float confidence,std::string model_path): 
+Detector::Detector(Light::Color color,float confidence): 
                    color(color),
-                   confidence(confidence),
-                   classifier(model_path){}
+                   confidence(confidence){}
 
-std::vector<Armor> Detector:: operator () (cv::Mat& frame) 
+/**
+ * @brief 该函数用于检测装甲板
+ * @param frame 图像帧
+ * @param armors_pattern 装甲板的图像
+ * @return 可能的装甲板
+ */
+std::deque<Armor> Detector:: operator () (cv::Mat& frame,std::vector<cv::Mat>& armors_pattern) 
 {
     this->rgb_img = frame;
 
@@ -27,55 +31,24 @@ std::vector<Armor> Detector:: operator () (cv::Mat& frame)
     std::cout <<"lights num:" << lights.size() << "\n";
     #endif
 
-    std::deque<Armor> possible_armors = FindArmor(lights); //寻找装甲板
+    std::deque<Armor> armors = FindArmor(lights); //寻找装甲板
     #ifdef Debug
     std::cout <<"possible_armors num:" << possible_armors.size() << "\n";
-    #endif
-    
-    std::vector<Armor> armors = ClassifyArmor(possible_armors);
-    #ifdef Debug
-    std::cout <<"sure armors num:" << armors.size() << "\n";
-    #endif   
+    #endif 
+
+    armors_pattern = this->ROIArmor(armors);
 
     return armors;
 }
 
 
-std::deque<Armor> Detector :: operator () (cv::Mat& frame, Armor& armor)
-{
-    this->rgb_img = frame;
 
-    // 计算正外接矩形
-    cv::Rect rect_ = cv::boundingRect(armor.Lightcorners);
-
-    cv::Rect rect = rect_ & cv::Rect(0, 0, frame.cols, frame.rows);//防止越界
-
-    // 2. 延伸矩形 (中心点向外扩)
-    rect.x -= rect.width / 4;
-    rect.y -= rect.height / 4;
-    rect.width += (rect.width/2);
-    rect.height += (rect.height/2);
-    
-    // 3. 边界安全检查 (非常重要！)
-    // 使用 & 操作符取交集，确保矩形不会超出图像边缘
-
-    cv::Rect safe_rect = rect & cv::Rect(0, 0, frame.cols, frame.rows);
-
-    // 4. 提取 ROI
-    cv::Mat image = frame(safe_rect);
-
-    //直接识别
-    cv::Mat binary_img = preprocessImage(image); //预处理图像
-
-    std::deque<Light> lights = FindLight(binary_img); //寻找灯条
-
-    #ifdef Debug
-    std::cout <<"lights num:" << lights.size() << "\n";
-    #endif
-
-    return FindArmor(lights); //寻找装甲板
-}
-
+/**
+ * @brief 该函数用于对图像进行预处理
+ * @param rgb_img  RGB 图像
+ * @return  binary_img  二值图像
+ * @details 该函数将 RGB 图像转换为灰度图像，然后对其进行二值化处理
+ */
 cv::Mat Detector::preprocessImage(cv::Mat& rgb_img) //图像预处理
 {
 
@@ -88,6 +61,12 @@ cv::Mat Detector::preprocessImage(cv::Mat& rgb_img) //图像预处理
 }
 
 
+/**
+ * @brief 寻找灯条
+ * @param binary_img 二值图像
+ * @return std::deque<Light>  可能的灯条
+ * @details 该函数使用OpenCV的findContours函数来找到图像中的所有轮廓，然后对每个轮廓进行拟合矩形，过滤掉不符合灯条特征的矩形，最后记录识别到的灯条
+ */
 std::deque<Light> Detector::FindLight(const cv::Mat & binary_img) //寻找灯条
 {
   std::vector<std::vector<cv::Point>> contours;
@@ -167,6 +146,16 @@ std::deque<Light> Detector::FindLight(const cv::Mat & binary_img) //寻找灯条
   return lights;
 }
 
+/**
+ * @brief Finds all armor in the given lights
+ * @param lights The deque of lights to find armor in
+ * @return A deque of all armor found in the given lights
+ * 
+ * This function iterates over all lights and checks if any two lights can form an armor
+ * It then checks if the two lights are close enough to the center of the image and
+ * if the distance between the two lights is less than 3 times the length of the shorter light
+ * If all conditions are met, the two lights are added to the result deque
+ */
 std::deque<Armor> Detector::FindArmor(const std::deque<Light> & lights)
 {
     std::deque<Armor> armors;
@@ -213,9 +202,9 @@ std::deque<Armor> Detector::FindArmor(const std::deque<Light> & lights)
             if(matchIsOk(lights[i],lights[j]))
             {
                 armors.emplace_back(lights[i], lights[j]);
-                armorLightIndex.push_back({i,j});
-                if(HaxLight[i]==false) { LightIndex.push_back(i); HaxLight[i]=true;}
-                if(HaxLight[j]==false) { LightIndex.push_back(j); HaxLight[j]= true;}     
+                armorLightIndex.emplace_back(std::array<int, 2>{i,j});
+                if(HaxLight[i]==false) { LightIndex.emplace_back(i); HaxLight[i]=true;}
+                if(HaxLight[j]==false) { LightIndex.emplace_back(j); HaxLight[j]= true;}     
             }      
         }
     }
@@ -256,7 +245,7 @@ std::deque<Armor> Detector::FindArmor(const std::deque<Light> & lights)
             if( InMind(armor.Lightcorners,lights[index].center) ) {ArmorOK = false;break;}
             if( InMind(armor.Lightcorners,lights[index].bottom) ) {ArmorOK = false;break;}
         }
-        if(ArmorOK) result.push_back(armor);
+        if(ArmorOK) result.emplace_back(armor);
         num++;
     }
     return result;
@@ -264,6 +253,12 @@ std::deque<Armor> Detector::FindArmor(const std::deque<Light> & lights)
 
 
 
+/**
+ * @brief      获取装甲板的裁剪后图像
+ * @details    输入装甲板std::deque<Armor>，返回裁剪后图像std::vector<cv::Mat>
+ * @param      armors 装甲板std::deque<Armor>
+ * @return     裁剪后图像std::vector<cv::Mat>
+ */
 std::vector<cv::Mat> Detector::ROIArmor(const std::deque<Armor> & armors)
 {
     std::vector<cv::Mat> armors_pattern;
@@ -290,40 +285,9 @@ std::vector<cv::Mat> Detector::ROIArmor(const std::deque<Armor> & armors)
         cv::Mat armor_roi;
         cv::warpPerspective(this->rgb_img, armor_roi, M, roi_sz,cv::INTER_LINEAR);
     
-        armors_pattern.push_back(armor_roi);
+        armors_pattern.emplace_back(armor_roi);
     }
     return armors_pattern;
-}
-
-std::vector<Armor> Detector::ClassifyArmor(const std::deque<Armor>& armors)
-{
-    std::vector<Armor> result;
-    if(armors.empty()) return result;
-    result.reserve(armors.size());
-    
-    std::vector<cv::Mat> armors_pattern = this->ROIArmor(armors);
-
-    #ifdef Debug
-    for(auto& img : armors_pattern)
-    {
-        cv::imshow("armor_pattern", img);
-        cv::waitKey(1);
-    }
-    #endif
-    std::vector<NumClassifier::Ans> ans = classifier.Classify(armors_pattern);
-    
-    for(int i=0;i<armors.size();i++)
-    {
-        if(ans[i].confidence < this->confidence) continue;
-        
-        Armor::Type type = static_cast<Armor::Type>(ans[i].id);
-        if(type == Armor::Type::negative) continue;
-        
-        result.push_back(armors[i]);
-        result.back().confidence = ans[i].confidence;
-        result.back().type = static_cast<Armor::Type>(ans[i].id);
-    }
-    return result;
 }
 
 

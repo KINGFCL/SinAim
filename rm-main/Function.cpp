@@ -1,13 +1,6 @@
-#ifndef INCLUDE_IMU_AND_IMAGE_MATCH_HPP
-#define INCLUDE_IMU_AND_IMAGE_MATCH_HPP
+#include "Function.hpp"
 
-#include "Data.hpp"
-#include "HikCamera.hpp"
-#include "RTSerial.hpp"
-#include "fastqueue.hpp"
-
-//IMU与图像配对线程逻辑
-void IMUAndImageMatchThread(io::HikCamera& Hik, io::RTSerial<Packet>& ser,FastQueue<FrameData>& Frames)
+void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::RTSerial<Packet> &ser, FastQueue<FrameData> &Frames)
 {
     while (true) {
 
@@ -46,4 +39,11 @@ void IMUAndImageMatchThread(io::HikCamera& Hik, io::RTSerial<Packet>& ser,FastQu
     }
 }
 
-#endif
+void rm::SendMessageToRobot(io::RTSerial<Packet> &ser, float pitch, float yaw, bool fire)
+{
+    ShootPosi posimsg{pitch, yaw};
+    ShootFire firemsg{fire};
+
+    ser.writeBytes(&posimsg,sizeof(posimsg));
+    ser.writeBytes(&firemsg,sizeof(firemsg));
+}

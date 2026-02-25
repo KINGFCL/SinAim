@@ -42,23 +42,25 @@ struct Armor{
         Lightcorners[3] = left.bottom;
     }
     Light left, right;
-    double confidence;
     std::vector<cv::Point2f> Lightcorners; //装甲板四个顶点
-    enum class Type : int {base    = 0, hero     = 1, two   = 2,
-                           three   = 3, four     = 4, guard = 5,
-                           outpost = 6, negative = 7} type; 
+ 
 };
 
 struct ArmorPosi{
     cv::Point3d posi;
     cv::Point3d face;
     cv::Point3d toward;
-    Armor::Type type;
+
     double error;
     double theta;//装甲板在相机坐标系下的偏航角(rad)
     enum  class Radius : int {Short = 0, Long = 1, Unknow = 2 } radius{Radius::Unknow};
 
-    ArmorPosi(cv::Point3d posi, cv::Point3d face, cv::Point3d toward, double theta, Armor::Type type, double error):
-              posi(posi), face(face), toward(toward), theta(theta), type(type), error(error){}
+    enum class Type : int {base    = 0, hero     = 1, two   = 2,
+                           three   = 3, four     = 4, guard = 5,
+                           outpost = 6, negative = 7} type = Type::negative;
+    float confidence = 0; 
+
+    ArmorPosi(cv::Point3d posi, cv::Point3d face, cv::Point3d toward, double theta, double error):
+              posi(posi), face(face), toward(toward), theta(theta), error(error){}
 };
 #endif

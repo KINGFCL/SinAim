@@ -1,4 +1,5 @@
 #include "include/HikCamera.hpp"
+#include "include/NumClassifier.hpp"
 #include "include/RTSerial.hpp"
 #include "include/fastqueue.hpp"
 #include "include/Detector.hpp"
@@ -8,7 +9,7 @@
 // #include "../../rm-main/include/Tracker.hpp"
 #include "include/ShootTable.hpp"
 #include "include/Data.hpp"
-#include "include/IMUAndImageMatch.hpp"
+#include "Function.hpp"
 
 #include <thread>
 
@@ -36,7 +37,9 @@ static FastQueue<FrameData> Frames(10);
 io::HikCamera Hik(1,17);
 io::RTSerial<Packet> ser(20);
 
-Detector detect(Light::Color::Blue,0.5,"../../../rm-main/model/mobilenet_v3_112_rgb.onnx");
+Detector detect(Light::Color::Blue,0.5);//,"../../../rm-main/model/mobilenet_v3_112_rgb.onnx"
+NumClassifier classifier("../../../rm-main/model/mobilenet_v3_112_rgb.onnx","../../../config/NumClassifier_config.yaml");
+
 Solver Sov("../../../config/Solver_config.yaml");
 Robot robot;
 // Tracker track;
@@ -68,43 +71,50 @@ int main() {
     Hik.continueCap(5);
 
     //3.0创建数据配对线程，并将数据发布到Frames环形队列
-    std::thread match_thread = std::thread(IMUAndImageMatchThread, std::ref(Hik), std::ref(ser), std::ref(Frames));
+    std::thread match_thread = std::thread(rm::IMUAndImageMatchFunction, std::ref(Hik), std::ref(ser), std::ref(Frames));
 
     cv::namedWindow("frame");
     auto start = std::chrono::steady_clock::now();
 
     while(true)
     {
-        FrameData frame;
-        bool haveData = Frames.pop(frame);
-        
-        if(!haveData) continue;
-        
-        //如果不是最新照片直接跳过直到拿到最新照片
-        if(!Frames.empty()) continue;
 
-        auto armors = detect(frame.image);
+        if(Frames.empty()) continue;
+
+        FrameData frame;
+        
+        while (!Frames.empty()) 
+        {
+            Frames.pop(frame);
+        }
+        std::vector<cv::Mat> armors_pattern;
+
+        auto armors = detect(frame.image,armors_pattern);
 
         //解算装甲板位置
-        auto armors_posi = Sov(armors);
+        auto armors_posis = Sov(armors);
+
+        Sov.Filter(armors_posis, armors_pattern);
+
+        auto armors_posi = classifier(armors_posis,armors_pattern);
 
         Robot::SolveRobotSize(armors_posi);
 
-
-        // #endif
-        // if(test.num%100 == 0 && test.num != 0)
+        // for(const auto& armor_posi : armors_posi)
         // {
-        //     std::cout<<armors_posi[0].posi<<"\n";
+        //     Sov.ansShow(armor_posi.posi,frame.image);
         // }
-        for(const auto& armor_posi : armors_posi)
-        {
-            Sov.ansShow(armor_posi.posi,frame.image);
-        }
+
         detect.ArmorShow(frame.image, armors);
         cv::imshow("frame", frame.image);
         
         cv::waitKey(1);
+
         Sov.ConverToWorld(armors_posi,frame.quat);
+        robot.Update(armors_posi,0.005);
+
+        auto aim = robot.Predict(dt);
+        // std::cout<<"aim: "<<aim<<"\n";
 
 
         
@@ -124,25 +134,7 @@ int main() {
 
 
         //打弹
-
-
-        // std::this_thread::sleep_for(std::chrono::nanoseconds(100000000));
-
-        //traker:
-
-        // Eigen::Matrix<double, 3, 1> posi;
-        // posi << armors_posi[0].posi.x, armors_posi[0].posi.y, armors_posi[0].posi.z;
-
-        // auto ans = track(posi,0.004);
-        // // std::cout<< "Filtered Position: " << ans.transpose() << std::endl;
-
-        // float dt = shoot.FlyTime(armors_posi[0].posi/1000); 
-
-        // cv::Point3d predict_posi;
-        // predict_posi.x = (ans(0,0) + dt * ans(3,0)) ;
-        // predict_posi.y = (ans(1,0) + dt * ans(4,0)) ;
-        // predict_posi.z = (ans(2,0) + dt * ans(5,0)) ;
-        Two_Robot.Update(armors_posi);
+        
 
         auto predict_posi = armors_posi[0].posi/1000;//单位换算到m
         // std::cout<< "Predict Position: " << predict_posi << "\n";

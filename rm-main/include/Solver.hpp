@@ -17,17 +17,20 @@ public:
     Solver(std::string config_path);
     
     //解算传入的所有装甲板并返回
-    std::vector<ArmorPosi> operator () (const std::vector<Armor>& armors);
-    
-    //解算传入的所有装甲板但只返回距离先验装甲板最近的装甲板
-    ArmorPosi operator () (const std::deque<Armor>& armors,const Armor& armor);
+    std::vector< std::array<ArmorPosi,2> > operator () (const std::deque<Armor>& armors);
     
     //解算单个装甲板的位置
-    ArmorPosi operator () (const Armor& armor);
+    std::array<ArmorPosi,2> operator () (const Armor& armor);
 
     //坐标系变换
+    void ConverToWorld(std::array<ArmorPosi,2>& armor_posis, const cv::Quatd& gripper_to_world);
+    void ConverToWorld(std::vector< std::array<ArmorPosi,2> >& armors_posis, const cv::Quatd& gripper_to_world);
+
     void ConverToWorld(ArmorPosi& armor_posi, const cv::Quatd& gripper_to_world);
-    void ConverToWorld(std::vector<ArmorPosi>& armor_posi, const cv::Quatd& gripper_to_world);
+    void ConverToWorld(std::vector<ArmorPosi>& armors_posi, const cv::Quatd& gripper_to_world);    
+
+    //筛选（去掉位置不正确的装甲板）
+    void Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis, std::vector<cv::Mat>& armors_pattern);
 
     void ansShow(const cv::Point3d& posi,cv::Mat& image);
     void ansShow(const ArmorPosi& armor,cv::Mat& image);

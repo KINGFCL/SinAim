@@ -4,6 +4,7 @@
 #include <chrono>
 #include "opencv2/core/quaternion.hpp"
 #include "opencv2/core/mat.hpp"
+#include "RTSerial.hpp"
 
 struct __attribute__((packed)) Packet{
 
@@ -31,11 +32,13 @@ struct __attribute__((packed)) ShootPosi{
     uint8_t len_3 = 0x0C;
     uint8_t crc_head = 0x55;
     
-    float row; 
+    float row = 0.0; 
     float pitch;            // x
     float yaw;             // y
             
     uint8_t checksum;     // 校验和
+
+    ShootPosi(float pitch, float yaw): pitch(pitch), yaw(yaw){ this->checksum = io::CRC8::Calculate(this, sizeof(*this)-1); }
 };
 
 struct __attribute__((packed)) ShootFire{
@@ -53,6 +56,8 @@ struct __attribute__((packed)) ShootFire{
     uint8_t fire;             // z
 
     uint8_t checksum;     // 校验和
+
+    ShootFire(uint8_t fire): fire(fire) { this->checksum = io::CRC8::Calculate(this, sizeof(*this)-1); }
 };
 
 
