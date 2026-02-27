@@ -2,6 +2,7 @@
 #include "../../rm-main/include/Detector.hpp"
 #include "../../rm-main/include/Armor.hpp"
 #include "../../rm-main/include/Solver.hpp"
+#include "../../rm-main/include/NumClassifier.hpp"
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <opencv2/highgui.hpp>
@@ -22,9 +23,11 @@ static std::chrono::duration<double> total_delay_seconds(0.0);
 static auto total = std::chrono::nanoseconds(0);
 int main()
 {
-    Detector detect(Light::Color::Red,0.5,"/home/king/AUTO-Aming-system/rm-main/model/mobilenet_v3_112_rgb.onnx");
+    Detector detect(Light::Color::Red,0.5);
+    NumClassifier classifier("../../../rm-main/model/mobilenet_v3_arcface_best.onnx","../../../rm-main/model/centers.yaml");
+
     Solver Sov("../../../config/Solver_config.yaml");
-    io::HikCamera Hik(3,17);
+    io::HikCamera Hik(7,17);
     Hik.continueCap(5);
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     // cv::namedWindow("gray_img",cv::WINDOW_NORMAL);
@@ -36,8 +39,11 @@ int main()
 
         if(frame.image.empty()) continue;
         auto start = std::chrono::steady_clock::now();
-        auto armors = detect(frame.image);
+        std::vector<cv::Mat> armors_pattern;
+        auto armors = detect(frame.image, armors_pattern);
 
+        auto armorsposis = Sov(armors);
+        auto armorsposi = classifier(armorsposis,armors_pattern);
         if(!armors.empty())
         {
             total += std::chrono::steady_clock::now() - start;
@@ -50,13 +56,15 @@ int main()
             }
         }
 
-        // std::cout<<"Armor num: "<<armors.size()<<"\n";
-        detect.ArmorShow(frame.image, armors);
+
+        std::cout<<"Armor num: "<<armors.size()<<"\n";
+
+        if(!armorsposi.empty()) detect.ArmorShow(frame.image, armors);
         cv::imshow("hh",frame.image);
         cv::waitKey(1);
-        if(armors.empty()) continue;
-        int Id = static_cast<int>(armors[0].type);
-        // std::cout<<"ID: "<<Id<<" confidence: "<< armors[0].confidence<<"\n";
+        if(armorsposi.empty()) continue;
+        int Id = static_cast<int>(armorsposi[0].type);
+        std::cout<<"ID: "<<Id<<" confidence: "<< armorsposi[0].confidence<<"\n";
 
     }
 }

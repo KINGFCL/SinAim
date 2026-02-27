@@ -5,4 +5,3 @@ hero
 4
 guard
 outpost
-negative

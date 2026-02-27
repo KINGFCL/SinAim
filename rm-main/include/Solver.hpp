@@ -30,7 +30,7 @@ public:
     void ConverToWorld(std::vector<ArmorPosi>& armors_posi, const cv::Quatd& gripper_to_world);    
 
     //筛选（去掉位置不正确的装甲板）
-    void Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis, std::vector<cv::Mat>& armors_pattern);
+    void Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis, std::vector<cv::Mat>& armors_pattern, const cv::Quatd& gripper_to_world);
 
     void ansShow(const cv::Point3d& posi,cv::Mat& image);
     void ansShow(const ArmorPosi& armor,cv::Mat& image);

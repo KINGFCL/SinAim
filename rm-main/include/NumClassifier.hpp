@@ -25,10 +25,16 @@ public:
     std::vector<Ans> Classify(const std::vector<cv::Mat>& armors_pattern);
     
 private:
+    bool has_cpu = false;
+    bool has_gpu = false;
+
     ov::Core core;
-    ov::CompiledModel compiled_model;
-    ov::InferRequest infer_request;
-    static Eigen::Matrix<float, 8, 128> standard;
+
+    ov::CompiledModel compiled_model_GPU, compiled_model_CPU;
+
+    std::vector<ov::InferRequest> infer_request_GPU, infer_request_CPU;
+
+    static Eigen::Matrix<float, 7, 128> centers;
 };
 
 
