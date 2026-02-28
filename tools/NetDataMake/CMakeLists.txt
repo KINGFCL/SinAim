@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(MyProject VERSION 1.0 LANGUAGES CXX)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
-find_package(OpenCV REQUIRED HINTS ~/MyLibSrc/OpenCV/OpenCVLib/lib/cmake/opencv4)
+find_package(OpenCV REQUIRED)
 find_package(fmt REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(MVS REQUIRED)
@@ -18,8 +18,8 @@ add_executable(test
     ../../rm-main/src/HikCamera.cpp
     ../../rm-main/src/logger.cpp
     ../../rm-main/src/Detecor.cpp
-    ../../rm-main/src/NumClassifier.cpp
     ../../rm-main/src/Solver.cpp
+    ../../rm-main/src/NumClassifier.cpp
 )
 target_include_directories(test PUBLIC ${MVS_INCLUDE_DIRS})
 target_link_libraries(test ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${LIBUSB_1.0_LIBRARIES} ${MVS_LIBS} openvino::runtime)
@@ -30,7 +30,6 @@ add_executable(negative
     ../../rm-main/src/HikCamera.cpp
     ../../rm-main/src/logger.cpp
     ../../rm-main/src/Detecor.cpp
-    ../../rm-main/src/NumClassifier.cpp
     ../../rm-main/src/Solver.cpp
 )
 target_include_directories(negative PUBLIC ${MVS_INCLUDE_DIRS})
@@ -41,7 +40,6 @@ add_executable(cvtorgb
     ../../rm-main/src/HikCamera.cpp
     ../../rm-main/src/logger.cpp
     ../../rm-main/src/Detecor.cpp
-    ../../rm-main/src/NumClassifier.cpp
     ../../rm-main/src/Solver.cpp
 )
 target_include_directories(cvtorgb PUBLIC ${MVS_INCLUDE_DIRS})

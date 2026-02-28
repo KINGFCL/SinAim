@@ -2,6 +2,7 @@
 // #include <array>
 #include <deque>
 #include <iostream>
+#include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <vector>
@@ -299,8 +300,49 @@ void Solver::ansShow(const cv::Point3d& posi,cv::Mat& image)
 
 void Solver::Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis, std::vector<cv::Mat>& armors_pattern, const cv::Quatd& gripper_to_world)
 {
-    std::vector< std::array<ArmorPosi,2> > armors_posis_tmp = armors_posis;
-    std::vector<cv::Mat> armors_pattern_tmp = armors_pattern;
+    std::vector< std::array<ArmorPosi,2> > armors_posis_result;
+    std::vector<cv::Mat> armors_pattern_result;
+
+    armors_posis_result.reserve(armors_posis.size());
+    armors_pattern_result.reserve(armors_pattern.size());
+
+    for(int i = 0;i < armors_posis.size();i++)
+    {
+        std::array<ArmorPosi,2>& armor_posis = armors_posis[i];
+        cv::Mat& pattern = armors_pattern[i];
+
+        //解算误差筛选
+        if(armor_posis[0].error > 10 && armor_posis[1].error > 10) continue;
+
+        //相机系下的距离筛选
+        if(cv::norm(armor_posis[0].posi) > 800 && cv::norm(armor_posis[1].posi) > 800) continue;
+        
+        //坐标系变换
+        auto small_armor_posis = armor_posis[0];
+        auto big_armor_posis = armor_posis[1];
+        this->ConverToWorld(small_armor_posis, gripper_to_world);
+        this->ConverToWorld(big_armor_posis, gripper_to_world);
+
+        //高度筛选
+        if( small_armor_posis.posi.z > 2000 && big_armor_posis.posi.z > 2000 ) continue;
+        if( small_armor_posis.posi.z < -50 && big_armor_posis.posi.z < -50 ) continue;
+
+        //角度筛选
+        auto face_small = small_armor_posis.toward.cross(small_armor_posis.face);
+        auto face_big = big_armor_posis.toward.cross(big_armor_posis.face);
+        
+        double dis_small = face_small.x*face_small.x + face_small.y*face_small.y;
+        double dis_big = face_big.x*face_big.x + face_big.y*face_big.y;
+
+        double angle_small = std::atan2(face_small.z, dis_small);
+        double angle_big = std::atan2(face_big.z, dis_big);
+
+        if(angle_small < 0.6 && angle_big < 0.6) continue;
+
+        //储存筛选结果
+        armors_posis_result.emplace_back(armor_posis);
+        armors_pattern_result.emplace_back(pattern);
+    }
 }
 
 // void Solver::ansShow(const ArmorPosi& armor,cv::Mat& image)

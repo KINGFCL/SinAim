@@ -30,7 +30,7 @@ int stepY = 112;
     std::string saveDir = "/home/king/Pytorch/train/data/train/7_negetive/";
 int main()
 {
-    Detector detect(Light::Color::Blue,0.3,"../../../rm-main/model/mobilenet_v3_112_rgb.onnx");
+    Detector detect(Light::Color::Blue,0.3);
     io::HikCamera Hik(3,17);
     Hik.continueCap(5);
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
