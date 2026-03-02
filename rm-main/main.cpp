@@ -94,7 +94,7 @@ int main() {
         //解算装甲板位置
         auto armors_posis = Sov(armors);
 
-        Sov.Filter(armors_posis, armors_pattern);
+        Sov.Filter(armors_posis, armors_pattern, frame.quat);
 
         auto armors_posi = classifier(armors_posis,armors_pattern);
 
@@ -113,10 +113,22 @@ int main() {
         Sov.ConverToWorld(armors_posi,frame.quat);
         robot.Update(armors_posi,0.005);
 
-        auto aim = robot.Predict(dt);
+
+        double dt = shoot.FlyTime(cv::Point3d(robot.center.x()/100.0, robot.center.y()/100.0, robot.center.z()/100.0));
+        auto aims = robot.Predic(dt);
         // std::cout<<"aim: "<<aim<<"\n";
 
-
+        auto aim = aims.block<4,1>(0,0);
+        double aim_distence = std::sqrt(aim(0,0)*aim(0,0) + aim(1,0)*aim(1,0) + aim(2,0)*aim(2,0)); 
+        for(int i = 1; i < 4; i++)
+        {
+            double distence = std::sqrt(aims(0,i)*aims(0,i) + aims(1,i)*aims(1,i) + aims(2,i)*aims(2,i));
+            if(distence < aim_distence)
+            {
+                aim = aims.block<4,1>(0,i);
+                aim_distence = distence;
+            }
+        }
         
 
 
@@ -136,25 +148,12 @@ int main() {
         //打弹
         
 
-        auto predict_posi = armors_posi[0].posi/1000;//单位换算到m
+        auto predict_posi = cv::Point3d(aim(0,0)/100.0, aim(1,0)/100.0, aim(2,0)/100.0);//单位换算到m
         // std::cout<< "Predict Position: " << predict_posi << "\n";
 
         std::array<double, 2> Pitch_and_Yaw = shoot(predict_posi);
         // std::cout<<Pitch_and_Yaw[0]<<" "<<Pitch_and_Yaw[1]<<"\n";
-        ShootPosi sed1;
-        sed1.row =0 ;
-        sed1.pitch = (float)Pitch_and_Yaw[0];
-        // std::cout<<sed1.pitch<<"\n";
-        sed1.yaw = (float)Pitch_and_Yaw[1];
-        // std::cout<<sed1.pitch<<"  "<<sed1.yaw<<"\n";
-        sed1.checksum = io::CRC8::Calculate(&sed1, sizeof(sed1)-1);
-
-        ShootFire sed2;
-        sed2.fire = 1;
-        sed2.checksum = io::CRC8::Calculate(&sed2, sizeof(sed2)-1);
-
-        ser.writeBytes(&sed1,sizeof(sed1));
-        ser.writeBytes(&sed2,sizeof(sed2));
+        rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], true);
     }
     
     

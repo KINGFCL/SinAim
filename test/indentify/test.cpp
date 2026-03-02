@@ -3,6 +3,7 @@
 #include "../../rm-main/include/Armor.hpp"
 #include "../../rm-main/include/Solver.hpp"
 #include "../../rm-main/include/NumClassifier.hpp"
+#include <iostream>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <opencv2/highgui.hpp>
@@ -27,7 +28,7 @@ int main()
     NumClassifier classifier("../../../rm-main/model/mobilenet_v3_arcface_best.onnx","../../../rm-main/model/centers.yaml");
 
     Solver Sov("../../../config/Solver_config.yaml");
-    io::HikCamera Hik(7,17);
+    io::HikCamera Hik(2,17);
     Hik.continueCap(5);
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     // cv::namedWindow("gray_img",cv::WINDOW_NORMAL);
@@ -59,7 +60,15 @@ int main()
 
         std::cout<<"Armor num: "<<armors.size()<<"\n";
 
-        if(!armorsposi.empty()) detect.ArmorShow(frame.image, armors);
+        if(!armorsposi.empty()) 
+        {
+            for(int i = 0;i < armorsposi.size();i++)
+            {
+                std::cout<<"ID: "<<static_cast<int>(armorsposi[i].type)<<" confidence: "<< armorsposi[i].confidence<<"\n";
+                Sov.ansShow( armorsposi[i], frame.image);
+            }
+            std::cout<<"-----------------------------------------------------------\n";
+        }
         cv::imshow("hh",frame.image);
         cv::waitKey(1);
         if(armorsposi.empty()) continue;

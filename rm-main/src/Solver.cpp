@@ -343,74 +343,78 @@ void Solver::Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis, std::v
         armors_posis_result.emplace_back(armor_posis);
         armors_pattern_result.emplace_back(pattern);
     }
+
+    //更新装甲板位置和图案
+    armors_posis = std::move(armors_posis_result);
+    armors_pattern = std::move(armors_pattern_result);
 }
 
-// void Solver::ansShow(const ArmorPosi& armor,cv::Mat& image)
-// {
-//     double high = 27.5, width;
-//     if(armor.type == Armor::Type::hero || armor.type == Armor::Type::base)
-//         width = 115.0;
-//     else
-//         width = 67.5;
+void Solver::ansShow(const ArmorPosi& armor,cv::Mat& image)
+{
+    double high = 27.5, width;
+    if(armor.type == ArmorPosi::Type::hero || armor.type == ArmorPosi::Type::base)
+        width = 115.0;
+    else
+        width = 67.5;
 
-//     cv::Point3d toward_w = width * armor.toward;
-//     cv::Point3d toward_h = high * (armor.face.cross(armor.toward)/cv::norm(armor.face.cross(armor.toward)));
+    cv::Point3d toward_w = width * armor.toward;
+    cv::Point3d toward_h = high * (armor.face.cross(armor.toward)/cv::norm(armor.face.cross(armor.toward)));
 
-//     cv::Mat rvec = cv::Mat::zeros(3, 1, CV_64F); // 单位旋转向量
-//     cv::Mat tvec = cv::Mat::zeros(3, 1, CV_64F); // 单位平移向量
+    cv::Mat rvec = cv::Mat::zeros(3, 1, CV_64F); // 单位旋转向量
+    cv::Mat tvec = cv::Mat::zeros(3, 1, CV_64F); // 单位平移向量
 
-//     // 执行投影
-//     // cv::projectPoints 需要一个点的向量作为输入
-//     std::vector<cv::Point3d> objectPoints;
-//     objectPoints.reserve(5);
-//     objectPoints.push_back(armor.posi);
-//     objectPoints.push_back(armor.posi - toward_w - toward_h);
-//     objectPoints.push_back(armor.posi + toward_w - toward_h);
-//     objectPoints.push_back(armor.posi + toward_w + toward_h);
-//     objectPoints.push_back(armor.posi - toward_w + toward_h);
+    // 执行投影
+    // cv::projectPoints 需要一个点的向量作为输入
+    std::vector<cv::Point3d> objectPoints;
+    objectPoints.reserve(5);
+    objectPoints.push_back(armor.posi);
+    objectPoints.push_back(armor.posi - toward_w - toward_h);
+    objectPoints.push_back(armor.posi + toward_w - toward_h);
+    objectPoints.push_back(armor.posi + toward_w + toward_h);
+    objectPoints.push_back(armor.posi - toward_w + toward_h);
 
 
-//     // 用于存储投影结果的2D点向量
-//     std::vector<cv::Point2d> imagePoints;
-//     imagePoints.reserve(5);
+    // 用于存储投影结果的2D点向量
+    std::vector<cv::Point2d> imagePoints;
+    imagePoints.reserve(5);
 
-//     //重投影
-//     cv::projectPoints(objectPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
+    //重投影
+    cv::projectPoints(objectPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
 
-//     //在图像上绘制结果
-//     cv::Point2d CenterPoint = imagePoints[0];
-//     int imageWidth = image.cols;
-//     int imageHeight = image.rows;
+    //在图像上绘制结果
+    cv::Point2d CenterPoint = imagePoints[0];
+    int imageWidth = image.cols;
+    int imageHeight = image.rows;
 
-//     // 在图像上绘制投影点 (画一个红色的圆圈)
-//     // 检查点是否在图像范围内
-//     if (CenterPoint.x >= 0 && CenterPoint.x < imageWidth &&
-//         CenterPoint.y >= 0 && CenterPoint.y < imageHeight)
-//     {
-//         cv::circle(image, CenterPoint, 5, cv::Scalar(0, 0, 255), -1); // 红色实心圆
-//         cv::putText(image, "Projected Point", cv::Point(CenterPoint.x + 10, CenterPoint.y),
-//                     cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
-//     } else {
-//         std::cout << "Projected point is outside the image frame." << std::endl;
-//     }
+    // 在图像上绘制投影点 (画一个红色的圆圈)
+    // 检查点是否在图像范围内
+    if (CenterPoint.x >= 0 && CenterPoint.x < imageWidth &&
+        CenterPoint.y >= 0 && CenterPoint.y < imageHeight)
+    {
+        cv::circle(image, CenterPoint, 5, cv::Scalar(0, 0, 255), -1); // 红色实心圆
+        cv::putText(image, "Projected Point", cv::Point(CenterPoint.x + 10, CenterPoint.y),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
+    } else {
+        std::cout << "Projected point is outside the image frame." << std::endl;
+    }
 
-//     //绘制装甲板轮廓
-//     std::vector<cv::Point2d> points;
-//     points.reserve(4);
-//     for(int i=1;i<=4;i++)
-//     {
-//         cv::Point2d Point = imagePoints[i];
-//         if (Point.x >= 0 && Point.x < imageWidth &&
-//         Point.y >= 0 && Point.y < imageHeight)
-//         {
-//             points.push_back(Point);
-//         } else {
-//             std::cout << "Projected point is outside the image frame." << std::endl;
-//             return;
-//         }
-//     }
+    //绘制装甲板轮廓
+    std::vector<cv::Point2d> points;
+    points.reserve(4);
+    for(int i=1;i<=4;i++)
+    {
+        cv::Point2d Point = imagePoints[i];
+        if (Point.x >= 0 && Point.x < imageWidth &&
+        Point.y >= 0 && Point.y < imageHeight)
+        {
+            points.push_back(Point);
+        } else {
+            std::cout << "Projected point is outside the image frame." << std::endl;
+            return;
+        }
+    }
 
-//     // 绘制
-//     std::vector<std::vector<cv::Point2d>> contours{points};
-//     cv::polylines(image,contours,1,cv::Scalar(0, 255, 0),3,cv::LINE_AA);
-// }
+    // 绘制
+    std::vector<std::vector<cv::Point2d>> contours{points};
+    cv::polylines(image,contours,1,cv::Scalar(0, 255, 0),3,cv::LINE_AA);
+}

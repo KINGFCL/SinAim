@@ -314,7 +314,7 @@ std::vector<ArmorPosi> NumClassifier::operator()(std::vector< std::array<ArmorPo
     std::vector<Ans> ans = Classify(armors_pattern);
     for(int i = 0;i < ans.size();i++)
     {
-        if(ans[i].confidence > 0.85)
+        if(ans[i].confidence > 0.80)
         {
             if(ans[i].id == 0 || ans[i].id == 1)
             {
