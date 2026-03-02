@@ -6,7 +6,7 @@
 class EKFKalman
 {
 public:
-    EKFKalman();
+    EKFKalman() = default;
 
     void Init();
 

@@ -5,14 +5,16 @@
 #include <opencv2/core/types.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <sys/types.h>
 #include <vector>
 #include <cmath>
 // #define Debug
 //Debug
 
 Detector::Detector(Light::Color color,float confidence): 
-                   color(color),
-                   confidence(confidence){}
+                   confidence(confidence),
+                   color(color)
+                   {}
 
 /**
  * @brief 该函数用于检测装甲板
@@ -159,8 +161,8 @@ std::deque<Light> Detector::FindLight(const cv::Mat & binary_img) //寻找灯条
 std::deque<Armor> Detector::FindArmor(const std::deque<Light> & lights)
 {
     std::deque<Armor> armors;
-    std::deque<int> LightIndex;//记录配对成功的灯条索引
-    std::deque<std::array<int, 2>> armorLightIndex;//记录每个装甲板两个等条的索引
+    std::deque<unsigned long> LightIndex;//记录配对成功的灯条索引
+    std::deque<std::array<unsigned long, 2>> armorLightIndex;//记录每个装甲板两个等条的索引
     std::vector<bool> HaxLight(lights.size(),false);//灯条是否配对成功的哈希表
     if(lights.empty()) return armors;
 
@@ -195,14 +197,14 @@ std::deque<Armor> Detector::FindArmor(const std::deque<Light> & lights)
     };
 
     //枚举灯条进行配对并记录配对成功的灯条索引
-    for(int i=0;i<lights.size()-1;i++)
+    for(unsigned long i=0;i<lights.size()-1;i++)
     {
-        for(int j=i+1;j<lights.size();j++)
+        for(unsigned long j=i+1;j<lights.size();j++)
         {
             if(matchIsOk(lights[i],lights[j]))
             {
                 armors.emplace_back(lights[i], lights[j]);
-                armorLightIndex.emplace_back(std::array<int, 2>{i,j});
+                armorLightIndex.emplace_back(std::array<unsigned long, 2>{i,j});
                 if(HaxLight[i]==false) { LightIndex.emplace_back(i); HaxLight[i]=true;}
                 if(HaxLight[j]==false) { LightIndex.emplace_back(j); HaxLight[j]= true;}     
             }      

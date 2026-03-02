@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(MyProject VERSION 1.0 LANGUAGES CXX)
 
-add_definitions(-Wall -Werror)
+# add_definitions(-Wall -Werror)
 
 add_compile_options(-march=native -O3)
 
@@ -15,19 +15,21 @@ find_package(PkgConfig REQUIRED)
 # 需要先 source openvino/setupvars.sh
 find_package(OpenVINO REQUIRED)
 
-pkg_check_modules(LIBUSB_1.0 REQUIRED libusb-1.0)
 # find_package(LibUSB 1.0 REQUIRED)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-add_executable(sdk 
+add_executable(main 
     main.cpp
     src/HikCamera.cpp
     src/logger.cpp
     src/Detecor.cpp
     src/NumClassifier.cpp
     src/Solver.cpp
+    src/Target.cpp
+    src/EKFKalman.cpp
+    ./Function.cpp
 )
-target_include_directories(sdk PUBLIC ${MVS_INCLUDE_DIRS})
-target_link_libraries(sdk ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${LIBUSB_1.0_LIBRARIES} ${MVS_LIBS} openvino::runtime)
+target_include_directories(main PUBLIC ${MVS_INCLUDE_DIRS})
+target_link_libraries(main ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} openvino::runtime)
 
 
 

@@ -203,7 +203,7 @@ This is a licence-free software, it can be used by anyone who try to build a bet
     @brief buffSize ： 
 */
 template<typename Packet>
-RTSerial<Packet>::RTSerial(size_t buffSize,uint8_t head):buffSize( buffSize + 1 ), fd(-1),header(head)
+RTSerial<Packet>::RTSerial(size_t buffSize,uint8_t head): fd(-1), buffSize( buffSize + 1 ), header(head)
 {
     this->buffer = std::make_unique<buffdata[]>(this->buffSize);
 }
@@ -572,7 +572,7 @@ void RTSerial<Packet>::startReceive(const unsigned int interval_us,const float t
             if((readtime-dataTime)<std::chrono::microseconds(interval_us)) continue;//不是最新的消息跳过
 
             //成功读取到正确的包头，读取整个包
-            ssize_t Ret_d;
+            ssize_t Ret_d = 0;
             if( Ret < dataSize_bytes )
             {
                 uint8_t *Ptr = (uint8_t*)P + Ret;

@@ -1,6 +1,7 @@
 #include "../include/Target.hpp"
 
 #include <array>
+#include <cmath>
 #include <cstdlib>
 #include <eigen3/Eigen/src/Core/Matrix.h>
 #include <eigen3/Eigen/Geometry>
@@ -228,6 +229,36 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
     this->CovArmors[(IDS[NoChooseIndex]+2)%4] = this->Kalman.CovStateInit.block<4,4>(0,0);
 
 }
+
+Eigen::Matrix<double, 4, 4> Robot::Predic(double dt)
+{
+    double& w = this->Speed(3,0);
+
+    Eigen::Matrix<double, 4, 4> ans;
+
+    ans(3,0) = std::remainder(this->Armors(3,0) + w*dt, 2.0 * CV_PI);
+    ans(3,1) = std::remainder(this->Armors(3,1) + w*dt, 2.0 * CV_PI);
+    ans(3,2) = std::remainder(this->Armors(3,2) + w*dt, 2.0 * CV_PI);
+    ans(3,3) = std::remainder(this->Armors(3,3) + w*dt, 2.0 * CV_PI);
+
+    //旋转后的位置
+    ans.block<1,4>(2,0) = this->Armors.block<1,4>(2,0);
+
+    ans.block<2,1>(0,0) = Eigen::Matrix<double,2,1>{this->center(0) + this->Armors(4,0)*std::cos(ans(3,0)), this->center(1) + this->Armors(4,0)*std::sin(ans(3,0))};
+    ans.block<2,1>(0,1) = Eigen::Matrix<double,2,1>{this->center(0) + this->Armors(4,1)*std::cos(ans(3,1)), this->center(1) + this->Armors(4,1)*std::sin(ans(3,1))};
+    ans.block<2,1>(0,2) = Eigen::Matrix<double,2,1>{this->center(0) + this->Armors(4,2)*std::cos(ans(3,2)), this->center(1) + this->Armors(4,2)*std::sin(ans(3,2))};
+    ans.block<2,1>(0,3) = Eigen::Matrix<double,2,1>{this->center(0) + this->Armors(4,3)*std::cos(ans(3,3)), this->center(1) + this->Armors(4,3)*std::sin(ans(3,3))};
+    
+    //加上平移
+    auto move = this->Speed.block<3,1>(0,0)*dt;
+    ans.block<3,1>(0,0) += move;
+    ans.block<3,1>(0,1) += move;
+    ans.block<3,1>(0,2) += move;
+    ans.block<3,1>(0,3) += move;
+
+    return ans;
+}
+
 
 
 /**

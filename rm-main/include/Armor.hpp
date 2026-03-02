@@ -51,8 +51,8 @@ struct ArmorPosi{
     cv::Point3d face;
     cv::Point3d toward;
 
-    double error;
     double theta;//装甲板在相机坐标系下的偏航角(rad)
+    double error;
     enum  class Radius : int {Short = 0, Long = 1, Unknow = 2 } radius{Radius::Unknow};
 
     enum class Type : int {base    = 0, hero     = 1, two   = 2,
