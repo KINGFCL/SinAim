@@ -32,20 +32,20 @@ struct Test
     void show();
 };
 
-static FastQueue<FrameData> Frames(10);
+static FastQueue<FrameData> Frames(20);
 
 io::HikCamera Hik(1,17);
 io::RTSerial<Packet> ser(20);
 
 Detector detect(Light::Color::Blue,0.5);//,"../../../rm-main/model/mobilenet_v3_112_rgb.onnx"
-NumClassifier classifier("../../../rm-main/model/mobilenet_v3_112_rgb.onnx","../../../config/NumClassifier_config.yaml");
+NumClassifier classifier("../model/mobilenet_v3_arcface_best.onnx","../model/centers.yaml");
 
 Solver Sov("../../../config/Solver_config.yaml");
 Robot robot;
 // Tracker track;
 
 
-ShootTable::TableConfig tableconfig(10,0,2,-1,0.01,"/home/king/AUTO-Aming-system/config/infantry_10_table.bin");
+ShootTable::TableConfig tableconfig(10,0,2,-1,0.01,"../../config/infantry_10_table.bin");
 Shooter shoot(cv::Point3d(-0.9996123276310385,0.02082249458349189, -0.01848291555403893),tableconfig);
 
 Test test;
@@ -141,8 +141,7 @@ int main() {
         test.count(std::chrono::steady_clock::now() - start);
         start = std::chrono::steady_clock::now();
 
-        if(test.num%200 == 0 && test.num != 0) {test.show();
-            test.clear();}
+        if(test.num%200 == 0 && test.num != 0) {test.show();test.clear();}
 
 
         //打弹
