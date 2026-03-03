@@ -10,14 +10,17 @@
 #include "include/ShootTable.hpp"
 #include "include/Data.hpp"
 #include "Function.hpp"
+#include "include/RerunVisualizer.hpp"
 
+#include <cstdio>
+#include <iostream>
 #include <thread>
 
-#define MainDebug
-#ifdef MainDebug
-double R_sum = 0.0;
-int R_count = 0;
-#endif
+// #define MainDebug
+// #ifdef MainDebug
+// double R_sum = 0.0;
+// int R_count = 0;
+// #endif
 //Debug
 
 
@@ -32,7 +35,7 @@ struct Test
     void show();
 };
 
-static FastQueue<FrameData> Frames(20);
+static FastQueue<FrameData> Frames(10);
 
 io::HikCamera Hik(1,17);
 io::RTSerial<Packet> ser(20);
@@ -40,13 +43,15 @@ io::RTSerial<Packet> ser(20);
 Detector detect(Light::Color::Blue,0.5);//,"../../../rm-main/model/mobilenet_v3_112_rgb.onnx"
 NumClassifier classifier("../model/mobilenet_v3_arcface_best.onnx","../model/centers.yaml");
 
-Solver Sov("../../../config/Solver_config.yaml");
+RerunVisualizer viz("RoboMaster_AutoAim");
+
+Solver Sov("../../config/Solver_config.yaml");
 Robot robot;
 // Tracker track;
 
 
 ShootTable::TableConfig tableconfig(10,0,2,-1,0.01,"../../config/infantry_10_table.bin");
-Shooter shoot(cv::Point3d(-0.9996123276310385,0.02082249458349189, -0.01848291555403893),tableconfig);
+Shooter shoot(cv::Point3d(-0.9972026403208731,0.001749666619733665, -0.07472504803477144),tableconfig);
 
 Test test;
 
@@ -76,13 +81,14 @@ int main() {
     cv::namedWindow("frame");
     auto start = std::chrono::steady_clock::now();
 
+    std::printf("Start main loop\n");
+
     while(true)
     {
-
         if(Frames.empty()) continue;
 
         FrameData frame;
-        
+
         while (!Frames.empty()) 
         {
             Frames.pop(frame);
@@ -105,30 +111,32 @@ int main() {
         //     Sov.ansShow(armor_posi.posi,frame.image);
         // }
 
-        detect.ArmorShow(frame.image, armors);
+        for(const auto& armor_posi : armors_posi)
+        {
+            Sov.ansShow(armor_posi.posi,frame.image);
+        }
         cv::imshow("frame", frame.image);
         
         cv::waitKey(1);
 
+        if(armors_posi.empty()) continue;
+
         Sov.ConverToWorld(armors_posi,frame.quat);
         robot.Update(armors_posi,0.005);
 
+        // #ifdef MainDebug
+        // std::cout<<"------------------------------------------------\n";
+        // std::cout<<"armors_posi: "<< "\n" <<armors_posi[0].posi<<"\n";
+        // #endif
 
         double dt = shoot.FlyTime(cv::Point3d(robot.center.x()/100.0, robot.center.y()/100.0, robot.center.z()/100.0));
         auto aims = robot.Predic(dt);
-        // std::cout<<"aim: "<<aim<<"\n";
 
-        auto aim = aims.block<4,1>(0,0);
-        double aim_distence = std::sqrt(aim(0,0)*aim(0,0) + aim(1,0)*aim(1,0) + aim(2,0)*aim(2,0)); 
-        for(int i = 1; i < 4; i++)
-        {
-            double distence = std::sqrt(aims(0,i)*aims(0,i) + aims(1,i)*aims(1,i) + aims(2,i)*aims(2,i));
-            if(distence < aim_distence)
-            {
-                aim = aims.block<4,1>(0,i);
-                aim_distence = distence;
-            }
-        }
+        #ifdef MainDebug
+        viz.update(robot, aims, dt, frame.image);
+        #endif
+
+        auto aim =  rm::ChooseBestAimArmor(aims, robot.Speed, shoot.GunDirection(frame.quat));
         
 
 
@@ -146,13 +154,23 @@ int main() {
 
         //打弹
         
-
+        // std::cout<< "aim: " << aim << "\n";
+        
         auto predict_posi = cv::Point3d(aim(0,0)/100.0, aim(1,0)/100.0, aim(2,0)/100.0);//单位换算到m
+        // auto predict_posi =  armors_posi[0].posi/100.0;
         // std::cout<< "Predict Position: " << predict_posi << "\n";
 
         std::array<double, 2> Pitch_and_Yaw = shoot(predict_posi);
+        // if(0.1 < std::abs(Pitch_and_Yaw[1])  || std::abs(Pitch_and_Yaw[1]) < 0.2 )
+        // {
+        //     std::cerr<<"aim error: "<< Pitch_and_Yaw[0]<<" "<<Pitch_and_Yaw[1]<<"\n"<< robot.Speed<<"\n";
+            
+        // }else {
+        //     std::cout<<"aim ok: "<< Pitch_and_Yaw[0]<<" "<<Pitch_and_Yaw[1]<<"\n"<< robot.Speed<<"\n";
+        // }
+
         // std::cout<<Pitch_and_Yaw[0]<<" "<<Pitch_and_Yaw[1]<<"\n";
-        rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], true);
+        rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1] , true);
     }
     
     

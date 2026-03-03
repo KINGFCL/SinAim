@@ -12,7 +12,7 @@
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <vector>
-#define TargetDebug
+// #define TargetDebug
 //Debug
 
 std::array<RobotSize, 5> Robot::Size;
@@ -337,7 +337,7 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
     if(armors.empty()) return;
     
     //装甲板类型检查
-    if(static_cast<int>(armors[0].type) < 1 || static_cast<int>(armors[0].type) > 5) return;
+    if(static_cast<int>(armors[0].type) < 1) return;
 
     this->type = static_cast<Robot::Type>(static_cast<int>(armors[0].type));
     this->Kalman.Init();
@@ -409,7 +409,7 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
 //只有一个装甲板时只初始化该装甲板
 
     //初始化能看见的装甲板位置信息（x,y,z,theta）
-    this->Armors.col(0) << armors[0].posi.x, armors[0].posi.y, armors[0].posi.z, this->SolveTheta(armors[0]);
+    this->Armors.block<4,1>(0,0)  = Eigen::Matrix<double, 4, 1>{ armors[0].posi.x, armors[0].posi.y, armors[0].posi.z, this->SolveTheta(armors[0])};
     this->View[0] = ArmorView::Visual;
     
     //初始化每个装甲板的半径信息(radius)

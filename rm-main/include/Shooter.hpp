@@ -3,6 +3,9 @@
 
 #include "Armor.hpp"
 #include "ShootTable.hpp"
+#include "eigen3/Eigen/Core"
+#include <eigen3/Eigen/Geometry>
+#include <opencv2/core/quaternion.hpp>
 #include <opencv2/core/types.hpp>
 #include <array>
 #include <cmath>
@@ -16,8 +19,8 @@ const cv::Point3d toward;
 ShootTable table;
 const double toward_pitch,toward_yaw;
 public:
-    Shooter(const cv::Point3d& point,ShootTable::TableConfig config):
-            toward(point), 
+    Shooter(const cv::Point3d& Vector,ShootTable::TableConfig config):
+            toward(Vector), 
             table(config),
             toward_pitch(std::asin(toward.z)),
             toward_yaw(std::atan2(toward.y, toward.x))
@@ -60,10 +63,10 @@ public:
         // 5. 角度归一化 (关键步骤)
         // 处理跨越 ±180 度的情况，保证走最短路径
         // 例如：从 -170度 转到 +170度，应该是转 -20度，而不是 +340度
-        delta_yaw = NormalizeAngle(delta_yaw);
+        delta_yaw = std::remainder(delta_yaw, 2.0 * CV_PI);
         
         // Pitch 一般受限在 ±90 度以内，通常不需要归一化，但为了通用性可以加上
-        // delta_pitch = NormalizeAngle(delta_pitch);
+        delta_pitch = std::remainder(delta_pitch, 2.0 * CV_PI);
 
         return {delta_pitch, delta_yaw};
     }
@@ -90,6 +93,12 @@ public:
         while (angle > M_PI) angle -= 2.0 * M_PI;
         while (angle < -M_PI) angle += 2.0 * M_PI;
         return angle;
+    }
+
+    Eigen::Matrix<double, 3, 1>  GunDirection (const cv::Quatd& quat)
+    {
+        Eigen::Quaterniond q(quat.w, quat.x, quat.y, quat.z);
+        return q * Eigen::Matrix<double, 3, 1>{this->toward.x, this->toward.y, this->toward.z};
     }
 
 };

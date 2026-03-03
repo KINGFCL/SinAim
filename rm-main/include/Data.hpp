@@ -26,8 +26,8 @@ struct __attribute__((packed)) ShootPosi{
     uint8_t id_1 = 0xCB;    // 0xEA
     uint8_t id_2 = 0x86 ;       // 0x1A (26)
     uint8_t id_3 = 0x09 ;       // 0x35
-    uint8_t id_4 = 0x6F ;;     // 0xA6
-    uint8_t len_1 =  0x00 ;   // 0x7A100000 (Little Endian) or ID
+    uint8_t id_4 = 0x6F ;     // 0xA6
+    uint8_t len_1 = 0x00 ;   // 0x7A100000 (Little Endian) or ID
     uint8_t len_2 = 0x00 ;
     uint8_t len_3 = 0x0C;
     uint8_t crc_head = 0x55;
@@ -53,11 +53,11 @@ struct __attribute__((packed)) ShootFire{
     uint8_t len_3 = 0x01;
     uint8_t crc_head = 0x1A;
 
-    uint8_t fire;             // z
+    bool fire;             // z
 
     uint8_t checksum;     // 校验和
 
-    ShootFire(uint8_t fire): fire(fire) { this->checksum = io::CRC8::Calculate(this, sizeof(*this)-1); }
+    ShootFire(bool fire): fire(fire) { this->checksum = io::CRC8::Calculate(this, sizeof(*this)-1); }
 };
 
 

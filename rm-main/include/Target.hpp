@@ -16,7 +16,7 @@
 struct RobotSize
 {
 //目标半径,0小半径,1大半径
-    std::array<double,2> radius{200.0,300.0}; 
+    std::array<double,2> radius{20.0,30.0}; 
 
     double RSmallSum = 0.0;//目标半径和
     double RBigSum = 0.0;//目标半径和
