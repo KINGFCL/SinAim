@@ -173,8 +173,8 @@ NumClassifier::NumClassifier(std::string model_path,std::string yaml_path)
 std::vector<NumClassifier::Ans> NumClassifier::Classify(const std::vector<cv::Mat>& armors_pattern)
 {
     
-    cv::imshow("test",armors_pattern[0]);
-    cv::waitKey(1);
+    // cv::imshow("test",armors_pattern[0]);
+    // cv::waitKey(1);
     std::vector<NumClassifier::Ans> ans;
     size_t N = armors_pattern.size();
     if (N == 0) return ans;

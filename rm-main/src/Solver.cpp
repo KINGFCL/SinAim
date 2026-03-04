@@ -397,7 +397,11 @@ void Solver::Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis,
             });
 
         // 4. 根据排序好的索引提取结果
-        armors_posis.resize(num);
+        ArmorPosi dummy_armor(cv::Point3d(0,0,0), cv::Point3d(0,0,0), cv::Point3d(0,0,0), 0.0, 0.0);
+
+        // 创建一个包含两个 dummy_armor 的默认 array
+        std::array<ArmorPosi, 2> default_array = {dummy_armor, dummy_armor};
+        armors_posis.resize(num,default_array);
         armors_pattern.resize(num);
         for (int i = 0; i < num; ++i) {
             armors_posis[i] = armors_posis_result[indices[i]];

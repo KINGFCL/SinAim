@@ -2,7 +2,6 @@
 #define RERUN_VISUALIZER_HPP
 
 #include <rerun.hpp>
-#include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Core>
 #include <vector>
 #include <string>
@@ -38,7 +37,7 @@ public:
      * @param Gun   当前枪管朝向 (单位向量)
      * @param image 相机原图 (可选，用于同步显示2D画面)
      */
-    void update(const Robot& robot, const Eigen::Matrix<double, 4, 4>& aims, double dt, const Eigen::Matrix<double, 3, 1>& Gun, const cv::Mat& image) 
+    void update(const Robot& robot, const Eigen::Matrix<double, 4, 4>& aims, double dt, const Eigen::Matrix<double, 3, 1>& Gun) 
     {
         // 1. 记录预测时间 dt
         rec.log("debug/dt", rerun::Scalars(dt));
@@ -133,9 +132,9 @@ public:
         // F. 渲染线速度向量 (黄色大箭头) - 起点为中心点
         rec.log("world/robot/speed_vector",
             rerun::Arrows3D::from_vectors({{
-                (float)robot.Speed(0, 0) * 15.0f, 
-                (float)robot.Speed(1, 0) * 15.0f, 
-                (float)robot.Speed(2, 0) * 15.0f
+                (float)robot.Speed(0, 0) , 
+                (float)robot.Speed(1, 0) , 
+                (float)robot.Speed(2, 0) 
             }})
             .with_origins({{
                 (float)robot.center(0,0), 
@@ -157,14 +156,22 @@ public:
             .with_colors({{0, 255, 255, 255}}) // 青色 (Cyan)
         );
 
-        // G. 同步渲染 2D 图像画面
-        if (!image.empty()) {
-            rec.log("camera/image", rerun::Image(
-                rerun::Collection<uint8_t>::borrow(image.data, image.total() * image.elemSize()),
-                rerun::WidthHeight(static_cast<uint32_t>(image.cols), static_cast<uint32_t>(image.rows)),
-                rerun::ColorModel::BGR
-            ));
-        }
+        // G. 渲染速度波形图 (Time Series Plots)
+        // 1. 计算总速度: 提取线性速度的模长 (X,Y,Z 方向的综合大小)
+        double total_speed = robot.Speed.norm();
+        
+        // 2. 获取旋转速度: 
+        // ⚠️请注意：我不知道你的 Target.hpp 中旋转速度叫什么名字，这里假设叫 yaw_v
+        // 如果你的名字是 robot.w 或者其他，请在这里修改！
+        const double& rotation_speed = robot.Speed(3,0); // <--- TODO: 请替换为实际的角速度，如 robot.yaw_v;
+        
+        // 3. 记录绿线：总速度
+        rec.log("plot/speed/total_speed", rerun::SeriesLines().with_colors({0, 255, 0, 255})); // 指定颜色为绿色
+        rec.log("plot/speed/total_speed", rerun::Scalars(total_speed));                      // 传入数据
+
+        // 4. 记录蓝线：旋转速度
+        rec.log("plot/speed/rotation_speed", rerun::SeriesLines().with_colors({0, 0, 255, 255})); // 指定颜色为蓝色
+        rec.log("plot/speed/rotation_speed", rerun::Scalars(rotation_speed));                   // 传入数据
     }
 };
 

@@ -73,7 +73,7 @@ int main() {
 
 
     //2.0初始化相机
-    Hik.continueCap(5);
+    Hik.continueCap(3);
 
     //3.0创建数据配对线程，并将数据发布到Frames环形队列
     std::thread match_thread = std::thread(rm::IMUAndImageMatchFunction, std::ref(Hik), std::ref(ser), std::ref(Frames));
@@ -118,9 +118,9 @@ int main() {
         {
             Sov.ansShow(armor_posi.posi,frame.image);
         }
-        cv::imshow("frame", frame.image);
+        // cv::imshow("frame", frame.image);
         
-        cv::waitKey(1);
+        // cv::waitKey(1);
 
         if(armors_posi.empty()) continue;
 
@@ -136,7 +136,8 @@ int main() {
         auto aims = robot.Predic(dt);
 
         #ifdef MainDebug
-        viz.update(robot, aims, dt,  Gun, frame.image);
+        if(test.num%10 == 0 && test.num != 0)
+            viz.update(robot, aims, dt,  Gun);
         #endif
 
         auto aim =  rm::ChooseBestAimArmor(aims, robot.Speed, Gun);
