@@ -4,6 +4,7 @@
 #include "string"
 #include "opencv2/opencv.hpp"
 #include <deque>
+#include <eigen3/Eigen/Core>
 #include <opencv2/core/base.hpp>
 #include <opencv2/core/hal/interface.h>
 #include <opencv2/core/mat.hpp>
@@ -18,6 +19,7 @@ public:
     
     //解算传入的所有装甲板并返回
     std::vector< std::array<ArmorPosi,2> > operator () (const std::deque<Armor>& armors);
+    std::vector< std::array<ArmorPosi,2> > operator () (const std::vector<Armor>& armors);
     
     //解算单个装甲板的位置
     std::array<ArmorPosi,2> operator () (const Armor& armor);
@@ -30,7 +32,11 @@ public:
     void ConverToWorld(std::vector<ArmorPosi>& armors_posi, const cv::Quatd& gripper_to_world);    
 
     //筛选（去掉位置不正确的装甲板）
-    void Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis, std::vector<cv::Mat>& armors_pattern, const cv::Quatd& gripper_to_world);
+    void Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis,
+                std::vector<cv::Mat>& armors_pattern,
+                const cv::Quatd& gripper_to_world,
+                const Eigen::Matrix<double, 3, 1>& Gun,
+                const size_t num = 1);
 
     void ansShow(const cv::Point3d& posi,cv::Mat& image);
     void ansShow(const ArmorPosi& armor,cv::Mat& image);

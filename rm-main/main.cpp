@@ -93,6 +93,9 @@ int main() {
         {
             Frames.pop(frame);
         }
+        //计算枪管方向
+        const auto& Gun = shoot.GunDirection(frame.quat);
+
         std::vector<cv::Mat> armors_pattern;
 
         auto armors = detect(frame.image,armors_pattern);
@@ -100,7 +103,7 @@ int main() {
         //解算装甲板位置
         auto armors_posis = Sov(armors);
 
-        Sov.Filter(armors_posis, armors_pattern, frame.quat);
+        Sov.Filter(armors_posis, armors_pattern, frame.quat, Gun, 20);
 
         auto armors_posi = classifier(armors_posis,armors_pattern);
 
@@ -131,9 +134,6 @@ int main() {
 
         double dt = shoot.FlyTime(cv::Point3d(robot.center.x()/100.0, robot.center.y()/100.0, robot.center.z()/100.0));
         auto aims = robot.Predic(dt);
-
-        //计算枪管方向
-        const auto& Gun = shoot.GunDirection(frame.quat);
 
         #ifdef MainDebug
         viz.update(robot, aims, dt,  Gun, frame.image);

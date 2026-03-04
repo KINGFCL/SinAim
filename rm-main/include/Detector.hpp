@@ -3,6 +3,7 @@
 #include "Armor.hpp"
 #include <deque>
 #include <opencv2/core/mat.hpp>
+#include <opencv2/core/types.hpp>
 #include <string>
 #include <vector>
 class Detector {

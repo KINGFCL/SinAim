@@ -6,6 +6,7 @@
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <vector>
+#include <numeric>
 
 Solver::Solver(std::string config_path)
 {
@@ -162,6 +163,19 @@ std::vector< std::array< ArmorPosi, 2> > Solver::operator()(const std::deque<Arm
     return armors_posi;
 }
 
+std::vector< std::array< ArmorPosi, 2> > Solver::operator()(const std::vector<Armor>& armors)
+{
+    std::vector< std::array< ArmorPosi, 2> > armors_posi;
+    if(armors.empty()) return armors_posi;
+    armors_posi.reserve(armors.size());
+
+    for(const auto& armor:armors)
+    {
+        armors_posi.emplace_back(this->operator()(armor));//记录
+    }
+    return armors_posi;
+}
+
 
 
 
@@ -298,13 +312,20 @@ void Solver::ansShow(const cv::Point3d& posi,cv::Mat& image)
     // cv::waitKey(1); // 等待按键后退出
 }
 
-void Solver::Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis, std::vector<cv::Mat>& armors_pattern, const cv::Quatd& gripper_to_world)
+void Solver::Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis,
+                    std::vector<cv::Mat>& armors_pattern,
+                    const cv::Quatd& gripper_to_world,
+                    const Eigen::Matrix<double, 3, 1>& Gun,
+                    const size_t num)
 {
     std::vector< std::array<ArmorPosi,2> > armors_posis_result;
     std::vector<cv::Mat> armors_pattern_result;
 
+    std::vector< ArmorPosi > armors_posi_small_in_world;
+
     armors_posis_result.reserve(armors_posis.size());
     armors_pattern_result.reserve(armors_pattern.size());
+    armors_posi_small_in_world.reserve(armors_posis.size());
 
     for(int i = 0;i < armors_posis.size();i++)
     {
@@ -328,22 +349,63 @@ void Solver::Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis, std::v
         if( small_armor_posis.posi.z < -50 && big_armor_posis.posi.z < -50 ) continue;
 
         //角度筛选
-        auto face_small = small_armor_posis.toward.cross(small_armor_posis.face);
-        auto face_big = big_armor_posis.toward.cross(big_armor_posis.face);
+        const auto& face_small = small_armor_posis.toward.cross(small_armor_posis.face);
+        const auto& face_big = big_armor_posis.toward.cross(big_armor_posis.face);
         
-        double dis_small = face_small.x*face_small.x + face_small.y*face_small.y;
-        double dis_big = face_big.x*face_big.x + face_big.y*face_big.y;
+        cv::Point3d base_small{small_armor_posis.posi.x, small_armor_posis.posi.y, 0};
+        cv::Point3d base_big{big_armor_posis.posi.x, big_armor_posis.posi.y, 0};
 
-        double angle_small = std::atan2(face_small.z, dis_small);
-        double angle_big = std::atan2(face_big.z, dis_big);
+        base_small = base_small / cv::norm(base_small);
+        base_big = base_big / cv::norm(base_big);
 
-        if(angle_small < 0.6 && angle_big < 0.6) continue;
+        double angle_small = base_small.dot(face_small);
+        double angle_big = base_big.dot(face_big);
+
+        if ( ( angle_small < -0.5 || angle_small > 0.85 ) && (angle_big < -0.5 || angle_big > 0.85) ) continue;
 
         //储存筛选结果
         armors_posis_result.emplace_back(armor_posis);
         armors_pattern_result.emplace_back(pattern);
+        armors_posi_small_in_world.emplace_back(small_armor_posis);
     }
 
+    //选择与枪管夹角最小的num个装甲板
+    if (armors_posis_result.size() > static_cast<size_t>(num))
+    {
+        // 1. 初始化索引数组 [0, 1, 2, ..., n-1]
+        std::vector<size_t> indices(armors_posis_result.size());
+        std::iota(indices.begin(), indices.end(), 0);
+
+        // 2. 枪管方向归一化，以便后续通过点乘直接获取余弦值
+        Eigen::Vector3d gun_vec = Gun.normalized();
+
+        // 3. 按夹角部分排序（找出夹角最小的 num 个）
+        std::partial_sort(indices.begin(), indices.begin() + num, indices.end(),
+            [&](size_t i1, size_t i2) {
+                // 取小装甲板的坐标作为代表进行比较
+                const auto& p1 = armors_posi_small_in_world[i1].posi;
+                const auto& p2 = armors_posi_small_in_world[i2].posi;
+
+                // 组装为 Eigen 向量并归一化
+                Eigen::Vector3d v1(p1.x, p1.y, p1.z);
+                Eigen::Vector3d v2(p2.x, p2.y, p2.z);
+                v1.normalize();
+                v2.normalize();
+
+                // 比较余弦值（点乘结果）。cos值越大，说明夹角越小
+                return v1.dot(gun_vec) > v2.dot(gun_vec); 
+            });
+
+        // 4. 根据排序好的索引提取结果
+        armors_posis.resize(num);
+        armors_pattern.resize(num);
+        for (int i = 0; i < num; ++i) {
+            armors_posis[i] = armors_posis_result[indices[i]];
+            armors_pattern[i] = armors_pattern_result[indices[i]];
+        }
+
+        return;
+    }
     //更新装甲板位置和图案
     armors_posis = std::move(armors_posis_result);
     armors_pattern = std::move(armors_pattern_result);
