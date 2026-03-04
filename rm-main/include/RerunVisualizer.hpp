@@ -6,6 +6,7 @@
 #include <eigen3/Eigen/Core>
 #include <vector>
 #include <string>
+#include <cmath>
 
 // 包含你的 Robot 定义
 #include "Target.hpp" 
@@ -16,11 +17,14 @@ private:
 
 public:
     // 构造函数：初始化 Rerun 并唤起 Viewer
-    RerunVisualizer(const std::string& app_name = "RoboMaster_AutoAim") 
+    RerunVisualizer(const std::string& app_name = "RoboMaster_AutoAim",
+                    const std::string& rerun_path = "./rerun") 
         : rec(app_name) 
     {
-        // 尝试自动启动独立的 Rerun Viewer 窗口
-        rec.spawn().exit_on_failure();
+        // 配置 Viewer 路径并启动
+        rerun::SpawnOptions spawn_opts;
+        spawn_opts.executable_name = rerun_path;
+        rec.spawn(spawn_opts).exit_on_failure();
     }
 
     // 析构函数
@@ -31,12 +35,13 @@ public:
      * @param robot 当前机器人的状态 (包含装甲板、速度、中心点)
      * @param aims  预测出的击打点矩阵 (4x4)
      * @param dt    预测时间
+     * @param Gun   当前枪管朝向 (单位向量)
      * @param image 相机原图 (可选，用于同步显示2D画面)
      */
-    void update(const Robot& robot, const Eigen::Matrix<double, 4, 4>& aims, double dt, const cv::Mat& image) 
+    void update(const Robot& robot, const Eigen::Matrix<double, 4, 4>& aims, double dt, const Eigen::Matrix<double, 3, 1>& Gun, const cv::Mat& image) 
     {
-        // 1. 记录预测时间 dt (在 Viewer 中生成时间折线图)
-        rec.log("debug/dt", rerun::Scalar(dt));
+        // 1. 记录预测时间 dt
+        rec.log("debug/dt", rerun::Scalars(dt));
 
         // 2. 准备 3D 渲染所需的数据容器
         std::vector<rerun::Position3D> visible_armors;
@@ -46,26 +51,46 @@ public:
 
         // 解析 4 个装甲板的状态
         for(int i = 0; i < 4; ++i) {
-            float x = robot.Armors(0, i);
-            float y = robot.Armors(1, i);
-            float z = robot.Armors(2, i);
-            float theta = robot.Armors(3, i);
+            double x = robot.Armors(0, i);
+            double y = robot.Armors(1, i);
+            double z = robot.Armors(2, i);
+            double theta = robot.Armors(3, i);
             
-            // 区分真实视野可见和卡尔曼推算的装甲板
-            if(robot.View[i] == Robot::ArmorView::Visual) {
-                visible_armors.push_back({x, y, z});
+            // --- 核心修改：使用迎角投影判断物理可见性 ---
+            Eigen::Matrix<double, 3, 1> P_i(x, y, z);
+            double distance = P_i.norm();
+            bool is_facing_us = false;
+            
+            if (distance > 1e-3) {
+                // 1. 视线向量 (从枪管/相机指向装甲板)
+                Eigen::Matrix<double, 3, 1> L_i = P_i / distance; 
+                // 2. 装甲板法向量
+                Eigen::Matrix<double, 3, 1> N_i(std::cos(theta), std::sin(theta), 0.0);
+                
+                // 3. 计算迎角投影
+                double face_proj = -N_i.dot(L_i);
+                
+                // 如果投影 >= 0.17 (约夹角<=80度)，认为正面可见
+                if (face_proj >= 0.17) {
+                    is_facing_us = true;
+                }
+            }
+            
+            // 区分处于迎角可见范围内和处于盲区的装甲板
+            if(is_facing_us) {
+                visible_armors.push_back({(float)x, (float)y, (float)z});
             } else {
-                hidden_armors.push_back({x, y, z});
+                hidden_armors.push_back({(float)x, (float)y, (float)z});
             }
 
             // 计算装甲板的朝向向量 (长度画成 15cm 方便观察)
-            armor_normals.push_back({ std::cos(theta) * 15.0f, std::sin(theta) * 15.0f, 0.0f });
-            normal_origins.push_back({x, y, z});
+            armor_normals.push_back({ (float)std::cos(theta) * 15.0f, (float)std::sin(theta) * 15.0f, 0.0f });
+            normal_origins.push_back({(float)x, (float)y, (float)z});
         }
 
         // --- 渲染部分 ---
 
-        // A. 渲染真实视觉可见的装甲板 (亮红色点)
+        // A. 渲染几何上朝向我们的装甲板 (亮红色点)
         if (!visible_armors.empty()) {
             rec.log("world/robot/armors_visible", 
                 rerun::Points3D(visible_armors)
@@ -73,7 +98,7 @@ public:
                     .with_radii({3.0f}));
         }
         
-        // B. 渲染盲区推算的装甲板 (半透明灰色点)
+        // B. 渲染背对我们/侧偏太多的装甲板 (半透明灰色点)
         if (!hidden_armors.empty()) {
             rec.log("world/robot/armors_hidden", 
                 rerun::Points3D(hidden_armors)
@@ -81,7 +106,7 @@ public:
                     .with_radii({3.0f}));
         }
 
-        // C. 渲染装甲板朝向指示 (白色箭头)
+        // C. 渲染装甲板法向量 (白色箭头)
         rec.log("world/robot/orientation", 
             rerun::Arrows3D::from_vectors(armor_normals)
                 .with_origins(normal_origins)
@@ -106,7 +131,6 @@ public:
         );
 
         // F. 渲染线速度向量 (黄色大箭头) - 起点为中心点
-        // 乘以 15.0f 是为了放大速度矢量，否则在 3D 空间看不清
         rec.log("world/robot/speed_vector",
             rerun::Arrows3D::from_vectors({{
                 (float)robot.Speed(0, 0) * 15.0f, 
@@ -121,13 +145,24 @@ public:
             .with_colors({{255, 255, 0, 255}})
         );
 
-        // G. (可选) 同步渲染 2D 图像画面
-        // 这样你可以直接删掉原代码里的 cv::imshow("frame", frame.image); 和 cv::waitKey(1);
+        // --- 新增：渲染当前枪管的瞄准射线 (青色长线) ---
+        // 假设原点 {0,0,0} 为当前云台/相机位置，枪管是一根 20cm 长的射线
+        rec.log("world/gun_ray",
+            rerun::Arrows3D::from_vectors({{
+                (float)Gun(0, 0) * 20.0f, 
+                (float)Gun(1, 0) * 20.0f, 
+                (float)Gun(2, 0) * 20.0f
+            }})
+            .with_origins({{0.0f, 0.0f, 0.0f}})
+            .with_colors({{0, 255, 255, 255}}) // 青色 (Cyan)
+        );
+
+        // G. 同步渲染 2D 图像画面
         if (!image.empty()) {
-            // Rerun 0.16 及以上版本支持直接从 BGR 数据加载
-            rec.log("camera/image", rerun::Image::from_bgr8(
-                image.data, 
-                {static_cast<size_t>(image.cols), static_cast<size_t>(image.rows)}
+            rec.log("camera/image", rerun::Image(
+                rerun::Collection<uint8_t>::borrow(image.data, image.total() * image.elemSize()),
+                rerun::WidthHeight(static_cast<uint32_t>(image.cols), static_cast<uint32_t>(image.rows)),
+                rerun::ColorModel::BGR
             ));
         }
     }

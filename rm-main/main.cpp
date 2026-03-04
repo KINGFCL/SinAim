@@ -16,11 +16,11 @@
 #include <iostream>
 #include <thread>
 
-// #define MainDebug
-// #ifdef MainDebug
-// double R_sum = 0.0;
-// int R_count = 0;
-// #endif
+#define MainDebug
+#ifdef MainDebug
+double R_sum = 0.0;
+int R_count = 0;
+#endif
 //Debug
 
 
@@ -132,14 +132,15 @@ int main() {
         double dt = shoot.FlyTime(cv::Point3d(robot.center.x()/100.0, robot.center.y()/100.0, robot.center.z()/100.0));
         auto aims = robot.Predic(dt);
 
+        //计算枪管方向
+        const auto& Gun = shoot.GunDirection(frame.quat);
+
         #ifdef MainDebug
-        viz.update(robot, aims, dt, frame.image);
+        viz.update(robot, aims, dt,  Gun, frame.image);
         #endif
 
-        auto aim =  rm::ChooseBestAimArmor(aims, robot.Speed, shoot.GunDirection(frame.quat));
+        auto aim =  rm::ChooseBestAimArmor(aims, robot.Speed, Gun);
         
-
-
         // if(test.num%100 == 0 && test.num != 0)
         // {
         //     std::cout<<armors_posi[0].posi/10<<"\n";

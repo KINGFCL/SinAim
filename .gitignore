@@ -1,6 +1,7 @@
 build/
 install/
 log/
+Visualisation/rerun_viewer/rerun
 .vscode/
 .history/
 .cache/

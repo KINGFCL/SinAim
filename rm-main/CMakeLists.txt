@@ -6,6 +6,19 @@ project(MyProject VERSION 1.0 LANGUAGES CXX)
 add_compile_options(-march=native -O3)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+
+# ==========================================
+# 1. 链接预编译好的 Rerun 静态库
+# ==========================================
+# 指向我们刚刚 install 出来的那个文件夹
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../Visualisation/rerun_sdk_install")
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/../Visualisation/rerun_viewer/rerun" 
+     DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")  # 将rerun渲染文程序复制到构建目录
+
+# 现在 CMake 瞬间就能找到它，不需要再编译了！
+find_package(rerun_sdk REQUIRED)
+
+
 find_package(OpenCV REQUIRED )
 find_package(fmt REQUIRED)
 find_package(spdlog REQUIRED)
@@ -15,20 +28,7 @@ find_package(PkgConfig REQUIRED)
 # 需要先 source openvino/setupvars.sh
 find_package(OpenVINO REQUIRED)
 
-# ==========================================
-# Rerun 环境配置 (只需增加这一段)
-# ==========================================
 
-# 1. 下载 Rerun SDK (自动拉取，不需要你手动下载源码编译)
-include(FetchContent)
-FetchContent_Declare(rerun_cpp
-    GIT_REPOSITORY https://github.com/rerun-io/rerun.git
-    GIT_TAG        0.20.0
-    SOURCE_SUBDIR  rerun_cpp/sdk
-)
-FetchContent_MakeAvailable(rerun_cpp)
-
-# find_package(LibUSB 1.0 REQUIRED)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_executable(main 
     main.cpp
@@ -42,7 +42,7 @@ add_executable(main
     ./Function.cpp
 )
 target_include_directories(main PUBLIC ${MVS_INCLUDE_DIRS})
-target_link_libraries(main ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} openvino::runtime rerun_sdk::rerun_sdk)
+target_link_libraries(main ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} openvino::runtime rerun_sdk)
 
 
 
