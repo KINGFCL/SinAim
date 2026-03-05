@@ -2,7 +2,12 @@
 #include <cmath>
 #include "opencv2/core/cvdef.h"
 #include <eigen3/Eigen/src/Core/Matrix.h>
+#include "../include/RerunVisualizer.hpp"
 
+#define EKFDebug
+#ifdef EKFDebug
+extern RerunVisualizer viz;
+#endif
 void EKFKalman::Init()
 {
     this->CovState = this->CovStateInit;
@@ -110,6 +115,10 @@ Eigen::Matrix<double, 8, 1> EKFKalman::operator()
     // 2.2 更新协方差矩阵
     Eigen::Matrix<double, 8, 8> G_P = Eigen::Matrix<double, 8, 8>::Identity()- K*this->H;
     this->CovState = G_P * this->CovState * G_P.transpose() + K * this->CovView * K.transpose(); 
+
+#ifdef EKFDebug
+    viz.EKFKalmanUpdate(ans, CovArmor, View, CovState, K, radius, dt);
+#endif
 
     return ans;
 }
