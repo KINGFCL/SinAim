@@ -169,7 +169,7 @@ void HikCamera::capture_init()
 
 
 
-  ret = MV_CC_SetFloatValue(handle_, "AcquisitionFrameRate", 249);
+  ret = MV_CC_SetFloatValue(handle_, "AcquisitionFrameRate", 200);
   if (ret != MV_OK) {
     tools::logger()->warn("MV_CC_SetFloatValue(set framerate) failed: {:#x}", ret);
     return;

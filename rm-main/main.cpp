@@ -100,12 +100,20 @@ int main() {
 
         auto armors = detect(frame.image,armors_pattern);
 
+        // std::cout<<"------------------------------------------------\n";
+
+        // std::cout<<"detect num: "<<armors.size()<<"\n";
+
         //解算装甲板位置
         auto armors_posis = Sov(armors);
 
         Sov.Filter(armors_posis, armors_pattern, frame.quat, Gun, 20);
 
+        // std::cout<<"after filter num: "<<armors_posis.size()<<"\n";
+
         auto armors_posi = classifier(armors_posis,armors_pattern);
+
+        // std::cout<<"after classify num: "<<armors_posi.size()<<"\n";
 
         Robot::SolveRobotSize(armors_posi);
 
