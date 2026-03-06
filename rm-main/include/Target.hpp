@@ -85,6 +85,7 @@ public:
     /装甲板数量大于2时只会使用前两个装甲板进行更新，装甲板为空不做任何操作
     */
     void Update(const std::vector<ArmorPosi>& armors, double dt);
+    void Update(double dt);
 
     void OneArmor(const ArmorPosi& armor, double dt);
     void TwoArmor(const std::vector<ArmorPosi>& armors, double dt);

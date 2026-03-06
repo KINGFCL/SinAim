@@ -136,7 +136,7 @@ int main() {
         if(armors_posi.empty()) continue;
 
         Sov.ConverToWorld(armors_posi,frame.quat);
-        robot.Update(armors_posi,rm::SolveDt(next_point, frame.time,5));
+        robot.Update(armors_posi,rm::SolveDt(next_point, frame.time,0.005));
         next_point = frame.time;
 
         // #ifdef MainDebug

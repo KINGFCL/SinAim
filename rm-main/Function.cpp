@@ -1,5 +1,6 @@
 #include "Function.hpp"
 #include <chrono>
+#include <ratio>
 #include <sys/types.h>
 
 void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::RTSerial<Packet> &ser, FastQueue<FrameData> &Frames)
@@ -148,15 +149,15 @@ Eigen::Matrix<double, 3, 1> rm::ChooseBestAimArmor(
     return aims.block<3, 1>(0, best_id);
 }
 
-double rm::SolveDt(const std::chrono::steady_clock::time_point& start, const std::chrono::steady_clock::time_point& end, double pic) 
-{
-    // 1. 安全检查：如果 pic 为 0，为避免除以零异常，直接返回实际时间差或 0
+double rm::SolveDt(const std::chrono::steady_clock::time_point& start, const std::chrono::steady_clock::time_point& end, double pic) {
+    // 1. 安全检查：避免除以零
     if (std::abs(pic) < 1e-9) {
         return 0.0; 
     }
 
-    // 2. 获取时间差，并将单位转换为毫秒 (ms)
-    std::chrono::duration<double, std::milli> diff = end - start;
+    // 2. 获取时间差，并将单位转换为秒 (s)
+    // std::chrono::duration<double> 默认就等同于 std::chrono::duration<double, std::ratio<1>>，也就是秒。
+    std::chrono::duration<double> diff = end - start;
     double dt = diff.count();
 
     // 3. 寻找最接近的倍数 n
@@ -164,10 +165,9 @@ double rm::SolveDt(const std::chrono::steady_clock::time_point& start, const std
 
     // 4. 保证 n 为非零整数
     if (n == 0.0) {
-        // 如果实际时间差为正或 0，则向上取 1 个 pic；如果为负，则向下取 -1 个 pic
         n = (dt >= 0) ? 1.0 : -1.0;
     }
 
-    // 5. 返回最接近的 n * pic
+    // 5. 返回最接近的 n * pic (单位：秒)
     return n * pic;
 }
