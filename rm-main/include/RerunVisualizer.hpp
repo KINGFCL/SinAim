@@ -167,12 +167,12 @@ public:
         const double& rotation_speed = robot.Speed(3,0); // <--- TODO: 请替换为实际的角速度，如 robot.yaw_v;
         
         // 3. 记录绿线：总速度
-        rec.log("plot/speed/total_speed", rerun::SeriesLines().with_colors({0, 255, 0, 255})); // 指定颜色为绿色
-        rec.log("plot/speed/total_speed", rerun::Scalars(total_speed));                      // 传入数据
+        rec.log("world/speed/total_v", rerun::SeriesLines().with_colors({0, 255, 0, 255})); // 指定颜色为绿色
+        rec.log("world/speed/total_v", rerun::Scalars((float)total_speed));                      // 传入数据
 
         // 4. 记录蓝线：旋转速度
-        rec.log("plot/speed/rotation_speed", rerun::SeriesLines().with_colors({0, 0, 255, 255})); // 指定颜色为蓝色
-        rec.log("plot/speed/rotation_speed", rerun::Scalars(rotation_speed));                   // 传入数据
+        rec.log("world/speed/w", rerun::SeriesLines().with_colors({0, 0, 255, 255})); // 指定颜色为蓝色
+        rec.log("world/speed/w", rerun::Scalars((float)rotation_speed));                   // 传入数据
     }
 
     void EKFKalmanUpdate(const Eigen::Matrix<double, 8, 1>& State,
@@ -196,56 +196,39 @@ public:
         float xc = (float)State(0, 0);
         float yc = (float)State(1, 0);
         float zc = (float)State(2, 0);
-        float yaw = (float)State(3, 0);
+        float w = (float)State(7, 0);
 
-        // A. EKF 滤波后的最优估计中心点 (橘色点)
-        rec.log("world/EKF/estimated_center", 
-            rerun::Points3D({{xc, yc, zc}})
-                .with_colors({{255, 165, 0, 255}}) // 橘色
-                .with_radii({2.5f}));
-
-        // B. EKF 滤波后的速度向量 (紫色箭头)
-        rec.log("world/EKF/estimated_velocity", 
-            rerun::Arrows3D::from_vectors({{
-                (float)State(4, 0), 
-                (float)State(5, 0), 
-                (float)State(6, 0)
-            }})
-            .with_origins({{xc, yc, zc}})
-            .with_colors({{255, 0, 255, 255}})); // 紫色
+        
 
         // C. 当前实际观测到的目标位置 (青色点，假设 View 前三维是观测到的 x, y, z)
-        rec.log("world/EKF/view_velocity_measurement", 
+        rec.log("world/EKF/view_position", 
             rerun::Points3D({{(float)View(0, 0), (float)View(1, 0), (float)View(2, 0)}})
                 .with_colors({{0, 255, 255, 255}}) // 青色
                 .with_radii({3.0f}));
-        rec.log("world/EKF/view_yaw_measurement",rerun::SeriesLines().with_colors({{0, 255, 255, 255}})); // 青色
-        rec.log("world/EKF/view_yaw_measurement", 
+        rec.log("world/EKF/view_yaw",rerun::SeriesLines().with_colors({{0, 255, 255, 255}})); // 青色
+        rec.log("world/EKF/view_yaw", 
             rerun::Scalars((float)View(3, 0))); // 青色
 
-        // D. 机器人的当前朝向 (利用 yaw 和 radius 画一条指示线)
-        rec.log("world/EKF/heading",
-            rerun::Arrows3D::from_vectors({{
-                (float)(std::cos(yaw) * radius), 
-                (float)(std::sin(yaw) * radius), 
-                0.0f
-            }})
-            .with_origins({{xc, yc, zc}})
-            .with_colors({{255, 165, 0, 200}}));
+        
+        // rec.log("world/EKF/w", rerun::SeriesLines().with_colors({{255, 165, 0, 255}})); // 橙色
+        // rec.log("world/EKF/w", rerun::Scalars(w)); //
+
+        // rec.log("world/EKF/v_total", rerun::SeriesLines().with_colors({{255, 165, 0, 255}})); // 橙色
+        // rec.log("world/EKF/v_total", rerun::Scalars((float)State.block<3,1>(4,0).norm()/100.0f)); // 速度模长
 
         // ==========================================
         // 3. 协方差收敛波形图 (监控不确定性)
         // ==========================================
-        rec.log("plot/EKF_cov/pos_x_variance", rerun::SeriesLines().with_colors({255, 0, 0, 255}));
-        rec.log("plot/EKF_cov/pos_y_variance", rerun::SeriesLines().with_colors({0, 255, 0, 255}));
-        rec.log("plot/EKF_cov/yaw_variance",   rerun::SeriesLines().with_colors({0, 0, 255, 255}));
+        // rec.log("plot/EKF_cov/pos_x_variance", rerun::SeriesLines().with_colors({255, 0, 0, 255}));
+        // rec.log("plot/EKF_cov/pos_y_variance", rerun::SeriesLines().with_colors({0, 255, 0, 255}));
+        // rec.log("plot/EKF_cov/yaw_variance",   rerun::SeriesLines().with_colors({0, 0, 255, 255}));
 
-        rec.log("plot/EKF_cov/pos_x_variance", rerun::Scalars(CovState(0, 0))); // x 方差
-        rec.log("plot/EKF_cov/pos_y_variance", rerun::Scalars(CovState(1, 1))); // y 方差
-        rec.log("plot/EKF_cov/yaw_variance",   rerun::Scalars(CovState(3, 3))); // yaw 方差
+        // rec.log("plot/EKF_cov/pos_x_variance", rerun::Scalars(CovState(0, 0))); // x 方差
+        // rec.log("plot/EKF_cov/pos_y_variance", rerun::Scalars(CovState(1, 1))); // y 方差
+        // rec.log("plot/EKF_cov/yaw_variance",   rerun::Scalars(CovState(3, 3))); // yaw 方差
 
-        rec.log("plot/EKF_cov/measurement_x_var", rerun::SeriesLines().with_colors({255, 255, 255, 255}));
-        rec.log("plot/EKF_cov/measurement_x_var", rerun::Scalars(CovArmor(0, 0)));
+        // rec.log("plot/EKF_cov/measurement_x_var", rerun::SeriesLines().with_colors({255, 255, 255, 255}));
+        // rec.log("plot/EKF_cov/measurement_x_var", rerun::Scalars(CovArmor(0, 0)));
 
         // ==========================================
         // 4. 卡尔曼增益 (Kalman Gain) 波形图
@@ -253,21 +236,21 @@ public:
         // 假设 View(0) 是 X位置观测，State(0) 是 X位置状态，State(4) 是 X速度状态
         
         // A. 观测位置 X 对 状态位置 X 的增益 (K_xx)
-        rec.log("plot/EKF_gain/gain_posX_to_posX", rerun::SeriesLines().with_colors({255, 100, 100, 255}));
-        rec.log("plot/EKF_gain/gain_posX_to_posX", rerun::Scalars(KalmanGain(0, 0)));
+        // rec.log("plot/EKF_gain/gain_posX_to_posX", rerun::SeriesLines().with_colors({255, 100, 100, 255}));
+        // rec.log("plot/EKF_gain/gain_posX_to_posX", rerun::Scalars(KalmanGain(0, 0)));
 
-        // B. 观测位置 Y 对 状态位置 Y 的增益 (K_yy)
-        rec.log("plot/EKF_gain/gain_posY_to_posY", rerun::SeriesLines().with_colors({100, 255, 100, 255}));
-        rec.log("plot/EKF_gain/gain_posY_to_posY", rerun::Scalars(KalmanGain(1, 1)));
+        // // B. 观测位置 Y 对 状态位置 Y 的增益 (K_yy)
+        // rec.log("plot/EKF_gain/gain_posY_to_posY", rerun::SeriesLines().with_colors({100, 255, 100, 255}));
+        // rec.log("plot/EKF_gain/gain_posY_to_posY", rerun::Scalars(KalmanGain(1, 1)));
 
-        // C. 观测位置 X 对 状态速度 VX 的增益 (K_vx_x) 
-        // -> 这个值决定了当目标突然加速时，滤波器修正速度的灵敏度！
-        rec.log("plot/EKF_gain/gain_posX_to_velX", rerun::SeriesLines().with_colors({255, 200, 0, 255}));
-        rec.log("plot/EKF_gain/gain_posX_to_velX", rerun::Scalars(KalmanGain(4, 0)));
+        // // C. 观测位置 X 对 状态速度 VX 的增益 (K_vx_x) 
+        // // -> 这个值决定了当目标突然加速时，滤波器修正速度的灵敏度！
+        // rec.log("plot/EKF_gain/gain_posX_to_velX", rerun::SeriesLines().with_colors({255, 200, 0, 255}));
+        // rec.log("plot/EKF_gain/gain_posX_to_velX", rerun::Scalars(KalmanGain(4, 0)));
         
-        // D. 观测 yaw 对 状态 yaw_v 的增益 (如果你的模型包含角速度)
-        rec.log("plot/EKF_gain/gain_yaw_to_yawV", rerun::SeriesLines().with_colors({100, 100, 255, 255}));
-        rec.log("plot/EKF_gain/gain_yaw_to_yawV", rerun::Scalars(KalmanGain(7, 3))); 
+        // // D. 观测 yaw 对 状态 yaw_v 的增益 (如果你的模型包含角速度)
+        // rec.log("plot/EKF_gain/gain_yaw_to_yawV", rerun::SeriesLines().with_colors({100, 100, 255, 255}));
+        // rec.log("plot/EKF_gain/gain_yaw_to_yawV", rerun::Scalars(KalmanGain(7, 3))); 
     }
 
 

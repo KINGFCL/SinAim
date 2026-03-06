@@ -333,7 +333,8 @@ void Solver::Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis,
         cv::Mat& pattern = armors_pattern[i];
 
         //解算误差筛选
-        if(armor_posis[0].error > 10 && armor_posis[1].error > 10) continue;
+        //std::cerr<<armor_posis[0].error<<" "<<armor_posis[1].error<<std::endl;
+        if(armor_posis[0].error > 1 && armor_posis[1].error > 1) continue;
 
         //相机系下的距离筛选
         if(cv::norm(armor_posis[0].posi) > 800 && cv::norm(armor_posis[1].posi) > 800) continue;

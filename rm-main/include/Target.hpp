@@ -31,6 +31,8 @@ struct RobotSize
 
     void operator () (double r_small, double r_big)
     {
+        r_small = 22;
+        r_big = 22;
         this->RSmallSum += r_small;
         this->RBigSum += r_big;
         this->count++;

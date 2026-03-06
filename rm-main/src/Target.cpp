@@ -368,10 +368,10 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
     {
 
         //初始化能看见的装甲板位置信息（x,y,z,theta）
-        this->Armors.col(0) << armors[0].posi.x, armors[0].posi.y, armors[0].posi.z, this->SolveTheta(armors[0]);
+        this->Armors.block<4,1>(0,0) << armors[0].posi.x, armors[0].posi.y, armors[0].posi.z, this->SolveTheta(armors[0]);
         this->View[0] = ArmorView::Visual;
 
-        this->Armors.col(1) << armors[1].posi.x, armors[1].posi.y, armors[1].posi.z, this->SolveTheta(armors[1]);
+        this->Armors.block<4,1>(0,1) << armors[1].posi.x, armors[1].posi.y, armors[1].posi.z, this->SolveTheta(armors[1]);
         this->View[1] = ArmorView::Visual;
 
         //初始化每个装甲板的半径信息(radius)
