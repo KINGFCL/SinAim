@@ -30,7 +30,7 @@ int main()
     
     // 获取图像文件列表
     vector<String> imageFiles;
-    glob("../CalibrationImage/*.png", imageFiles);
+    glob("../CalibrationImage/*.jpg", imageFiles);
     
     if (imageFiles.empty()) {
         cout << "错误: 在image文件夹中没有找到PNG图片文件!" << endl;

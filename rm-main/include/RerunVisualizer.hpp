@@ -269,5 +269,14 @@ public:
         rec.log("plot/EKF_gain/gain_yaw_to_yawV", rerun::SeriesLines().with_colors({100, 100, 255, 255}));
         rec.log("plot/EKF_gain/gain_yaw_to_yawV", rerun::Scalars(KalmanGain(7, 3))); 
     }
+
+
+    void viewCov(const std::array<double, 4>& CovView) 
+    {
+        rec.log("Cov/x", rerun::Scalars(CovView[0]));
+        rec.log("Cov/y", rerun::Scalars(CovView[1]));
+        rec.log("Cov/z", rerun::Scalars(CovView[2]));
+        rec.log("Cov/yaw", rerun::Scalars(CovView[3]));
+    }
 };
 #endif // RERUN_VISUALIZER_HPP

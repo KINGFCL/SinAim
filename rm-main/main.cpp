@@ -144,7 +144,7 @@ int main() {
         auto aims = robot.Predic(dt);
 
         #ifdef MainDebug
-        if(test.num%10 == 0 && test.num != 0)
+        if(test.num%4 == 0 && test.num != 0)
             viz.update(robot, aims, dt,  Gun);
         #endif
 

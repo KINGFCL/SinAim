@@ -20,8 +20,8 @@ namespace rm
                                                    const Eigen::Matrix<double,4, 1>& Speed,
                                                    const Eigen::Matrix<double, 3, 1>& Gun);
     std::deque<Armor> FilterCenterArmor(const std::deque<std::array<ArmorPosi,2>>& armors_posis, const cv::Point3d& Gun, int num = 1);
+    std::array<double,4> MeasureCov(const Eigen::Matrix<double, 4, 1>& view);
 }
-
 
 
 #endif
