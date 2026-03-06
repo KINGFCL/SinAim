@@ -1,4 +1,5 @@
 #include "Function.hpp"
+#include <chrono>
 #include <sys/types.h>
 
 void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::RTSerial<Packet> &ser, FastQueue<FrameData> &Frames)
@@ -145,4 +146,28 @@ Eigen::Matrix<double, 3, 1> rm::ChooseBestAimArmor(
     
     // 返回被选中的最优装甲板的 3D 绝对坐标
     return aims.block<3, 1>(0, best_id);
+}
+
+double rm::SolveDt(const std::chrono::steady_clock::time_point& start, const std::chrono::steady_clock::time_point& end, double pic) 
+{
+    // 1. 安全检查：如果 pic 为 0，为避免除以零异常，直接返回实际时间差或 0
+    if (std::abs(pic) < 1e-9) {
+        return 0.0; 
+    }
+
+    // 2. 获取时间差，并将单位转换为毫秒 (ms)
+    std::chrono::duration<double, std::milli> diff = end - start;
+    double dt = diff.count();
+
+    // 3. 寻找最接近的倍数 n
+    double n = std::round(dt / pic);
+
+    // 4. 保证 n 为非零整数
+    if (n == 0.0) {
+        // 如果实际时间差为正或 0，则向上取 1 个 pic；如果为负，则向下取 -1 个 pic
+        n = (dt >= 0) ? 1.0 : -1.0;
+    }
+
+    // 5. 返回最接近的 n * pic
+    return n * pic;
 }

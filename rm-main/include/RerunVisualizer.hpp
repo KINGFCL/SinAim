@@ -8,12 +8,15 @@
 #include <string>
 #include <cmath>
 
+#include "MeasureCov.hpp" 
+
 // 包含你的 Robot 定义
 #include "Target.hpp" 
 
 class RerunVisualizer {
 private:
     rerun::RecordingStream rec;
+    MeasureCov measure_cov; // 用于计算协方差的工具类实例
 
 public:
     // 构造函数：初始化 Rerun 并唤起 Viewer
@@ -147,7 +150,7 @@ public:
 
         // --- 新增：渲染当前枪管的瞄准射线 (青色长线) ---
         // 假设原点 {0,0,0} 为当前云台/相机位置，枪管是一根 20cm 长的射线
-        rec.log("world/gun_ray",
+        rec.log("world/gun_vector",
             rerun::Arrows3D::from_vectors({{
                 (float)Gun(0, 0) * 20.0f, 
                 (float)Gun(1, 0) * 20.0f, 
@@ -208,58 +211,21 @@ public:
         rec.log("world/EKF/view_yaw",rerun::SeriesLines().with_colors({{0, 255, 255, 255}})); // 青色
         rec.log("world/EKF/view_yaw", 
             rerun::Scalars((float)View(3, 0))); // 青色
-
-        
-        // rec.log("world/EKF/w", rerun::SeriesLines().with_colors({{255, 165, 0, 255}})); // 橙色
-        // rec.log("world/EKF/w", rerun::Scalars(w)); //
-
-        // rec.log("world/EKF/v_total", rerun::SeriesLines().with_colors({{255, 165, 0, 255}})); // 橙色
-        // rec.log("world/EKF/v_total", rerun::Scalars((float)State.block<3,1>(4,0).norm()/100.0f)); // 速度模长
-
-        // ==========================================
-        // 3. 协方差收敛波形图 (监控不确定性)
-        // ==========================================
-        // rec.log("plot/EKF_cov/pos_x_variance", rerun::SeriesLines().with_colors({255, 0, 0, 255}));
-        // rec.log("plot/EKF_cov/pos_y_variance", rerun::SeriesLines().with_colors({0, 255, 0, 255}));
-        // rec.log("plot/EKF_cov/yaw_variance",   rerun::SeriesLines().with_colors({0, 0, 255, 255}));
-
-        // rec.log("plot/EKF_cov/pos_x_variance", rerun::Scalars(CovState(0, 0))); // x 方差
-        // rec.log("plot/EKF_cov/pos_y_variance", rerun::Scalars(CovState(1, 1))); // y 方差
-        // rec.log("plot/EKF_cov/yaw_variance",   rerun::Scalars(CovState(3, 3))); // yaw 方差
-
-        // rec.log("plot/EKF_cov/measurement_x_var", rerun::SeriesLines().with_colors({255, 255, 255, 255}));
-        // rec.log("plot/EKF_cov/measurement_x_var", rerun::Scalars(CovArmor(0, 0)));
-
-        // ==========================================
-        // 4. 卡尔曼增益 (Kalman Gain) 波形图
-        // ==========================================
-        // 假设 View(0) 是 X位置观测，State(0) 是 X位置状态，State(4) 是 X速度状态
-        
-        // A. 观测位置 X 对 状态位置 X 的增益 (K_xx)
-        // rec.log("plot/EKF_gain/gain_posX_to_posX", rerun::SeriesLines().with_colors({255, 100, 100, 255}));
-        // rec.log("plot/EKF_gain/gain_posX_to_posX", rerun::Scalars(KalmanGain(0, 0)));
-
-        // // B. 观测位置 Y 对 状态位置 Y 的增益 (K_yy)
-        // rec.log("plot/EKF_gain/gain_posY_to_posY", rerun::SeriesLines().with_colors({100, 255, 100, 255}));
-        // rec.log("plot/EKF_gain/gain_posY_to_posY", rerun::Scalars(KalmanGain(1, 1)));
-
-        // // C. 观测位置 X 对 状态速度 VX 的增益 (K_vx_x) 
-        // // -> 这个值决定了当目标突然加速时，滤波器修正速度的灵敏度！
-        // rec.log("plot/EKF_gain/gain_posX_to_velX", rerun::SeriesLines().with_colors({255, 200, 0, 255}));
-        // rec.log("plot/EKF_gain/gain_posX_to_velX", rerun::Scalars(KalmanGain(4, 0)));
-        
-        // // D. 观测 yaw 对 状态 yaw_v 的增益 (如果你的模型包含角速度)
-        // rec.log("plot/EKF_gain/gain_yaw_to_yawV", rerun::SeriesLines().with_colors({100, 100, 255, 255}));
-        // rec.log("plot/EKF_gain/gain_yaw_to_yawV", rerun::Scalars(KalmanGain(7, 3))); 
     }
 
 
-    void viewCov(const std::array<double, 4>& CovView) 
+    void viewCov(const Eigen::Matrix<double, 4, 1>& View) 
     {
-        rec.log("Cov/x", rerun::Scalars(CovView[0]));
-        rec.log("Cov/y", rerun::Scalars(CovView[1]));
-        rec.log("Cov/z", rerun::Scalars(CovView[2]));
-        rec.log("Cov/yaw", rerun::Scalars(CovView[3]));
+        std::array<double, 4> CovView = this->measure_cov(View);
+        
+        rec.log("Cov/x", rerun::Scalars((float)CovView[0]));
+        rec.log("Cov/y", rerun::Scalars((float)CovView[1]));
+        rec.log("Cov/z", rerun::Scalars((float)CovView[2]));
+        rec.log("Cov/yaw", rerun::Scalars((float)CovView[3]));
+    }
+    void show(std::string msg,double value)
+    {
+        rec.log(msg, rerun::Scalars((float)value));
     }
 };
 #endif // RERUN_VISUALIZER_HPP

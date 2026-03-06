@@ -8,6 +8,12 @@
 #include <vector>
 #include <numeric>
 
+#define SolverDebug
+#ifdef SolverDebug
+#include "../include/RerunVisualizer.hpp"
+extern RerunVisualizer viz;
+#endif
+
 Solver::Solver(std::string config_path)
 {
     // this->cameraMatrix(3,3);
@@ -82,9 +88,11 @@ std::array<ArmorPosi,2> Solver::operator () (const Armor& armor)
 
         cv::Mat Z_camera_0 = r_0 * Z_vector;
         cv::Mat Z_camera_1 = r_1 * Z_vector;
-
         cv::Mat R,T;
-        // std::cerr<<Z_camera_0.at<double>(2,0)<<" "<<Z_camera_1.at<double>(2,0)<<std::endl;
+        #ifdef SolverDebug
+        viz.show("SmallSolvePnP0", Z_camera_0.at<double>(2,0));
+        viz.show("SmallSolvePnP1", Z_camera_1.at<double>(2,0));
+        #endif
         if(Z_camera_0.at<double>(2,0) > 0) {R = r_0; T = tvecs.front(); error0 = reprojectionError.front();}
         else {R = r_1; T = tvecs.back(); error0 = reprojectionError.back();}
 
@@ -338,13 +346,13 @@ void Solver::Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis,
 
         //相机系下的距离筛选
         if(cv::norm(armor_posis[0].posi) > 800 && cv::norm(armor_posis[1].posi) > 800) continue;
-        
+
         //坐标系变换
         auto small_armor_posis = armor_posis[0];
         auto big_armor_posis = armor_posis[1];
         this->ConverToWorld(small_armor_posis, gripper_to_world);
         this->ConverToWorld(big_armor_posis, gripper_to_world);
-
+        // std::cout<<"small_armor_posis: "<<small_armor_posis.posi.z<<"\n";
         //高度筛选
         if( small_armor_posis.posi.z > 2000 && big_armor_posis.posi.z > 2000 ) continue;
         if( small_armor_posis.posi.z < -50 && big_armor_posis.posi.z < -50 ) continue;

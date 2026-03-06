@@ -118,6 +118,7 @@ Eigen::Matrix<double, 8, 1> EKFKalman::operator()
 
 #ifdef EKFDebug
     viz.EKFKalmanUpdate(ans, CovArmor, View, CovState, K, radius, dt);
+    viz.viewCov(View);
 #endif
 
     return ans;

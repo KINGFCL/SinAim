@@ -222,8 +222,8 @@ void HikCamera::continueCap(size_t MaxframeNum)
         {PixelType_Gvsp_BayerGB8, cv::COLOR_BayerGB2RGB},
         {PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2RGB}};
       cv::cvtColor(img, dst_image, type_map.at(pixel_type));
-      img = dst_image;
 
+      cv::rotate(dst_image, img, cv::ROTATE_180); // 水平翻转
       Frames.push({img, timestamp});
 
       ret = MV_CC_FreeImageBuffer(handle_, &raw);

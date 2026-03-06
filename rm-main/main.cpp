@@ -12,6 +12,7 @@
 #include "Function.hpp"
 #include "include/RerunVisualizer.hpp"
 
+#include <chrono>
 #include <cstdio>
 #include <iostream>
 #include <thread>
@@ -37,7 +38,9 @@ struct Test
 
 static FastQueue<FrameData> Frames(10);
 
-io::HikCamera Hik(1,17);
+std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
+
+io::HikCamera Hik(1.5,15);
 io::RTSerial<Packet> ser(20);
 
 Detector detect(Light::Color::Blue,0.5);//,"../../../rm-main/model/mobilenet_v3_112_rgb.onnx"
@@ -62,7 +65,7 @@ int main() {
 
     std::function<bool(const Packet&)> check_fuc = io::CRC8::Check<Packet>;
     ser.setCheckfuc(check_fuc);
-    int ret = ser.openDevice("/dev/ttyACM0", 460800);
+    int ret = ser.openDevice("/dev/ttyACM1", 460800);
     
     if(ret == 1)
         std::cout<<"serial open ok"<<"\n";
@@ -133,7 +136,8 @@ int main() {
         if(armors_posi.empty()) continue;
 
         Sov.ConverToWorld(armors_posi,frame.quat);
-        robot.Update(armors_posi,0.005);
+        robot.Update(armors_posi,rm::SolveDt(next_point, frame.time,5));
+        next_point = frame.time;
 
         // #ifdef MainDebug
         // std::cout<<"------------------------------------------------\n";
