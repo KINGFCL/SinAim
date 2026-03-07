@@ -40,7 +40,7 @@ public:
 
     // 测量噪声 R
     const Eigen::Matrix<double, 4, 4> CovView = (Eigen::Matrix<double, 4, 1>() << 
-        25, 25, 25, 0.01 // x, y, z, theta 的观测噪声
+        100, 100, 100, 0.1 // x, y, z, theta 的观测噪声
     ).finished().asDiagonal();
 
 };
