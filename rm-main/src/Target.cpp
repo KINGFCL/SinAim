@@ -98,7 +98,7 @@ void Robot::Update(double dt)
     this->Armors.block<2,1>(0,(ID+3)%4) = Eigen::Matrix<double,2,1>{this->center(0) + R_*std::cos(theta_), this->center(1) + R_*std::sin(theta_)};
 
     //装甲板位置协方差
-    this->CovArmors[(ID+1)%4] = this->CovArmors[(ID+2)%4] = this->CovArmors[(ID+3)%4]  = this->Kalman.CovUnView;
+    this->CovArmors[(ID+1)%4] = this->CovArmors[(ID+2)%4] = this->CovArmors[(ID+3)%4]  = this->Kalman.CovState.block<4,4>(0,0);
     this->CovArmors[ID] = this->Kalman.CovState.block<4,4>(0,0);
 } 
 

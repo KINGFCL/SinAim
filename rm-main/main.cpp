@@ -129,9 +129,9 @@ int main() {
         {
             Sov.ansShow(armor_posi.posi,frame.image);
         }
-        cv::imshow("frame", frame.image);
+        // cv::imshow("frame", frame.image);
         
-        cv::waitKey(1);
+        // cv::waitKey(1);
 
         if(armors_posi.empty()) continue;
 
