@@ -1,8 +1,8 @@
+#include "include/Armor.hpp"
 #include "include/HikCamera.hpp"
-#include "include/NumClassifier.hpp"
 #include "include/RTSerial.hpp"
 #include "include/fastqueue.hpp"
-#include "include/Detector.hpp"
+#include "include/Yolo.hpp"
 #include "include/Solver.hpp"
 #include "include/Shooter.hpp"
 #include "include/Target.hpp"
@@ -41,11 +41,11 @@ static FastQueue<FrameData> Frames(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-io::HikCamera Hik(2,17);
+io::HikCamera Hik(1.5,15);
 io::RTSerial<Packet> ser(20);
 
-Detector detect(Light::Color::Blue,0.5);//,"../../../rm-main/model/mobilenet_v3_112_rgb.onnx"
-NumClassifier classifier("../model/mobilenet_v3_arcface_best.onnx","../model/centers.yaml");
+
+YOLO11Detector yolo11detect("../model/yolo11.xml",YOLO11Detector::Camp::Blue);
 
 RerunVisualizer viz("RoboMaster_AutoAim");
 
@@ -88,7 +88,7 @@ int main() {
     std::printf("Start main loop\n");
 
     while(true)
-    {    
+    {
         if(Frames.empty()) continue;
 
         FrameData frame;
@@ -97,42 +97,31 @@ int main() {
         {
             Frames.pop(frame);
         }
-        if(frame.image.empty()) continue;
         //计算枪管方向
-        cv::imshow("frame",frame.image);
-        cv::waitKey(1);
         const auto& Gun = shoot.GunDirection(frame.quat);
 
-        std::vector<cv::Mat> armors_pattern;
 
-        auto armors = detect(frame.image,armors_pattern);
+        auto armors = yolo11detect(frame.image);
+        yolo11detect.draw(frame.image,armors);
+        cv::imshow("frame",frame.image);
+        cv::waitKey(1);
 
         // std::cout<<"------------------------------------------------\n";
 
         // std::cout<<"detect num: "<<armors.size()<<"\n";
 
         //解算装甲板位置
-        auto armors_posis = Sov(armors);
-
-        Sov.Filter(armors_posis, armors_pattern, frame.quat, Gun, 20);
+        auto armors_posi = Sov(armors);
 
         // std::cout<<"after filter num: "<<armors_posis.size()<<"\n";
 
-        auto armors_posi = classifier(armors_posis,armors_pattern);
-
         // std::cout<<"after classify num: "<<armors_posi.size()<<"\n";
-
-        Robot::SolveRobotSize(armors_posi);
 
         // for(const auto& armor_posi : armors_posi)
         // {
         //     Sov.ansShow(armor_posi.posi,frame.image);
         // }
 
-        for(const auto& armor_posi : armors_posi)
-        {
-            Sov.ansShow(armor_posi.posi,frame.image);
-        }
         // cv::imshow("frame", frame.image);
         
         // cv::waitKey(1);
@@ -147,6 +136,7 @@ int main() {
         // std::cout<<"------------------------------------------------\n";
         // std::cout<<"armors_posi: "<< "\n" <<armors_posi[0].posi<<"\n";
         // #endif
+
 
         double dt = shoot.FlyTime(cv::Point3d(robot.center.x()/100.0, robot.center.y()/100.0, robot.center.z()/100.0));
         auto aims = robot.Predic(dt);

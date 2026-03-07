@@ -18,27 +18,12 @@ struct RobotSize
 //目标半径,0小半径,1大半径
     std::array<double,2> radius{20.0,30.0}; 
 
-    double RSmallSum = 0.0;//目标半径和
-    double RBigSum = 0.0;//目标半径和
-
-// //装甲板沿转轴方向的高度差,小半径到大半径的高度差
-//     double Hdiff;
-//     double HSum = 0;
-
-//观测次数
-    int count = 0;
     RobotSize() = default;
 
     void operator () (double r_small, double r_big)
     {
-        r_small = 22;
-        r_big = 22;
-        this->RSmallSum += r_small;
-        this->RBigSum += r_big;
-        this->count++;
-        this->radius[0] = RSmallSum / (double)count;
-        this->radius[1] = RBigSum / (double)count;
-        // this->Hdiff = HSum / (double)count;
+        radius[0] = r_small;
+        radius[1] = r_big;
     }
     
 };
@@ -115,9 +100,12 @@ public:
     3   theta    theta      theta      theta
     4   radius   radius     radius     radius
 */
-    Eigen::Matrix<double, 5, 4> Armors;
 
-    std::array<Eigen::Matrix<double, 4, 4>, 4> CovArmors;
+/*
+    theta radius h 
+*/
+    Eigen::Matrix<double, 3, 4> Armors;
+    double l_diff = 0, h_diff = 0;
 
     std::array<ArmorView, 4> View = {ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual};
 

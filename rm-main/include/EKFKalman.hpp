@@ -1,72 +1,48 @@
 #ifndef EKFKALMAN_HPP_INCLUDE
 #define EKFKALMAN_HPP_INCLUDE
-#include "eigen3/Eigen/Dense"
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/src/Core/Matrix.h>
+#include <vector>
 
-//数据单位:  距离cm,时间s,角度rad
 class EKFKalman
 {
 public:
     EKFKalman() = default;
-
     void Init();
 
-    Eigen::Matrix<double, 8, 1> operator()(const Eigen::Matrix<double, 8, 1>& State,
-                                           const Eigen::Matrix<double, 4, 4>& CovArmor, 
-                                           const Eigen::Matrix<double, 4, 1>& View,
-                                           double radius, 
-                                           double dt,
-                                           double err);
+    // 过程噪声参数
+    const double Var_a = 10000.0, Var_alpha = 1.0;
+    const double Var_r = 0.01, Var_l = 0.01, Var_h = 0.01; // 结构参数收敛噪声极小
 
+    // 单装甲板更新
+    Eigen::Matrix<double, 11, 1> operator()(
+        const Eigen::Matrix<double, 11, 1>& State,
+        const Eigen::Matrix<double, 4, 1>& View, 
+        int armor_id,                            
+        double dt);
 
-    Eigen::Matrix<double, 8, 8> CovState;
-    const Eigen::Matrix<double, 8, 8> CovStateInit
-    {
-        {100, 0,  0,  0,      0,      0,      0,      0},
-        {0,  100, 0,  0,      0,      0,      0,      0},
-        {0,  0,  100, 0,      0,      0,      0,      0},
-        {0,  0,  0,  0.0009, 0,      0,      0,      0},
-        {0,  0,  0,  0,      250000, 0,      0,      0},
-        {0,  0,  0,  0,      0,      250000, 0,      0},
-        {0,  0,  0,  0,      0,      0,      250000, 0},
-        {0,  0,  0, 0,       0,      0,      0,      36}
-        
-    };
+    // 多装甲板序贯更新
+    Eigen::Matrix<double, 11, 1> operator()(
+        const Eigen::Matrix<double, 11, 1>& State,
+        const std::vector<Eigen::Matrix<double, 4, 1>>& Views, 
+        const std::vector<int>& armor_ids,                         
+        double dt);    
 
-    //平移加速度和旋转加速度v_x,v_y,v_z,w
-    const Eigen::Matrix<double, 4, 4> CovCourseSrc
-    {
-        {10000,0,    0,    0},
-        {0,    10000,0,    0},
-        {0,    0,    10000,0},
-        {0,    0,    0,    0.6}
-    };
+    Eigen::Matrix<double, 11, 11> CovState;
 
-    const Eigen::Matrix<double, 4, 4> CovView
-    {
-        {100,    0,    0,    0},
-        {0,    100,    0,    0},
-        {0,    0,    100,    0},
-        {0,    0,    0,    0.001}
-    };
-    const Eigen::Matrix<double, 4, 4> CovUnView
-    {
-        {1000,    0,    0,    0},
-        {0,    1000,    0,    0},
-        {0,    0,    1000,    0},
-        {0,    0,    0,    0.6}
-    };
+    // 初始化协方差
+    const Eigen::Matrix<double, 11, 11> CovStateInit = (Eigen::Matrix<double, 11, 1>() << 
+        100, 100, 100,       // xc, yc, zc 位置方差
+        10000, 10000, 10000, // vxc, vyc, vzc 速度方差
+        0.01, 36,           // theta, w 角度与角速度方差
+        10, 10, 10           // r, l, h 几何结构初始方差
+    ).finished().asDiagonal();
 
-    //观测矩阵
-    const Eigen::Matrix<double, 4, 8> H
-    {
-        {1,    0,    0,    0,    0,    0,    0,    0},
-        {0,    1,    0,    0,    0,    0,    0,    0},
-        {0,    0,    1,    0,    0,    0,    0,    0},
-        {0,    0,    0,    1,    0,    0,    0,    0}
-    };
+    // 测量噪声 R
+    const Eigen::Matrix<double, 4, 4> CovView = (Eigen::Matrix<double, 4, 1>() << 
+        25, 25, 25, 0.001 // x, y, z, theta 的观测噪声
+    ).finished().asDiagonal();
 
 };
-   
 
-
-#endif // KALMAN_HPP
+#endif // EKFKALMAN_HPP_INCLUDE

@@ -20,6 +20,9 @@ public:
     //解算传入的所有装甲板并返回
     std::vector< std::array<ArmorPosi,2> > operator () (const std::deque<Armor>& armors);
     std::vector< std::array<ArmorPosi,2> > operator () (const std::vector<Armor>& armors);
+
+
+    std::vector< ArmorPosi > operator () (const std::vector<YoloArmor>& armors);
     
     //解算单个装甲板的位置
     std::array<ArmorPosi,2> operator () (const Armor& armor);
@@ -34,6 +37,11 @@ public:
     //筛选（去掉位置不正确的装甲板）
     void Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis,
                 std::vector<cv::Mat>& armors_pattern,
+                const cv::Quatd& gripper_to_world,
+                const Eigen::Matrix<double, 3, 1>& Gun,
+                const size_t num = 1);
+                
+    void Filter(std::vector<ArmorPosi>& armors_posi,
                 const cv::Quatd& gripper_to_world,
                 const Eigen::Matrix<double, 3, 1>& Gun,
                 const size_t num = 1);

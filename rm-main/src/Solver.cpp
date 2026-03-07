@@ -157,6 +157,102 @@ std::array<ArmorPosi,2> Solver::operator () (const Armor& armor)
     
 }
 
+std::vector<ArmorPosi> Solver::operator()(const std::vector<YoloArmor>& armors)
+{
+    std::vector<ArmorPosi> results;
+    if (armors.empty()) return results;
+    results.reserve(armors.size());
+
+    for (const auto& yolo_armor : armors) {
+        // 1. 根据 class_id 确定类型和 3D 模型
+        ArmorPosi::Type target_type;
+        bool is_big = false;
+        int id = yolo_armor.class_id;
+
+        // 映射逻辑
+        if (id >= 0 && id <= 2) { target_type = ArmorPosi::Type::guard; is_big = false; }
+        else if (id >= 3 && id <= 5) { target_type = ArmorPosi::Type::hero; is_big = true; }
+        else if (id >= 6 && id <= 8) { target_type = ArmorPosi::Type::two; is_big = false; }
+        else if (id >= 9 && id <= 11) { target_type = ArmorPosi::Type::three; is_big = false; }
+        else if (id >= 12 && id <= 14) { target_type = ArmorPosi::Type::four; is_big = false; }
+        else if (id >= 15 && id <= 17) { target_type = ArmorPosi::Type::four; is_big = false; } // 5号
+        else if (id >= 18 && id <= 20) { target_type = ArmorPosi::Type::outpost; is_big = false; }
+        else if (id >= 21 && id <= 24) { target_type = ArmorPosi::Type::base; is_big = true; }   // 大基地
+        else if (id >= 25 && id <= 28) { target_type = ArmorPosi::Type::base; is_big = false; }  // 小基地
+        else if (id >= 29 && id <= 37) { target_type = (id < 32) ? ArmorPosi::Type::three : ArmorPosi::Type::four; is_big = true; } // 平衡
+        else continue;
+
+        // 选择对应的 3D 物体坐标系参考点
+        const auto& objectPoints = is_big ? this->objectBigArmorP : this->objectSmallArmorP;
+        const auto& centerPoint = is_big ? this->BigArmorCenter : this->SmallArmorCenter;
+
+        // 2. 直接进行 PnP 解算 (参考第一个函数的解算逻辑)
+        std::vector<cv::Mat> rvecs, tvecs;
+        std::vector<double> reprojectionError;
+
+        cv::solvePnPGeneric(
+            objectPoints,
+            yolo_armor.keypoints,
+            this->cameraMatrix,
+            this->distCoeffs,
+            rvecs,
+            tvecs,
+            false,
+            cv::SOLVEPNP_IPPE,
+            cv::noArray(),
+            cv::noArray(),
+            reprojectionError
+        );
+
+        if (rvecs.empty()) continue;
+
+        // 3. 筛选歧义解 (取 Z > 0 且在相机前方的解)
+        cv::Mat R, T;
+        double final_error;
+        
+        // 这里的逻辑与参考代码一致
+        double Z_data[3]{0, 0, 10};
+        cv::Mat Z_vector(cv::Size(1, 3), CV_64FC1, Z_data);
+        
+        cv::Mat r_0;
+        cv::Rodrigues(rvecs.front(), r_0);
+        cv::Mat Z_camera_0 = r_0 * Z_vector;
+
+        if (Z_camera_0.at<double>(2, 0) > 0) {
+            R = r_0;
+            T = tvecs.front();
+            final_error = reprojectionError.front();
+        } else if (rvecs.size() > 1) {
+            cv::Rodrigues(rvecs.back(), R);
+            T = tvecs.back();
+            final_error = reprojectionError.back();
+        } else {
+            R = r_0;
+            T = tvecs.front();
+            final_error = reprojectionError.front();
+        }
+
+        // 4. 计算结果并填充 ArmorPosi
+        cv::Mat P_posi = R * centerPoint + T;
+        cv::Point3d posi(P_posi.at<double>(0, 0), P_posi.at<double>(1, 0), P_posi.at<double>(2, 0));
+
+        cv::Mat P_face = R * (cv::Mat_<double>(3, 1) << 0.0, 0.0, 1.0);
+        cv::Point3d face(P_face.at<double>(0, 0), P_face.at<double>(1, 0), P_face.at<double>(2, 0));
+
+        cv::Mat P_toward = R * (cv::Mat_<double>(3, 1) << 1.0, 0.0, 0.0);
+        cv::Point3d toward(P_toward.at<double>(0, 0), P_toward.at<double>(1, 0), P_toward.at<double>(2, 0));
+
+        // 5. 构造并存入结果
+        ArmorPosi result(posi, face, toward, std::atan2(toward.z, toward.x), final_error);
+        result.type = target_type;
+        result.confidence = yolo_armor.conf;
+        // 根据 is_big 设置半径类型（可选）
+
+        results.emplace_back(result);
+    }
+
+    return results;
+}
 
 std::vector< std::array< ArmorPosi, 2> > Solver::operator()(const std::deque<Armor>& armors)
 {

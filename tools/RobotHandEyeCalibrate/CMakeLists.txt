@@ -18,7 +18,6 @@ find_package(PkgConfig REQUIRED)
 # 需要先 source openvino/setupvars.sh
 find_package(OpenVINO REQUIRED)
 
-pkg_check_modules(LIBUSB_1.0 REQUIRED libusb-1.0)
 # find_package(LibUSB 1.0 REQUIRED)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_executable(data_autoSDK 
@@ -29,7 +28,7 @@ add_executable(data_autoSDK
 add_executable(Calibration src/Calibration.cpp)
 
 target_include_directories(data_autoSDK PUBLIC ${MVS_INCLUDE_DIRS})
-target_link_libraries(data_autoSDK ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${LIBUSB_1.0_LIBRARIES} ${MVS_LIBS} )
+target_link_libraries(data_autoSDK ${OpenCV_LIBS} fmt::fmt spdlog::spdlog  ${MVS_LIBS} )
 # add the executable target
 
 #link the OpenCV libraries to the executable

@@ -63,4 +63,10 @@ struct ArmorPosi{
     ArmorPosi(cv::Point3d posi, cv::Point3d face, cv::Point3d toward, double theta, double error):
               posi(posi), face(face), toward(toward), theta(theta), error(error){}
 };
+struct YoloArmor{ 
+    cv::Rect box;
+    float conf;
+    int class_id;
+    std::vector<cv::Point2f> keypoints;
+};
 #endif
