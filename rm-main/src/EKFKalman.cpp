@@ -59,11 +59,11 @@ Eigen::Matrix<double, 8, 1> EKFKalman::operator()
 
     // 1.2 计算状态转移雅可比矩阵 F = df/dX
     Eigen::Matrix<double, 8, 8> F = Eigen::Matrix<double, 8, 8>::Identity();
-    F(0, 3) =  radius * (sin_theta - sin_theta_new);
+    F(0, 3) =  0;//radius * (sin_theta - sin_theta_new);
     F(0, 4) =  dt;
     F(0, 7) = -radius * dt * sin_theta_new;
 
-    F(1, 3) = -radius * (cos_theta - cos_theta_new);
+    F(1, 3) = 0;//-radius * (cos_theta - cos_theta_new);
     F(1, 5) =  dt;
     F(1, 7) =  radius * dt * cos_theta_new;
 
