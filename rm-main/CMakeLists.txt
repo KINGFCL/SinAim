@@ -5,6 +5,7 @@ project(MyProject VERSION 1.0 LANGUAGES CXX)
 
 add_compile_options(-march=native -O3)
 
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 # ==========================================

@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cstdio>
 #include <iostream>
+#include <opencv2/highgui.hpp>
 #include <thread>
 
 #define MainDebug
@@ -65,7 +66,7 @@ int main() {
 
     std::function<bool(const Packet&)> check_fuc = io::CRC8::Check<Packet>;
     ser.setCheckfuc(check_fuc);
-    int ret = ser.openDevice("/dev/ttyACM1", 460800);
+    int ret = ser.openDevice("/dev/ttyACM0", 460800);
     
     if(ret == 1)
         std::cout<<"serial open ok"<<"\n";
@@ -97,6 +98,8 @@ int main() {
             Frames.pop(frame);
         }
         //计算枪管方向
+        // cv::imshow("frame",frame.image);
+        // cv::waitKey(1);
         const auto& Gun = shoot.GunDirection(frame.quat);
 
         std::vector<cv::Mat> armors_pattern;
@@ -165,7 +168,6 @@ int main() {
 
         if(test.num%200 == 0 && test.num != 0) {test.show();test.clear();}
 
-
         //打弹
         
         // std::cout<< "aim: " << aim << "\n";
@@ -184,7 +186,7 @@ int main() {
         // }
 
         // std::cout<<Pitch_and_Yaw[0]<<" "<<Pitch_and_Yaw[1]<<"\n";
-        rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1] , true);
+        // rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1] , true);
     }
     
     
