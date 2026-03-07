@@ -3,7 +3,12 @@ project(MyProject VERSION 1.0 LANGUAGES CXX)
 
 # add_definitions(-Wall -Werror)
 
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+endif()
+
 add_compile_options(-march=native -O3)
+
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 

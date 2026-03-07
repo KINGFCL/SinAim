@@ -41,7 +41,7 @@ static FastQueue<FrameData> Frames(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-io::HikCamera Hik(2,17);
+io::HikCamera Hik(1.5,17);
 io::RTSerial<Packet> ser(20);
 
 Detector detect(Light::Color::Blue,0.5);//,"../../../rm-main/model/mobilenet_v3_112_rgb.onnx"
@@ -99,8 +99,8 @@ int main() {
         }
         if(frame.image.empty()) continue;
         //计算枪管方向
-        cv::imshow("frame",frame.image);
-        cv::waitKey(1);
+        // cv::imshow("frame",frame.image);
+        // cv::waitKey(1);
         const auto& Gun = shoot.GunDirection(frame.quat);
 
         std::vector<cv::Mat> armors_pattern;

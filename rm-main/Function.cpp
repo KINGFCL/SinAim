@@ -18,6 +18,7 @@ void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::RTSerial<Packet> &ser,
         Packet IMU;
         while( true )
         {
+
             bool ret = ser.readPacket(IMU, time);
             if( !ret ) break;
 

@@ -52,12 +52,13 @@ public:
         std::vector<rerun::Position3D> armor_normals;   // 装甲板朝向(法向量)
         std::vector<rerun::Position3D> normal_origins;  // 法向量起点
 
+        Eigen::Matrix<double, 4, 4> current_armors = const_cast<Robot&>(robot).Predic(0.0);
         // 解析 4 个装甲板的状态
         for(int i = 0; i < 4; ++i) {
-            double x = robot.Armors(0, i);
-            double y = robot.Armors(1, i);
-            double z = robot.Armors(2, i);
-            double theta = robot.Armors(3, i);
+            double x = current_armors(0, i);
+            double y = current_armors(1, i);
+            double z = current_armors(2, i);
+            double theta = current_armors(3, i);
             
             // --- 核心修改：使用迎角投影判断物理可见性 ---
             Eigen::Matrix<double, 3, 1> P_i(x, y, z);

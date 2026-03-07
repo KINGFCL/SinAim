@@ -220,7 +220,7 @@ Eigen::Matrix<double, 4, 4> Robot::Predic(double dt)
     ans.block<2,1>(0,3) = Eigen::Matrix<double,2,1>{this->center(0) + this->Armors(1,3)*std::cos(ans(3,3)), this->center(1) + this->Armors(1,3)*std::sin(ans(3,3))};
     
     //加上平移
-    ans.block<1,4>(2,0) += this->Armors.block<1,4>(2,0);
+    ans.block<1,4>(2,0) = this->Armors.block<1,4>(2,0);
     auto move = this->Speed.block<3,1>(0,0)*dt;
     ans.block<3,1>(0,0) += move;
     ans.block<3,1>(0,1) += move;
