@@ -102,9 +102,9 @@ int main() {
 
 
         auto armors = yolo11detect(frame.image);
-        yolo11detect.draw(frame.image,armors);
-        cv::imshow("frame",frame.image);
-        cv::waitKey(1);
+        // yolo11detect.draw(frame.image,armors);
+        // cv::imshow("frame",frame.image);
+        // cv::waitKey(1);
 
         // std::cout<<"------------------------------------------------\n";
 

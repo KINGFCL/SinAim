@@ -331,20 +331,16 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
     const auto& best_armor = armors[best_idx];
 
     // 获取该兵种对应的预设长短轴半径
-    int type_idx = static_cast<int>(this->type) - 1;
-    double r_small = Robot::Size[type_idx].radius[0];
-    double r_large = Robot::Size[type_idx].radius[1];
 
-    // 3. 初始化结构参数 (假设面对我们的最佳装甲板是小半径，即前后板)
-    this->l_diff = r_large - r_small;
-    this->h_diff = 0.0; // 初始假设没有高度差，让 EKF 在后续自己去收敛
 
     // 4. 初始化系统绝对基准姿态 (强行将面对我们的这块板定义为 0 号板)
     double yaw0 = this->SolveTheta(best_armor);
 
     // 5. 初始化底盘中心点 (基于 0 号板和三角函数逆推，抛弃繁琐的叉乘)
-    this->center(0) = best_armor.posi.x - r_small * std::cos(yaw0);
-    this->center(1) = best_armor.posi.y - r_small * std::sin(yaw0);
+    double r = 23.0f;
+
+    this->center(0) = best_armor.posi.x - r * std::cos(yaw0);
+    this->center(1) = best_armor.posi.y - r * std::sin(yaw0);
     this->center(2) = best_armor.posi.z;
 
     // 6. 初始化速度为 0
@@ -358,12 +354,12 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
     this->Armors(0,3) = std::remainder(yaw0 + CV_PI*3.0/2.0, CV_PI*2.0);
 
     // 半径
-    this->Armors(1,0) = this->Armors(1,2) = r_small;
-    this->Armors(1,1) = this->Armors(1,3) = r_small + this->l_diff; // 即 r_large
+    this->Armors(1,0) = this->Armors(1,2) = r;
+    this->Armors(1,1) = this->Armors(1,3) = r ; // 即 r_large
 
     // 高度 Z 坐标
     this->Armors(2,0) = this->Armors(2,2) = this->center(2);
-    this->Armors(2,1) = this->Armors(2,3) = this->center(2) + this->h_diff;
+    this->Armors(2,1) = this->Armors(2,3) = this->center(2);;
 
     // 8. 重置所有视角状态
     for(int i = 0; i < 4; i++) {
