@@ -49,13 +49,20 @@ Eigen::Matrix<double, 11, 1> EKFKalman::operator()(
 
     // 过程噪声 Q
     Eigen::Matrix<double, 11, 11> Q = Eigen::Matrix<double, 11, 11>::Zero();
-    Q(0,0)=Q(1,1)=Q(2,2) = 0.25 * dt*dt*dt*dt * this->Var_a;
-    Q(3,3)=Q(4,4)=Q(5,5) = dt*dt * this->Var_a;
-    Q(6,6) = 0.25 * dt*dt*dt*dt * this->Var_alpha;
-    Q(7,7) = dt*dt * this->Var_alpha;
+    // 预先计算好关于 dt 的时间项
+    auto a = dt * dt * dt * dt * 0.25;  // dt^4 / 4
+    auto b = dt * dt * dt * 0.5;       // dt^3 / 2
+    auto c = dt * dt;                // dt^2
+    Q(0,0)=Q(1,1)=Q(2,2) = a * this->Var_a;
+    Q(3,3)=Q(4,4)=Q(5,5) = c * this->Var_a;
+    Q(6,6) = a * this->Var_alpha;
+    Q(7,7) = c * this->Var_alpha;
     Q(8,8) = this->Var_r; 
     Q(9,9) = this->Var_l; 
     Q(10,10) = this->Var_h; 
+
+    Q(0,3) = Q(3,0) = Q(1,4) = Q(4,1) = Q(2,5) = Q(5,2) = b * this->Var_a;     // X 与 Vx 绑定
+    Q(6,7) = Q(7,6) = b * this->Var_alpha; // Yaw 与 w 绑定
 
     this->CovState = F * this->CovState * F.transpose() + Q;
 

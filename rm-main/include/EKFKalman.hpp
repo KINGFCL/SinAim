@@ -7,6 +7,7 @@
 class EKFKalman
 {
 public:
+//状态向量 State 为 11 维: [xc, yc, zc, vxc, vyc, vzc, theta_0, w, r,l,h]
     EKFKalman() = default;
     void Init();
 
