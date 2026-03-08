@@ -126,10 +126,11 @@ int main() {
         
         // cv::waitKey(1);
 
-        if(armors_posi.empty()) continue;
+        
 
         Sov.ConverToWorld(armors_posi,frame.quat);
-        robot.Update(armors_posi,rm::SolveDt(next_point, frame.time,0.005));
+        if(armors_posi.empty()) {robot.Update(rm::SolveDt(next_point, frame.time,0.005));}
+        else(robot.Update(armors_posi,rm::SolveDt(next_point, frame.time,0.005)));
         next_point = frame.time;
 
         // #ifdef MainDebug

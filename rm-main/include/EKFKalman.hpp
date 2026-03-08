@@ -12,7 +12,7 @@ public:
 
     // 过程噪声参数
     const double Var_a = 10000.0, Var_alpha = 0.6;
-    const double Var_r = 0.0000001, Var_l = 0.000001, Var_h = 0.000001; // 结构参数收敛噪声极小
+    const double Var_r = 0.01, Var_l = 0.01, Var_h = 0.01; // 结构参数收敛噪声极小
 
     // 单装甲板更新
     Eigen::Matrix<double, 11, 1> operator()(
@@ -40,7 +40,7 @@ public:
 
     // 测量噪声 R
     const Eigen::Matrix<double, 4, 4> CovView = (Eigen::Matrix<double, 4, 1>() << 
-        100, 100, 100, 0.1 // x, y, z, theta 的观测噪声
+        100, 100, 100, 0.01 // x, y, z, theta 的观测噪声
     ).finished().asDiagonal();
 
 };

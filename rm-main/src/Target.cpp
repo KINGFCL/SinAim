@@ -7,6 +7,7 @@
 #include <eigen3/Eigen/src/Core/Matrix.h>
 #include <eigen3/Eigen/Geometry>
 #include <iostream>
+#include <memory_resource>
 #include <opencv2/core.hpp>
 #include <opencv2/core/cvdef.h>
 #include <opencv2/core/hal/interface.h>
@@ -202,6 +203,63 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
     this->Armors(0,3) = std::remainder(ans(6,0) + CV_PI*3.0/2.0, CV_PI*2.0);
 }
 
+void Robot::Update(double dt)
+{
+    size_t ID = 0;
+    for(size_t i=0;i<4;i++)
+    {
+        if(this->View[i] == ArmorView::Visual)
+        {
+            ID = i;
+            break;
+        }
+    }
+    auto armors = this->Predic(dt);
+    
+    const Eigen::Matrix<double, 4, 1>& armorView = armors.block<4,1>(0,ID);
+
+    //卡尔曼滤波
+    //状态向量 State 为 11 维: [xc, yc, zc, vxc, vyc, vzc, theta_0, w, r,l,h]
+    Eigen::Matrix<double, 11, 1> State;
+    State.block<3,1>(0,0) = this->center;
+    State.block<3,1>(3,0) = this->Speed.block<3,1>(0,0);
+    State(6,0) = this->Armors(0,0);
+    State(7,0) = this->Speed(3,0);
+    State(8,0) = this->Armors(1,0);
+    State(9,0) = this->l_diff;
+    State(10,0) = this->h_diff;
+
+    auto ans = this->Kalman(State, armorView, ID,dt);
+    
+    //更新l,h
+    this->l_diff = ans(9,0);
+    this->h_diff = ans(10,0);
+
+    //更新Robot信息
+    this->Speed.block<3,1>(0,0) = ans.block<3,1>(3,0);
+    this->Speed(3,0) = ans(7,0);
+
+    //更新中心点
+    this->center = ans.block<3,1>(0,0);
+
+    //更新半径
+    this->Armors(1,0) = this->Armors(1,2) = ans(8,0);
+    this->Armors(1,1) = this->Armors(1,3) = ans(8,0) + this->l_diff;
+
+    //更新高度
+    this->Armors(2,0) = this->Armors(2,2) = ans(2,0);
+    this->Armors(2,1) = this->Armors(2,3) = ans(2,0) + this->h_diff;
+
+    // 更新装甲板角度：以 ans(6,0) 为绝对基准推算所有板 (使用逆时针排布)
+    this->Armors(0,0) = ans(6,0);
+    this->Armors(0,1) = std::remainder(ans(6,0) + CV_PI/2.0,   CV_PI*2.0);
+    this->Armors(0,2) = std::remainder(ans(6,0) + CV_PI,       CV_PI*2.0);
+    this->Armors(0,3) = std::remainder(ans(6,0) + CV_PI*3.0/2.0, CV_PI*2.0);
+
+} 
+
+
+
 Eigen::Matrix<double, 4, 4> Robot::Predic(double dt)
 {
     double& w = this->Speed(3,0);
@@ -297,6 +355,7 @@ Eigen::Matrix<double, 4, 4> Robot::Predic(double dt)
 
 
 
+
 double Robot::SolveTheta(const ArmorPosi& armor)
 {
     auto p = armor.toward.cross(cv::Point3d{0,0,1});
@@ -345,6 +404,8 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
 
     // 6. 初始化速度为 0
     this->Speed.setZero();
+
+    this->Armors.block<1,4>(0,0) = Eigen::Matrix<double,1,4>{r,r,r,r};
 
     // 7. 初始化 4 块装甲板的内部状态矩阵 [theta, radius, z]^T
     // 角度

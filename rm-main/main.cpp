@@ -41,7 +41,7 @@ static FastQueue<FrameData> Frames(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-io::HikCamera Hik(1.5,17);
+io::HikCamera Hik(0.5,17);
 io::RTSerial<Packet> ser(20);
 
 Detector detect(Light::Color::Blue,0.5);//,"../../../rm-main/model/mobilenet_v3_112_rgb.onnx"
@@ -137,10 +137,11 @@ int main() {
         
         // cv::waitKey(1);
 
-        if(armors_posi.empty()) continue;
+        
 
         Sov.ConverToWorld(armors_posi,frame.quat);
-        robot.Update(armors_posi,rm::SolveDt(next_point, frame.time,0.005));
+        if(armors_posi.empty()) {robot.Update(rm::SolveDt(next_point, frame.time,0.005));}
+        else(robot.Update(armors_posi,rm::SolveDt(next_point, frame.time,0.005)));
         next_point = frame.time;
 
         // #ifdef MainDebug
