@@ -21,6 +21,7 @@ public:
     Eigen::Matrix<double, 11, 1> operator()(
         const Eigen::Matrix<double, 11, 1>& State,
         const Eigen::Matrix<double, 4, 1>& View, 
+        const cv::Point3d& SCS,
         int armor_id,
         const cv::Quatd& quat,                            
         double dt);
@@ -28,10 +29,13 @@ public:
     // 多装甲板序贯更新
     Eigen::Matrix<double, 11, 1> operator()(
         const Eigen::Matrix<double, 11, 1>& State,
-        const std::vector<Eigen::Matrix<double, 4, 1>>& Views, 
+        const std::vector<Eigen::Matrix<double, 4, 1>>& Views,
+        const cv::Point3d& SCS, 
         const std::vector<int>& armor_ids,
         const cv::Quatd& quat,                         
-        double dt);    
+        double dt);
+        
+    Eigen::Matrix3d getJacobianSphericalToCartesian(const cv::Point3d& SCS);
 
     Eigen::Matrix<double, 11, 11> CovState;
 
@@ -45,8 +49,9 @@ public:
 
     // 测量噪声 R
     Eigen::Matrix<double, 4, 4> CovView = Eigen::Matrix<double, 4, 4>::Zero(); // 4维观测: [x, y, z, yaw] 
-    const Eigen::Matrix<double, 3, 3> CovViewCamera = (Eigen::Matrix<double, 4, 1>() << 
-        10, 10, 100 // 相机器的x, y, z 的观测噪声
+    
+    const Eigen::Matrix<double, 3, 3> CovViewCamera = (Eigen::Matrix<double, 3, 1>() << 
+        100, 0.0004, 0.0004  // 相机中球坐标系下的方差，r,theta,phi 的观测噪声
     ).finished().asDiagonal();
 
     const Eigen::Matrix<double, 3, 3> RCamera2Grip// 从相机坐标系到手坐标系的旋转矩阵

@@ -2,6 +2,7 @@
 #define LIGHT_AND_ARMOR_STRUCT
 #include "opencv2/opencv.hpp"
 #include <algorithm>
+#include <cmath>
 #include <opencv2/core/types.hpp>
 #include <vector>
 struct Light{
@@ -50,6 +51,11 @@ struct ArmorPosi{
     cv::Point3d posi;
     cv::Point3d face;
     cv::Point3d toward;
+    /*
+    SCS 是装甲板在相机坐标系下的球坐标,
+    包含三个分量：r（距离）、theta（仰角）和phi（方位角）
+    */
+    cv::Point3d SCS; 
 
     double theta;//装甲板在相机坐标系下的偏航角(rad)
     double error;
@@ -61,8 +67,15 @@ struct ArmorPosi{
     float confidence = 0; 
 
     ArmorPosi(cv::Point3d posi, cv::Point3d face, cv::Point3d toward, double theta, double error):
-              posi(posi), face(face), toward(toward), theta(theta), error(error){}
-};
+              posi(posi), face(face), toward(toward), theta(theta), error(error)
+              {
+                double& x = this->posi.x, & y = this->posi.y, & z = this->posi.z;
+                double xx = x*x, yy = y*y, zz = z*z;
+                this->SCS = cv::Point3d(std::sqrt(xx + yy + zz),
+                                        std::atan2(std::sqrt(xx + yy), z),
+                                        std::atan2(y, x));
+              }
+    };
 struct YoloArmor{ 
     cv::Rect box;
     float conf;

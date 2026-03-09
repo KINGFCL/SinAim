@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <eigen3/Eigen/src/Core/Matrix.h>
 #include <eigen3/Eigen/src/Geometry/Quaternion.h>
+#include <opencv2/core/types.hpp>
 #include <vector>
 #include <algorithm>
 #include "opencv2/core/cvdef.h"
@@ -17,14 +18,15 @@ void EKFKalman::Init()
 // ---------------------------------------------------------
 Eigen::Matrix<double, 11, 1> EKFKalman::operator()(
     const Eigen::Matrix<double, 11, 1>& State,
-    const Eigen::Matrix<double, 4, 1>& View, 
+    const Eigen::Matrix<double, 4, 1>& View,
+    const cv::Point3d& SCS, 
     int armor_id,
     const cv::Quatd& quat, 
     double dt)
 {
     std::vector<Eigen::Matrix<double, 4, 1>> Views = {View};
     std::vector<int> armor_ids = {armor_id};
-    return this->operator()(State, Views, armor_ids, quat, dt);
+    return this->operator()(State, Views, SCS, armor_ids, quat, dt);
 }
 
 // ---------------------------------------------------------
@@ -32,17 +34,20 @@ Eigen::Matrix<double, 11, 1> EKFKalman::operator()(
 // ---------------------------------------------------------
 Eigen::Matrix<double, 11, 1> EKFKalman::operator()(
     const Eigen::Matrix<double, 11, 1>& State,
-    const std::vector<Eigen::Matrix<double, 4, 1>>& Views, 
+    const std::vector<Eigen::Matrix<double, 4, 1>>& Views,
+    const cv::Point3d& SCS,  
     const std::vector<int>& armor_ids,
-    const cv::Quatd& quat, 
+    const cv::Quatd& quat,
     double dt)
 {
     //计算观测噪声矩阵
+    Eigen::Matrix3d JacobianS2C = this->getJacobianSphericalToCartesian(SCS);
+    Eigen::Matrix3d CovViewCameraCCS = JacobianS2C * this->CovViewCamera * JacobianS2C.transpose(); // 相机坐标系下的观测噪声
     Eigen::Quaterniond EigenQuat(quat.w, quat.x, quat.y, quat.z);
     Eigen::Matrix3d R_cam2world = EigenQuat.toRotationMatrix() * this->RCamera2Grip; // 从相机坐标系到世界坐标系的旋转矩阵
 
     this->CovView.block<3,3>(0,0) = 
-        R_cam2world * this->CovViewCamera * R_cam2world.transpose(); // 将相机观测噪声转换到世界坐标系
+        R_cam2world * CovViewCameraCCS * R_cam2world.transpose(); // 将相机观测噪声转换到世界坐标系
     
     this->CovView(3,3) = this->Var_yaw; // yaw 观测噪声
 
@@ -177,4 +182,44 @@ Eigen::Matrix<double, 11, 1> EKFKalman::operator()(
     }
 
     return X_curr;
+}
+
+
+/**
+ * @brief 计算从相机球坐标系到笛卡尔坐标系的雅可比矩阵
+ * * @param SCS 球坐标点 (x: 半径 r, y: 极角 theta, z: 方位角 phi)
+ * 基于 OpenCV 相机系约定：Z向前，X向右，Y向下
+ * @return Eigen::Matrix3d 返回 3x3 的雅可比矩阵 J
+ */
+Eigen::Matrix3d EKFKalman::getJacobianSphericalToCartesian(const cv::Point3d& SCS) {
+    // SCS.x = r (距离)
+    // SCS.y = theta (极角，与Z轴夹角)
+    // SCS.z = phi (方位角，XY平面夹角)
+    const double& r     = SCS.x;
+    const double& theta = SCS.y;
+    const double& phi   = SCS.z;
+
+    double st = std::sin(theta);
+    double ct = std::cos(theta);
+    double sp = std::sin(phi);
+    double cp = std::cos(phi);
+
+    Eigen::Matrix3d J;
+
+    // 第一行：∂x/∂r, ∂x/∂theta, ∂x/∂phi
+    J(0, 0) = st * cp;               // sin(theta) * cos(phi)
+    J(0, 1) = r * ct * cp;           // r * cos(theta) * cos(phi)
+    J(0, 2) = -r * st * sp;          // -r * sin(theta) * sin(phi)
+
+    // 第二行：∂y/∂r, ∂y/∂theta, ∂y/∂phi
+    J(1, 0) = st * sp;               // sin(theta) * sin(phi)
+    J(1, 1) = r * ct * sp;           // r * cos(theta) * sin(phi)
+    J(1, 2) = r * st * cp;           // r * sin(theta) * cos(phi)
+
+    // 第三行：∂z/∂r, ∂z/∂theta, ∂z/∂phi
+    J(2, 0) = ct;                    // cos(theta)
+    J(2, 1) = -r * st;               // -r * sin(theta)
+    J(2, 2) = 0.0;                   // z轴坐标与phi无关
+
+    return J;
 }
