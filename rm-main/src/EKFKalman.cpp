@@ -104,10 +104,9 @@ Eigen::Matrix<double, 11, 1> EKFKalman::operator()(
         }
     }
 
-    //如果有多块板，优先更新“最正对”的那一块
+    //如果有多块板，优先更新“最正对”的那一块，最多只有 2 块板
     if (Views.size() == 2) 
     {
-        // 绝大多数多板情况只有 2 块板，直接一个 if 搞定，0 函数调用开销！
         if (face_projs[update_order[0]] < face_projs[update_order[1]]) {
             std::swap(update_order[0], update_order[1]);
         }
