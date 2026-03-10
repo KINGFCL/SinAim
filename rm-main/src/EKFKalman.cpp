@@ -1,4 +1,5 @@
 #include "../include/EKFKalman.hpp"
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <eigen3/Eigen/src/Core/Matrix.h>
@@ -118,21 +119,34 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
 Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     const Eigen::Matrix<double, 14, 1>& State,
     const Eigen::Matrix<double, 10, 1>& Views,
-    const cv::Point3d& SCS, 
+    const cv::Point3d& SCS1,
+    const cv::Point3d& SCS2, 
     int armor_id,
     const cv::Quatd& quat, 
     double dt)
 {
     //计算观测噪声矩阵
-    Eigen::Matrix3d JacobianS2C = this->getJacobianSphericalToCartesian(SCS);
-    Eigen::Matrix3d CovViewCameraCCS = JacobianS2C * this->CovViewCamera * JacobianS2C.transpose(); // 相机坐标系下的观测噪声
+    Eigen::Matrix3d JacobianS2C1 = this->getJacobianSphericalToCartesian(SCS1);
+    Eigen::Matrix3d JacobianS2C2 = this->getJacobianSphericalToCartesian(SCS2);
+
+    Eigen::Matrix3d CovViewCameraCCS1 = JacobianS2C1 * this->CovViewCamera * JacobianS2C1.transpose(); // 相机坐标系下的观测噪声
+    Eigen::Matrix3d CovViewCameraCCS2 = JacobianS2C2 * this->CovViewCamera * JacobianS2C2.transpose(); // 相机坐标系下的观测噪声
+    
     Eigen::Quaterniond EigenQuat(quat.w, quat.x, quat.y, quat.z);
     Eigen::Matrix3d R_cam2world = EigenQuat.toRotationMatrix() * this->RCamera2Grip; // 从相机坐标系到世界坐标系的旋转矩阵
 
-    this->CovView.block<3,3>(0,0) = 
-        R_cam2world * CovViewCameraCCS * R_cam2world.transpose(); // 将相机观测噪声转换到世界坐标系
+    this->CovViews.block<3,3>(0,0) = 
+        R_cam2world * CovViewCameraCCS1 * R_cam2world.transpose(); // 将相机观测噪声转换到世界坐标系
+
+    this->CovViews.block<3,3>(4,4) = 
+        R_cam2world * CovViewCameraCCS2 * R_cam2world.transpose();
     
-    this->CovView(3,3) = this->Var_yaw; // yaw 观测噪声
+    this->CovViews(3,3) = this->CovViews(7,7) = this->Var_yaw; // yaw 观测噪声
+
+    this->CovViews(8,8) = this->CovViews(2,2) + this->CovViews(6,6); // h 观测噪声
+
+    this->CovViews(9,9) = this->Var_dtheta; // dtheta 观测噪声
+
 
     // ==========================================
     // 1. 预测阶段 (Predict) - 纯线性匀速模型
@@ -173,7 +187,7 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     Eigen::Matrix<double, 10, 14> H = this->getStateToViewsJacobian(X_curr, armor_id);
 
     //计算卡尔曼增益
-    Eigen::Matrix<double, 14, 10> K = this->CovState * H.transpose() * (H * this->CovState * H.transpose() + this->CovView).inverse();
+    Eigen::Matrix<double, 14, 10> K = this->CovState * H.transpose() * (H * this->CovState * H.transpose() + this->CovViews).inverse();
 
     //更新状态
     int id1 = armor_id;
@@ -221,11 +235,8 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     Eigen::Matrix<double, 10, 1> Views_curr;
     Views_curr.block<4,1>(0,0) = View_curr1;
     Views_curr.block<4,1>(4,0) = View_curr2;
-    if(id1 == 0)
-    {
-        Views_curr(8,0) = pred_h;
-    }
-    
+
+    Views_curr(8,0) = ( (id1 == 0 || id1 == 2) ? pred_h : -pred_h );
 
     if(id1 == 0)
     {
@@ -253,7 +264,7 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     X_next(13) = std::remainder(X_next(13), CV_PI * 2.0);
 
     Eigen::Matrix<double, 14, 14> I_KH = Eigen::Matrix<double, 14, 14>::Identity() - K * H;
-    this->CovState = I_KH * this->CovState * I_KH.transpose() + K * this->CovView * K.transpose();
+    this->CovState = I_KH * this->CovState * I_KH.transpose() + K * this->CovViews * K.transpose();
     return X_next;
 }
 

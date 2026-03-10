@@ -17,7 +17,7 @@ public:
     void Init();
 
     // 过程噪声参数
-    const double Var_yaw = 0.6; // 观测yaw值方差
+    const double Var_yaw = 0.6, Var_dtheta = 0.001,Var_h_view = 10.0; // 观测yaw值方差
     const double Var_a = 10000.0, Var_alpha = 0.6;
     const double Var_r = 0.01, Var_l = 0.01, Var_h = 0.01; // 结构参数收敛噪声极小
 
@@ -42,7 +42,8 @@ public:
     Eigen::Matrix<double, 14, 1> operator()(
         const Eigen::Matrix<double, 14, 1>& State,
         const Eigen::Matrix<double, 10, 1>& Views,
-        const cv::Point3d& SCS, 
+        const cv::Point3d& SCS1,
+        const cv::Point3d& SCS2,
         int armor_id,
         const cv::Quatd& quat,                         
         double dt);
