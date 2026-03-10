@@ -69,11 +69,11 @@ public:
     @param armors 输入的装甲板位置，必须包含一个或者两个装甲板
     /装甲板数量大于2时只会使用前两个装甲板进行更新，装甲板为空不做任何操作
     */
-    void Update(const std::vector<ArmorPosi>& armors, double dt);
-    void Update(double dt);
+    void Update(const std::vector<ArmorPosi>& armors, const cv::Quatd& gripper_to_world, double dt);
+    void Update(const cv::Quatd& gripper_to_world, double dt);
 
-    void OneArmor(const ArmorPosi& armor, double dt);
-    void TwoArmor(const std::vector<ArmorPosi>& armors, double dt);
+    void OneArmor(const ArmorPosi& armor, const cv::Quatd& gripper_to_world, double dt);
+    void TwoArmor(const std::vector<ArmorPosi>& armors, const cv::Quatd& gripper_to_world, double dt);
 
     /*!
     @return 返回当前装甲板的朝向角
@@ -106,6 +106,7 @@ public:
 */
     Eigen::Matrix<double, 3, 4> Armors;
     double l_diff = 0, h_diff = 0;
+    double d_theta_1 = CV_PI/2, d_theta_2 = CV_PI, d_theta_3 = -CV_PI/2;
 
     std::array<ArmorView, 4> View = {ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual};
 

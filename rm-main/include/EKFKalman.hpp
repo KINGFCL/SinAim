@@ -37,7 +37,7 @@ public:
     /*
         多装甲板序更新
         状态向量 State 为 14 维: [xc, yc, zc, vxc, vyc, vzc, theta_0, w, r,l,h,d_theta_1,d_theta_2,d_theta_3]
-        观测向量 View 为 8 维: [x_i, y_i, z_i, yaw_i, x_i+1, y_i+1, z_i+1, yaw_i+1, z_i+1 - z_i , (d_theta_i+1 - d_theta_i)]
+        观测向量 View 为 10 维: [x_i, y_i, z_i, yaw_i, x_i+1, y_i+1, z_i+1, yaw_i+1, z_i+1 - z_i , (d_theta_i+1 - d_theta_i)]
     */ 
     Eigen::Matrix<double, 14, 1> operator()(
         const Eigen::Matrix<double, 14, 1>& State,
