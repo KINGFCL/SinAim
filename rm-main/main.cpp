@@ -39,8 +39,8 @@ static FastQueue<FrameData> Frames(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-io::HikCamera Hik(1.5,17);
-io::RTSerial<Packet> ser(30);
+io::HikCamera Hik(2,16);
+io::RTSerial<Packet> ser(180);
 
 // 传统视觉检测器
 Detector detect(Light::Color::Blue, 0.5);
@@ -56,7 +56,7 @@ Solver Sov("../../config/Solver_config.yaml");
 Tracker track;
 
 ShootTable::TableConfig tableconfig(10,0,2,-1,0.01,"../../config/infantry_10_table.bin");
-Shooter shoot(cv::Point3d(-0.9972026403208731,0.001749666619733665, -0.07472504803477144),tableconfig);
+Shooter shoot(cv::Point3d(0.9992001066609,0,0.039989334186634),tableconfig);
 
 Test test;
 
@@ -67,7 +67,7 @@ int main() {
 
     std::function<bool(const Packet&)> check_fuc = io::CRC8::Check<Packet>;
     ser.setCheckfuc(check_fuc);
-    int ret = ser.openDevice("/dev/ttyACM1", 460800);
+    int ret = ser.openDevice("/dev/ttyACM0", 460800);
 
     if(ret == 1)
         std::cout<<"serial open ok"<<"\n";
@@ -101,7 +101,7 @@ int main() {
         if(frame.image.empty()) continue;
 
         // cv::imshow("frame", frame.image);
-        cv::waitKey(1);
+        // cv::waitKey(1);
         //计算枪管方向
         const auto& Gun = shoot.GunDirection(frame.quat);
 
@@ -148,20 +148,20 @@ int main() {
                                                current_robot->center.z()/100.0));
         auto aims = current_robot->Predic(dt);
 
-        #ifdef MainDebug
-        if(test.num%4 == 0 && test.num != 0)
-            viz.update(*current_robot, aims, dt, Gun);
-        #endif
+
 
         auto aim = rm::ChooseBestAimArmor(aims, current_robot->Speed, Gun);
 
+        // std::cout<<aim.norm()<<"\n";
         // 10. 计算射击角度
         auto predict_posi = cv::Point3d(aim(0,0)/100.0, aim(1,0)/100.0, aim(2,0)/100.0);
         std::array<double, 2> Pitch_and_Yaw = shoot(predict_posi);
 
         // 11. 发送控制指令
-        // rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], true);
-
+        //bool fire_ = rm::checkPitchYawDeviation(frame.quat, Pitch_and_Yaw[0], Pitch_and_Yaw[1], 0.1, 0.01);
+        rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], true);
+        // std::cout<<fire_<<"\n";
+        // std::cout<<"Pitch: "<<Pitch_and_Yaw[0]<<" Yaw: "<<Pitch_and_Yaw[1]<<"\n";
         // 性能统计
         test.count(std::chrono::steady_clock::now() - start);
         start = std::chrono::steady_clock::now();
@@ -170,7 +170,10 @@ int main() {
             test.show();
             test.clear();
         }
-
+        #ifdef MainDebug
+        if(test.num%4 == 0 && test.num != 0)
+            viz.update(*current_robot, aims, dt, Gun);
+        #endif
         // 可视化
         // for(const auto& armor_posi : armors_posi)
         // {

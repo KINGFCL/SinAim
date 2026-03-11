@@ -19,9 +19,9 @@ public:
     void Init();
 
     // 过程噪声参数
-    const double r_view = 1000; // 观测噪声半径
-    const double Var_yaw = 0.1, Var_dtheta = 0.001,Var_h_view = 10.0; // 观测yaw值方差
-    const double Var_a = 10000.0, Var_alpha = 0.1;
+    const double r_view = 400; // 观测噪声半径
+    const double Var_yaw = 0.01, Var_dtheta = 0.0001,Var_h_view = 10.0; // 观测yaw值方差
+    const double Var_a = 10000.0, Var_alpha = 0.6;
     const double Var_r = 0.01, Var_l = 0.01, Var_h = 0.01; // 结构参数收敛噪声极小
 
     /*
@@ -69,8 +69,8 @@ public:
     const Eigen::Matrix<double, 14, 14> CovStateInit = (Eigen::Matrix<double, 14, 1>() << 
         100, 100, 100,       // xc, yc, zc 位置方差
         10000, 10000, 10000, // vxc, vyc, vzc 速度方差
-        0.01, 0.25,           // theta, w 角度与角速度方差
-        10, 10, 10,           // r, l, h 几何结构初始方差
+        0.01, 0.0,           // theta, w 角度与角速度方差
+        0, 0, 10,           // r, l, h 几何结构初始方差
         0.0016, 0.0016, 0.0016  //d_theta_1,d_theta_2,d_theta_3
     ).finished().asDiagonal();
 

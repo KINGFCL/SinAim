@@ -39,7 +39,7 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
         R_cam2world * CovViewCameraCCS * R_cam2world.transpose(); // 将相机观测噪声转换到世界坐标系
     
     double yaw_var_standard = ( log ( std::max( (View.block<3,1>(0,0).norm() / 100) - 3, 0.0 ) + 1 ) + 1.0 ) * this->Var_yaw; // yaw 观测噪声
-    this->CovViews(3,3) = exp(std::abs(delta_angle) - (CV_PI/4) ) * yaw_var_standard;
+    this->CovView(3,3) = exp(std::abs(delta_angle) - (CV_PI/4) ) * yaw_var_standard;
     // ==========================================
     // 1. 预测阶段 (Predict) - 纯线性匀速模型
     // ==========================================

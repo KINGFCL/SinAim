@@ -457,7 +457,7 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
     double yaw0 = this->SolveTheta(best_armor);
 
     // 5. 初始化底盘中心点 (基于 0 号板和三角函数逆推)
-    double r = 20.0f;
+    double r = 24.0f;
 
     this->center(0) = best_armor.posi.x - r * std::cos(yaw0);
     this->center(1) = best_armor.posi.y - r * std::sin(yaw0);
@@ -465,10 +465,12 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
 
     // 6. 初始化速度为 0
     this->Speed.setZero();
+    // this->Speed(3,0) = -2.51327;
 
     // 半径
     this->Armors.block<1,4>(1,0) = Eigen::Matrix<double,1,4>{r,r,r,r};
-
+    this->l_diff = 0.0;
+    this->h_diff = 0.0;
     // 7. 初始化 4 块装甲板的内部状态矩阵 [theta, radius, z]^T
     // 角度
     this->Armors(0,0) = yaw0;

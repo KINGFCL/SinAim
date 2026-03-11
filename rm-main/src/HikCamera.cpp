@@ -155,10 +155,10 @@ void HikCamera::capture_init()
   }
 
   // 设置 ADC 位深为 8 Bits (对应枚举值 2)
-  // ret = MV_CC_SetEnumValue(handle_, "ADCBitDepth", 2); 
-  // if (MV_OK != ret) {
-  //     tools::logger()->warn("Set ADCBitDepth to 8-Bit (Val:2) failed! nRet [0x{0:x}]", ret);
-  // }
+  ret = MV_CC_SetEnumValue(handle_, "ADCBitDepth", 2); 
+  if (MV_OK != ret) {
+      tools::logger()->warn("Set ADCBitDepth to 8-Bit (Val:2) failed! nRet [0x{0:x}]", ret);
+  }
 
   set_enum_value("BalanceWhiteAuto", MV_BALANCEWHITE_AUTO_CONTINUOUS);
   set_enum_value("ExposureAuto", MV_EXPOSURE_AUTO_MODE_OFF);

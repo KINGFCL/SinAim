@@ -1,5 +1,7 @@
 #include "Function.hpp"
 #include <chrono>
+#include <cmath>
+#include <opencv2/core/quaternion.hpp>
 #include <ratio>
 #include <sys/types.h>
 
@@ -27,10 +29,10 @@ void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::RTSerial<Packet> &ser,
             //配对超时
 
             //串口数据比相机数据早8ms以上
-            if( t > 8 ) continue;
+            if( t > 9 ) continue;
 
             //串口数据比相机数据早5ms以下
-            if( t < 5 ) break;
+            if( t < 7 ) break;
 
             //配对成功
             cv::Quatd quat( IMU.q3, IMU.q0, IMU.q1, IMU.q2 );
@@ -267,4 +269,40 @@ std::vector<YoloArmor> rm::MatchYoloAndOpenCV(const std::deque<Armor>& armors, c
     }
 
     return matched_results;
+}
+
+bool rm::checkPitchYawDeviation(const cv::Quatd& q_B_to_A, 
+                            double pitch_C, double yaw_C, 
+                            double pitch_thresh, double yaw_thresh) {
+    
+    // 1. 求 A 到 B 的四元数 (即 B 到 A 的逆)
+    // 对于单位四元数，逆就是共轭四元数 (w不变，虚部取反)
+    cv::Quatd q_A_to_B = { q_B_to_A.w, -q_B_to_A.x, -q_B_to_A.y, -q_B_to_A.z };
+    
+    // 2. 将 A 到 B 的四元数转为欧拉角 (假设顺序为 ZYX: Yaw-Pitch-Roll)
+    double w = q_A_to_B.w;
+    double x = q_A_to_B.x;
+    double y = q_A_to_B.y;
+    double z = q_A_to_B.z;
+
+    // Pitch (y-axis rotation)
+    // 注意：需要限制 asin 的输入在 [-1, 1] 避免浮点精度导致 NaN
+    double sinp = 2.0 * (w * y - z * x);
+    double pitch_B;
+    if (std::abs(sinp) >= 1.0)
+        pitch_B = std::copysign(M_PI / 2.0, sinp); // 万向节死锁处理
+    else
+        pitch_B = std::asin(sinp);
+
+    // Yaw (z-axis rotation)
+    double siny_cosp = 2.0 * (w * z + x * y);
+    double cosy_cosp = 1.0 - 2.0 * (y * y + z * z);
+    double yaw_B = std::atan2(siny_cosp, cosy_cosp);
+
+    // 3. 计算并归一化角度偏差
+    double pitch_diff = std::abs(std::remainder(pitch_B - pitch_C, 2*CV_PI));
+    double yaw_diff = std::abs(std::remainder(yaw_B - yaw_C, 2*CV_PI));
+
+    // 4. 判断是否在阈值内
+    return (pitch_diff <= pitch_thresh) && (yaw_diff <= yaw_thresh);
 }

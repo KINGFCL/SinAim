@@ -16,7 +16,7 @@ find_package(spdlog REQUIRED)
 find_package(MVS REQUIRED)
 find_package(PkgConfig REQUIRED)
 
-pkg_check_modules(LIBUSB_1.0 REQUIRED libusb-1.0)
+
 # find_package(LibUSB 1.0 REQUIRED)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_executable(GunCalibrate 
@@ -26,7 +26,7 @@ add_executable(GunCalibrate
 )
 
 target_include_directories(GunCalibrate PUBLIC ${MVS_INCLUDE_DIRS})
-target_link_libraries(GunCalibrate ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${LIBUSB_1.0_LIBRARIES} ${MVS_LIBS} )
+target_link_libraries(GunCalibrate ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} )
 # add the executable target
 
 

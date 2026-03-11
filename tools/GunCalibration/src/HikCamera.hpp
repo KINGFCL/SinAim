@@ -7,7 +7,6 @@
 #include <thread>
 
 #include "thread_safe_queue.hpp"
-#include <libusb-1.0/libusb.h>
 #include "MvCameraControl.h"
 #include "opencv2/opencv.hpp"
 
