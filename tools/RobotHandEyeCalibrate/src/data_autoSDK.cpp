@@ -58,7 +58,7 @@ struct Test
 void IMUAndImageMatchThread(io::HikCamera& Hik, io::RTSerial<Packet>& ser,FastQueue<FrameData>& Frames);
 
 
-io::HikCamera Hik(4,5);
+io::HikCamera Hik(4,10);
 io::RTSerial<Packet> ser(20);
 static FastQueue<FrameData> Frames(10);
 

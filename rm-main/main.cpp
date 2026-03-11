@@ -39,8 +39,8 @@ static FastQueue<FrameData> Frames(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-io::HikCamera Hik(0.5,17);
-io::RTSerial<Packet> ser(20);
+io::HikCamera Hik(1.5,17);
+io::RTSerial<Packet> ser(30);
 
 // 传统视觉检测器
 Detector detect(Light::Color::Blue, 0.5);
@@ -67,7 +67,7 @@ int main() {
 
     std::function<bool(const Packet&)> check_fuc = io::CRC8::Check<Packet>;
     ser.setCheckfuc(check_fuc);
-    int ret = ser.openDevice("/dev/ttyACM0", 460800);
+    int ret = ser.openDevice("/dev/ttyACM1", 460800);
 
     if(ret == 1)
         std::cout<<"serial open ok"<<"\n";
@@ -83,7 +83,7 @@ int main() {
     //3.0创建数据配对线程，并将数据发布到Frames环形队列
     std::thread match_thread = std::thread(rm::IMUAndImageMatchFunction, std::ref(Hik), std::ref(ser), std::ref(Frames));
 
-    cv::namedWindow("frame");
+    // cv::namedWindow("frame");
     auto start = std::chrono::steady_clock::now();
 
     std::printf("Start main loop\n");
@@ -100,6 +100,8 @@ int main() {
         }
         if(frame.image.empty()) continue;
 
+        // cv::imshow("frame", frame.image);
+        cv::waitKey(1);
         //计算枪管方向
         const auto& Gun = shoot.GunDirection(frame.quat);
 
@@ -107,11 +109,17 @@ int main() {
         std::vector<cv::Mat> armors_pattern;
         auto opencv_armors = detect(frame.image, armors_pattern);
 
+        // std::cout<<"opencv_armors num:" << opencv_armors.size() << "\n";
+
         // 2. YOLO检测
         auto yolo_armors = yolo11detect(frame.image);
 
+        // std::cout<<"yolo_armors num:" << yolo_armors.size() << "\n";
+
         // 3. 融合传统视觉和YOLO的结果
         auto fused_yolo_armors = rm::MatchYoloAndOpenCV(opencv_armors, yolo_armors);
+
+        // std::cout<<"fused_yolo_armors num:" << fused_yolo_armors.size() << "\n";
 
         // 4. 解算装甲板位置 (使用融合后的YOLO结果)
         auto armors_posi = Sov(fused_yolo_armors);
@@ -119,9 +127,10 @@ int main() {
         // 5. 筛选装甲板，内部自动坐标系转换到世界坐标系
         Sov.FilterAndConverToWorld(armors_posi, frame.quat, Gun, 20);
 
-
+        // std::cout<<"FilterAndConverToWorld armors_posi num:" << armors_posi.size() << "\n";
+        
         // 7. 使用Tracker进行追踪
-        track(armors_posi, frame.quat, Gun, rm::SolveDt(next_point, frame.time, 0.005));
+        track(armors_posi, frame.quat, Gun, rm::SolveDt(next_point, frame.time, 0.01));
         next_point = frame.time;
 
         // 8. 获取当前追踪的机器人

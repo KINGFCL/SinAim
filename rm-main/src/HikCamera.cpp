@@ -155,10 +155,10 @@ void HikCamera::capture_init()
   }
 
   // 设置 ADC 位深为 8 Bits (对应枚举值 2)
-  ret = MV_CC_SetEnumValue(handle_, "ADCBitDepth", 2); 
-  if (MV_OK != ret) {
-      tools::logger()->warn("Set ADCBitDepth to 8-Bit (Val:2) failed! nRet [0x{0:x}]", ret);
-  }
+  // ret = MV_CC_SetEnumValue(handle_, "ADCBitDepth", 2); 
+  // if (MV_OK != ret) {
+  //     tools::logger()->warn("Set ADCBitDepth to 8-Bit (Val:2) failed! nRet [0x{0:x}]", ret);
+  // }
 
   set_enum_value("BalanceWhiteAuto", MV_BALANCEWHITE_AUTO_CONTINUOUS);
   set_enum_value("ExposureAuto", MV_EXPOSURE_AUTO_MODE_OFF);
@@ -169,7 +169,7 @@ void HikCamera::capture_init()
 
 
 
-  ret = MV_CC_SetFloatValue(handle_, "AcquisitionFrameRate", 200);
+  ret = MV_CC_SetFloatValue(handle_, "AcquisitionFrameRate", 100);
   if (ret != MV_OK) {
     tools::logger()->warn("MV_CC_SetFloatValue(set framerate) failed: {:#x}", ret);
     return;
@@ -223,8 +223,8 @@ void HikCamera::continueCap(size_t MaxframeNum)
         {PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2RGB}};
       cv::cvtColor(img, dst_image, type_map.at(pixel_type));
 
-      // cv::rotate(dst_image, img, cv::ROTATE_180); // 水平翻转
-      img = dst_image;
+      cv::rotate(dst_image, img, cv::ROTATE_180); // 水平翻转
+      // img = dst_image;
       Frames.push({img, timestamp});
 
       ret = MV_CC_FreeImageBuffer(handle_, &raw);
