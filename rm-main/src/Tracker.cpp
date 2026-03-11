@@ -46,7 +46,7 @@ void Tracker::operator()(std::vector<ArmorPosi>& armors_posi,
 
     case State::Lost:
         // 彻底丢失状态，重新进入搜索
-        reset();
+        this->reset();
         handleSearching(armors_posi, gripper_to_world, Gun, dt);
         break;
     }
@@ -90,6 +90,7 @@ void Tracker::handleSearching(std::vector<ArmorPosi>& armors_posi,
         {
             Num[i] = 0;
             this->search_data_buffers[i].clear();
+            this->search_time_buffers[i].clear();
         }
         else
         {
@@ -106,15 +107,16 @@ void Tracker::handleSearching(std::vector<ArmorPosi>& armors_posi,
             // 找到稳定目标，进入追踪状态
             current_target_type = static_cast<ArmorPosi::Type>(i);
             current_state = State::Tracking;
-            current_robot = &robot_instance;
+            current_robot = &this->robot_instance;
 
             std::cout << "[Tracker] 进入追踪状态，目标类型: " << i << "\n";
 
             current_robot->Init(this->search_data_buffers[i][0]);
             // 使用缓冲区中的所有数据初始化 Robot
-            for(int ii = 1;ii<this->search_data_buffers[ii].size();ii++)
+            for (size_t j = 1; j < this->search_data_buffers[i].size(); ++j)
             {
-                current_robot->Update(this->search_data_buffers[ii][ii], gripper_to_world ,this->search_time_buffers[ii][ii]);
+                // i 是外部循环已经确定的目标类型索引，j 是帧序列号
+                current_robot->Update(this->search_data_buffers[i][j], gripper_to_world, this->search_time_buffers[i][j]);
             }
 
             // 进入追踪模式，只有可能因为丢失而进入丢失状态
@@ -143,8 +145,8 @@ void Tracker::handleTracking(std::vector<ArmorPosi>& armors_posi,
             // 进入暂丢状态
             current_state = State::TempLost;
             std::cout << "[Tracker] 进入暂丢状态" << std::endl;
+            return ;
         }
-
         // 使用线性更新
         if (current_robot)
         {
@@ -167,11 +169,14 @@ void Tracker::handleTracking(std::vector<ArmorPosi>& armors_posi,
         {
             // 找到最靠近中心的装甲板
             const ArmorPosi* center_armor = nullptr;
-            double min_dot = 0;
 
             int id = this->MaxCloseCenterTarget(armors_posi, Gun);
 
-            center_armor = &armors_posi[id];
+            if (id != -1)
+            {
+                center_armor = &armors_posi[id];
+            }
+            
             
             if (center_armor != nullptr && center_armor->type != this->current_target_type)
             {
@@ -184,7 +189,7 @@ void Tracker::handleTracking(std::vector<ArmorPosi>& armors_posi,
                     {
                         // 切换目标
                         std::cout << "[Tracker] 切换目标，新类型: "
-                                  << static_cast<int>(center_armor->type) << std::endl;
+                                  << static_cast<int>(center_armor->type) << "\n";
 
                         current_target_type = center_armor->type;
                         current_robot->Clear();
@@ -232,6 +237,7 @@ void Tracker::handleTempLost(std::vector<ArmorPosi>& armors_posi,
             // 彻底丢失
             current_state = State::Lost;
             std::cout << "[Tracker] 目标彻底丢失" << std::endl;
+
             return;
         }
 
