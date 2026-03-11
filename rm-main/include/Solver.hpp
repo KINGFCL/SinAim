@@ -41,7 +41,7 @@ public:
                 const Eigen::Matrix<double, 3, 1>& Gun,
                 const size_t num = 1);
                 
-    void Filter(std::vector<ArmorPosi>& armors_posi,
+    void FilterAndConverToWorld(std::vector<ArmorPosi>& armors_posi,
                 const cv::Quatd& gripper_to_world,
                 const Eigen::Matrix<double, 3, 1>& Gun,
                 const size_t num = 1);

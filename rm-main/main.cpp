@@ -1,12 +1,12 @@
 #include "include/HikCamera.hpp"
-#include "include/NumClassifier.hpp"
 #include "include/RTSerial.hpp"
+#include "include/Yolo.hpp"
 #include "include/fastqueue.hpp"
 #include "include/Detector.hpp"
 #include "include/Solver.hpp"
 #include "include/Shooter.hpp"
 #include "include/Target.hpp"
-// #include "../../rm-main/include/Tracker.hpp"
+#include "include/Tracker.hpp"
 #include "include/ShootTable.hpp"
 #include "include/Data.hpp"
 #include "Function.hpp"
@@ -23,8 +23,6 @@
 double R_sum = 0.0;
 int R_count = 0;
 #endif
-//Debug
-
 
 //性能测试工具
 struct Test
@@ -44,15 +42,18 @@ std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::no
 io::HikCamera Hik(0.5,17);
 io::RTSerial<Packet> ser(20);
 
-Detector detect(Light::Color::Blue,0.5);//,"../../../rm-main/model/mobilenet_v3_112_rgb.onnx"
-NumClassifier classifier("../model/mobilenet_v3_arcface_best.onnx","../model/centers.yaml");
+// 传统视觉检测器
+Detector detect(Light::Color::Blue, 0.5);
+
+// YOLO检测器
+YOLO11Detector yolo11detect("../model/yolo11.xml", YOLO11Detector::Camp::Blue);
 
 RerunVisualizer viz("RoboMaster_AutoAim");
 
 Solver Sov("../../config/Solver_config.yaml");
-Robot robot;
-// Tracker track;
 
+// 追踪器
+Tracker track;
 
 ShootTable::TableConfig tableconfig(10,0,2,-1,0.01,"../../config/infantry_10_table.bin");
 Shooter shoot(cv::Point3d(-0.9972026403208731,0.001749666619733665, -0.07472504803477144),tableconfig);
@@ -67,12 +68,12 @@ int main() {
     std::function<bool(const Packet&)> check_fuc = io::CRC8::Check<Packet>;
     ser.setCheckfuc(check_fuc);
     int ret = ser.openDevice("/dev/ttyACM0", 460800);
-    
+
     if(ret == 1)
         std::cout<<"serial open ok"<<"\n";
     else
         std::cerr<<"serial open err: "<<ret<<"\n";
-    
+
     ser.startReceive(100);
 
 
@@ -88,114 +89,91 @@ int main() {
     std::printf("Start main loop\n");
 
     while(true)
-    {    
+    {
         if(Frames.empty()) continue;
 
         FrameData frame;
 
-        while (!Frames.empty()) 
+        while (!Frames.empty())
         {
             Frames.pop(frame);
         }
         if(frame.image.empty()) continue;
+
         //计算枪管方向
-        // cv::imshow("frame",frame.image);
-        // cv::waitKey(1);
         const auto& Gun = shoot.GunDirection(frame.quat);
 
+        // 1. 传统视觉检测
         std::vector<cv::Mat> armors_pattern;
+        auto opencv_armors = detect(frame.image, armors_pattern);
 
-        auto armors = detect(frame.image,armors_pattern);
+        // 2. YOLO检测
+        auto yolo_armors = yolo11detect(frame.image);
 
-        // std::cout<<"------------------------------------------------\n";
+        // 3. 融合传统视觉和YOLO的结果
+        auto fused_yolo_armors = rm::MatchYoloAndOpenCV(opencv_armors, yolo_armors);
 
-        // std::cout<<"detect num: "<<armors.size()<<"\n";
+        // 4. 解算装甲板位置 (使用融合后的YOLO结果)
+        auto armors_posi = Sov(fused_yolo_armors);
 
-        //解算装甲板位置
-        auto armors_posis = Sov(armors);
+        // 5. 筛选装甲板，内部自动坐标系转换到世界坐标系
+        Sov.FilterAndConverToWorld(armors_posi, frame.quat, Gun, 20);
 
-        Sov.Filter(armors_posis, armors_pattern, frame.quat, Gun, 20);
 
-        // std::cout<<"after filter num: "<<armors_posis.size()<<"\n";
-
-        auto armors_posi = classifier(armors_posis,armors_pattern);
-
-        // std::cout<<"after classify num: "<<armors_posi.size()<<"\n";
-
-        Robot::SolveRobotSize(armors_posi);
-
-        // for(const auto& armor_posi : armors_posi)
-        // {
-        //     Sov.ansShow(armor_posi.posi,frame.image);
-        // }
-
-        for(const auto& armor_posi : armors_posi)
-        {
-            Sov.ansShow(armor_posi.posi,frame.image);
-        }
-        // cv::imshow("frame", frame.image);
-        
-        // cv::waitKey(1);
-
-        
-
-        Sov.ConverToWorld(armors_posi,frame.quat);
-        if(armors_posi.empty()) {robot.Update(rm::SolveDt(next_point, frame.time,0.005));}
-        else(robot.Update(armors_posi,rm::SolveDt(next_point, frame.time,0.005)));
+        // 7. 使用Tracker进行追踪
+        track(armors_posi, frame.quat, Gun, rm::SolveDt(next_point, frame.time, 0.005));
         next_point = frame.time;
 
-        // #ifdef MainDebug
-        // std::cout<<"------------------------------------------------\n";
-        // std::cout<<"armors_posi: "<< "\n" <<armors_posi[0].posi<<"\n";
-        // #endif
+        // 8. 获取当前追踪的机器人
+        Robot* current_robot = track.getCurrentRobot();
 
-        double dt = shoot.FlyTime(cv::Point3d(robot.center.x()/100.0, robot.center.y()/100.0, robot.center.z()/100.0));
-        auto aims = robot.Predic(dt);
+        if (current_robot == nullptr)
+        {
+            // 没有追踪到目标，跳过
+            continue;
+        }
+
+        // 9. 预测和瞄准
+        double dt = shoot.FlyTime(cv::Point3d(current_robot->center.x()/100.0,
+                                               current_robot->center.y()/100.0,
+                                               current_robot->center.z()/100.0));
+        auto aims = current_robot->Predic(dt);
 
         #ifdef MainDebug
         if(test.num%4 == 0 && test.num != 0)
-            viz.update(robot, aims, dt,  Gun);
+            viz.update(*current_robot, aims, dt, Gun);
         #endif
 
-        auto aim =  rm::ChooseBestAimArmor(aims, robot.Speed, Gun);
-        
-        // if(test.num%100 == 0 && test.num != 0)
-        // {
-        //     std::cout<<armors_posi[0].posi/10<<"\n";
-        // }
-        // std::cout<<"quat: "<<frame.quat.w<<" "<<frame.quat.x<<" "<<frame.quat.y<<" "<<frame.quat.z<<"\n";
+        auto aim = rm::ChooseBestAimArmor(aims, current_robot->Speed, Gun);
 
+        // 10. 计算射击角度
+        auto predict_posi = cv::Point3d(aim(0,0)/100.0, aim(1,0)/100.0, aim(2,0)/100.0);
+        std::array<double, 2> Pitch_and_Yaw = shoot(predict_posi);
+
+        // 11. 发送控制指令
+        // rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], true);
+
+        // 性能统计
         test.count(std::chrono::steady_clock::now() - start);
         start = std::chrono::steady_clock::now();
 
-        if(test.num%200 == 0 && test.num != 0) {test.show();test.clear();}
+        if(test.num%200 == 0 && test.num != 0) {
+            test.show();
+            test.clear();
+        }
 
-
-        //打弹
-        
-        // std::cout<< "aim: " << aim << "\n";
-        
-        auto predict_posi = cv::Point3d(aim(0,0)/100.0, aim(1,0)/100.0, aim(2,0)/100.0);//单位换算到m
-        // auto predict_posi =  armors_posi[0].posi/100.0;
-        // std::cout<< "Predict Position: " << predict_posi << "\n";
-
-        std::array<double, 2> Pitch_and_Yaw = shoot(predict_posi);
-        // if(0.1 < std::abs(Pitch_and_Yaw[1])  || std::abs(Pitch_and_Yaw[1]) < 0.2 )
+        // 可视化
+        // for(const auto& armor_posi : armors_posi)
         // {
-        //     std::cerr<<"aim error: "<< Pitch_and_Yaw[0]<<" "<<Pitch_and_Yaw[1]<<"\n"<< robot.Speed<<"\n";
-            
-        // }else {
-        //     std::cout<<"aim ok: "<< Pitch_and_Yaw[0]<<" "<<Pitch_and_Yaw[1]<<"\n"<< robot.Speed<<"\n";
+        //     Sov.ansShow(armor_posi.posi, frame.image);
         // }
-
-        // std::cout<<Pitch_and_Yaw[0]<<" "<<Pitch_and_Yaw[1]<<"\n";
-        // rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1] , true);
+        // cv::imshow("frame", frame.image);
+        // cv::waitKey(1);
     }
-    
-    
+
+
     return 0;
 }
-
 
 
 
@@ -210,7 +188,7 @@ void Test::count(const std::chrono::nanoseconds& time)
 void Test::clear()
 {
     this->num = 0;
-    this->total = std::chrono::nanoseconds(0);        
+    this->total = std::chrono::nanoseconds(0);
 }
 
 void Test::show()

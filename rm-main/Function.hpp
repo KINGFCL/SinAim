@@ -10,6 +10,7 @@
 #include <deque>
 #include <eigen3/Eigen/Core>
 #include <opencv2/core/types.hpp>
+#include <vector>
 
 //IMU与图像配对线程逻辑
 namespace rm
@@ -21,6 +22,8 @@ namespace rm
                                                    const Eigen::Matrix<double, 3, 1>& Gun);
     std::deque<Armor> FilterCenterArmor(const std::deque<std::array<ArmorPosi,2>>& armors_posis, const cv::Point3d& Gun, int num = 1);
     double SolveDt(const std::chrono::steady_clock::time_point& start, const std::chrono::steady_clock::time_point& end, double pic);
+    
+    std::vector<YoloArmor> MatchYoloAndOpenCV(const std::deque<Armor>& armors,const std::vector<YoloArmor>& yolo_armors);
 }
 
 

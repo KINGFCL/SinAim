@@ -79,7 +79,7 @@ void Robot::Update(const cv::Quatd& gripper_to_world, double dt)
                                   std::atan2(std::sqrt(xx + yy), z),
                                   std::atan2(y, x));
 
-    auto ans = this->Kalman(State, armorView, SCS, ID, gripper_to_world, dt);
+    auto ans = this->Kalman(State, armorView, SCS, 0.7, ID, gripper_to_world, dt);
     
     //更新l,h
     this->l_diff = ans(9,0);
@@ -143,8 +143,8 @@ void Robot::OneArmor(const ArmorPosi& armor, const cv::Quatd& gripper_to_world, 
 
 
     //卡尔曼滤波
-    //状态向量 State 为 11 维: [xc, yc, zc, vxc, vyc, vzc, theta_0, w, r,l,h,d_theta_1,d_theta_2,d_theta_3]
-    Eigen::Matrix<double, 11, 1> State;
+    //状态向量 State 为 14 维: [xc, yc, zc, vxc, vyc, vzc, theta_0, w, r,l,h,d_theta_1,d_theta_2,d_theta_3]
+    Eigen::Matrix<double, 14, 1> State;
     State.block<3,1>(0,0) = this->center;
     State.block<3,1>(3,0) = this->Speed.block<3,1>(0,0);
     State(6,0) = this->Armors(0,0);
@@ -156,7 +156,7 @@ void Robot::OneArmor(const ArmorPosi& armor, const cv::Quatd& gripper_to_world, 
     State(12,0) = this->d_theta_2;
     State(13,0) = this->d_theta_3;
 
-    auto ans = this->Kalman(State, armorView, armor.SCS, ID, gripper_to_world,dt);
+    Eigen::Matrix<double, 14, 1> ans = this->Kalman(State, armorView, armor.SCS, armor.theta, ID, gripper_to_world,dt);
     
     //更新l,h
     this->l_diff = ans(9,0);
@@ -253,8 +253,9 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, const cv::Quatd& grip
     // 卡尔曼滤波 (一次喂入多个观测值)
     // ==========================================
     std::array<cv::Point3d, 2> SCSs;
+    std::array<double, 2>yaws;
 
-    if( (IDS[0]+1%4) != IDS[1] )
+    if( ((IDS[0] + 1) % 4) != IDS[1] )
     {
         Eigen::Matrix<double, 4, 1> P_ = ArmorStates[0];
         ArmorStates[0] = ArmorStates[1];
@@ -266,9 +267,15 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, const cv::Quatd& grip
         
         SCSs[0] = armors[1].SCS;
         SCSs[1] = armors[0].SCS;
+
+        yaws[0] = armors[1].theta;
+        yaws[1] = armors[0].theta;
     }else {
         SCSs[0] = armors[0].SCS;
         SCSs[1] = armors[1].SCS;
+
+        yaws[0] = armors[0].theta;
+        yaws[1] = armors[1].theta;
     }
     Eigen::Matrix<double, 10, 1> StateViews;
     StateViews.block<4,1>(0,0) = ArmorStates[0];
@@ -276,7 +283,7 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, const cv::Quatd& grip
     StateViews(8,0) = ArmorStates[1](2,0) - ArmorStates[0](2,0);
     StateViews(9,0) = std::remainder(ArmorStates[1](3,0) - ArmorStates[0](3,0), 2*CV_PI);
 
-    auto ans = this->Kalman(State, StateViews, SCSs[0], SCSs[1], IDS[0], gripper_to_world, dt);
+    auto ans = this->Kalman(State, StateViews, SCSs[0], SCSs[1], yaws[0], yaws[1], IDS[0], gripper_to_world, dt);
     
     // 更新 l, h
     this->l_diff = ans(9,0);

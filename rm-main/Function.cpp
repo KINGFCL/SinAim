@@ -153,7 +153,7 @@ Eigen::Matrix<double, 3, 1> rm::ChooseBestAimArmor(
 double rm::SolveDt(const std::chrono::steady_clock::time_point& start, const std::chrono::steady_clock::time_point& end, double pic) {
     // 1. 安全检查：避免除以零
     if (std::abs(pic) < 1e-9) {
-        return 0.0; 
+        return 0.0;
     }
 
     // 2. 获取时间差，并将单位转换为秒 (s)
@@ -171,4 +171,100 @@ double rm::SolveDt(const std::chrono::steady_clock::time_point& start, const std
 
     // 5. 返回最接近的 n * pic (单位：秒)
     return n * pic;
+}
+
+std::vector<YoloArmor> rm::MatchYoloAndOpenCV(const std::deque<Armor>& armors, const std::vector<YoloArmor>& yolo_armors)
+{
+    std::vector<YoloArmor> matched_results;
+    if (armors.empty() || yolo_armors.empty()) {
+        return matched_results;
+    }
+    matched_results.reserve(std::min(armors.size(), yolo_armors.size()));
+
+    // 计算装甲板中心点
+    auto getArmorCenter = [](const Armor& armor) -> cv::Point2f {
+        cv::Point2f center(0, 0);
+        for (const auto& corner : armor.Lightcorners) {
+            center += corner;
+        }
+        return center / 4.0f;
+    };
+
+    // 计算YOLO检测框中心点
+    auto getYoloCenter = [](const YoloArmor& yolo) -> cv::Point2f {
+        return cv::Point2f(yolo.box.x + yolo.box.width / 2.0f,
+                          yolo.box.y + yolo.box.height / 2.0f);
+    };
+
+    // 计算IoU (Intersection over Union)
+    auto calculateIoU = [](const std::vector<cv::Point2f>& corners, const cv::Rect& box) -> float {
+        // 获取传统视觉装甲板的边界框
+        cv::Rect armor_rect = cv::boundingRect(corners);
+
+        // 计算交集
+        cv::Rect intersection = armor_rect & box;
+        if (intersection.area() == 0) return 0.0f;
+
+        // 计算并集
+        int union_area = armor_rect.area() + box.area() - intersection.area();
+        if (union_area == 0) return 0.0f;
+
+        return static_cast<float>(intersection.area()) / union_area;
+    };
+
+    // 标记已匹配的YOLO检测
+    std::vector<bool> yolo_matched(yolo_armors.size(), false);
+
+    // 对每个传统视觉识别的装甲板寻找最佳匹配的YOLO检测
+    for (const auto& armor : armors) {
+        cv::Point2f armor_center = getArmorCenter(armor);
+
+        int best_match_idx = -1;
+        float best_score = 0.0f;
+
+        // 遍历所有YOLO检测,寻找最佳匹配
+        for (size_t i = 0; i < yolo_armors.size(); ++i) {
+            if (yolo_matched[i]) continue;
+
+            const auto& yolo = yolo_armors[i];
+            cv::Point2f yolo_center = getYoloCenter(yolo);
+
+            // 计算中心点距离
+            float distance = cv::norm(armor_center - yolo_center);
+
+            // 计算IoU
+            float iou = calculateIoU(armor.Lightcorners, yolo.box);
+
+            // 综合评分: IoU权重0.7, 距离权重0.3
+            // 距离归一化: 使用装甲板对角线长度作为参考
+            cv::Rect armor_rect = cv::boundingRect(armor.Lightcorners);
+            float diag = std::sqrt(armor_rect.width * armor_rect.width +
+                                  armor_rect.height * armor_rect.height);
+            float normalized_dist = std::exp(-distance / (diag + 1e-6));
+
+            float score = 0.7f * iou + 0.3f * normalized_dist;
+
+            // IoU阈值过滤: 至少要有一定重叠
+            if (iou > 0.1f && score > best_score) {
+                best_score = score;
+                best_match_idx = static_cast<int>(i);
+            }
+        }
+
+        // 如果找到匹配,用传统视觉的精准关键点替换YOLO的关键点
+        if (best_match_idx >= 0) {
+            yolo_matched[best_match_idx] = true;
+
+            // 复制YOLO检测结果,保留其分类和置信度信息
+            YoloArmor result = yolo_armors[best_match_idx];
+
+            // 用传统视觉的精准关键点替换YOLO的关键点
+            // Lightcorners顺序: [左上, 右上, 右下, 左下]
+            result.keypoints = armor.Lightcorners;
+
+            matched_results.push_back(result);
+        }
+    }
+
+    return matched_results;
 }

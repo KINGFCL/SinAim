@@ -140,9 +140,13 @@ public:
         {
             int cid = class_ids[idx];
             const std::string& label = class_names_[cid];
+
+            //只识别hero,guard,three和two
+            if(cid >= 12) continue;
             
             // 获取目标颜色首字母
             char target_color = label[0]; 
+
 
             // 筛选逻辑：
             // 如果我方是 Red (true)，则剔除首字母为 'R' 的目标
@@ -150,16 +154,16 @@ public:
             
             bool is_friendly = false;
             if (camp_ == Camp::Red) {
-                if (target_color == 'R') is_friendly = true;
+                if (target_color == 'R' || target_color == 'P') is_friendly = true;
             } else { // Camp::Blue
-                if (target_color == 'B') is_friendly = true;
+                if (target_color == 'B' || target_color == 'P') is_friendly = true;
             }
-
+            
             // 如果是我方单位，跳过不加入结果列表
             if (is_friendly) continue;
 
             // 同时也建议保留 'E'(灰色/熄灭) 和 'P'(紫色/无敌)，因为它们通常是合法的打击或观测目标
-            results.push_back({boxes[idx], confidences[idx], cid, all_keypoints[idx]});
+            results.emplace_back(YoloArmor{boxes[idx], confidences[idx], cid, all_keypoints[idx]});
         }
         return results;
     }

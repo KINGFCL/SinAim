@@ -169,18 +169,60 @@ std::vector<ArmorPosi> Solver::operator()(const std::vector<YoloArmor>& armors)
         bool is_big = false;
         int id = yolo_armor.class_id;
 
-        // 映射逻辑
-        if (id >= 0 && id <= 2) { target_type = ArmorPosi::Type::guard; is_big = false; }
-        else if (id >= 3 && id <= 5) { target_type = ArmorPosi::Type::hero; is_big = true; }
-        else if (id >= 6 && id <= 8) { target_type = ArmorPosi::Type::two; is_big = false; }
-        else if (id >= 9 && id <= 11) { target_type = ArmorPosi::Type::three; is_big = false; }
-        else if (id >= 12 && id <= 14) { target_type = ArmorPosi::Type::four; is_big = false; }
-        else if (id >= 15 && id <= 17) { target_type = ArmorPosi::Type::four; is_big = false; } // 5号
-        else if (id >= 18 && id <= 20) { target_type = ArmorPosi::Type::outpost; is_big = false; }
-        else if (id >= 21 && id <= 24) { target_type = ArmorPosi::Type::base; is_big = true; }   // 大基地
-        else if (id >= 25 && id <= 28) { target_type = ArmorPosi::Type::base; is_big = false; }  // 小基地
-        else if (id >= 29 && id <= 37) { target_type = (id < 32) ? ArmorPosi::Type::three : ArmorPosi::Type::four; is_big = true; } // 平衡
-        else continue;
+        // 映射逻辑: 只有 base 和 hero 是大装甲板
+        switch (id) {
+            // 哨兵 (0-2)
+            case 0: case 1: case 2:
+                target_type = ArmorPosi::Type::guard;
+                is_big = false;
+                break;
+
+            // 英雄 (3-5) - 大装甲板
+            case 3: case 4: case 5:
+                target_type = ArmorPosi::Type::hero;
+                is_big = true;
+                break;
+
+            // 2号步兵 (6-8)
+            case 6: case 7: case 8:
+                target_type = ArmorPosi::Type::two;
+                is_big = false;
+                break;
+
+            // 3号步兵 (9-11)
+            case 9: case 10: case 11:
+                target_type = ArmorPosi::Type::three;
+                is_big = false;
+                break;
+
+            // 4号步兵 (12-14)
+            case 12: case 13: case 14:
+                target_type = ArmorPosi::Type::four;
+                is_big = false;
+                break;
+
+            // 前哨站 (18-20)
+            case 18: case 19: case 20:
+                target_type = ArmorPosi::Type::outpost;
+                is_big = false;
+                break;
+
+            // 大基地 (21-24) - 大装甲板
+            case 21: case 22: case 23: case 24:
+                target_type = ArmorPosi::Type::base;
+                is_big = true;
+                break;
+
+            // 小基地 (25-28)
+            case 25: case 26: case 27: case 28:
+                target_type = ArmorPosi::Type::base;
+                is_big = false;
+                break;
+
+            // 未知类型，跳过
+            default:
+                continue;
+        }
 
         // 选择对应的 3D 物体坐标系参考点
         const auto& objectPoints = is_big ? this->objectBigArmorP : this->objectSmallArmorP;
@@ -209,24 +251,32 @@ std::vector<ArmorPosi> Solver::operator()(const std::vector<YoloArmor>& armors)
         // 3. 筛选歧义解 (取 Z > 0 且在相机前方的解)
         cv::Mat R, T;
         double final_error;
-        
-        // 这里的逻辑与参考代码一致
+
+        // 与参考代码保持一致的歧义解筛选逻辑
         double Z_data[3]{0, 0, 10};
         cv::Mat Z_vector(cv::Size(1, 3), CV_64FC1, Z_data);
-        
-        cv::Mat r_0;
+
+        cv::Mat r_0, r_1;
         cv::Rodrigues(rvecs.front(), r_0);
         cv::Mat Z_camera_0 = r_0 * Z_vector;
 
-        if (Z_camera_0.at<double>(2, 0) > 0) {
-            R = r_0;
-            T = tvecs.front();
-            final_error = reprojectionError.front();
-        } else if (rvecs.size() > 1) {
-            cv::Rodrigues(rvecs.back(), R);
-            T = tvecs.back();
-            final_error = reprojectionError.back();
+        // 如果有两个解，同时检查两个解
+        if (rvecs.size() > 1) {
+            cv::Rodrigues(rvecs.back(), r_1);
+            cv::Mat Z_camera_1 = r_1 * Z_vector;
+
+            // 选择 Z > 0 的解
+            if (Z_camera_0.at<double>(2, 0) > 0) {
+                R = r_0;
+                T = tvecs.front();
+                final_error = reprojectionError.front();
+            } else {
+                R = r_1;
+                T = tvecs.back();
+                final_error = reprojectionError.back();
+            }
         } else {
+            // 只有一个解，直接使用
             R = r_0;
             T = tvecs.front();
             final_error = reprojectionError.front();
@@ -246,7 +296,6 @@ std::vector<ArmorPosi> Solver::operator()(const std::vector<YoloArmor>& armors)
         ArmorPosi result(posi, face, toward, std::atan2(toward.z, toward.x), final_error);
         result.type = target_type;
         result.confidence = yolo_armor.conf;
-        // 根据 is_big 设置半径类型（可选）
 
         results.emplace_back(result);
     }
@@ -589,3 +638,77 @@ void Solver::ansShow(const ArmorPosi& armor,cv::Mat& image)
     std::vector<std::vector<cv::Point2d>> contours{points};
     cv::polylines(image,contours,1,cv::Scalar(0, 255, 0),3,cv::LINE_AA);
 }
+
+void Solver::FilterAndConverToWorld(std::vector<ArmorPosi>& armors_posi,
+                    const cv::Quatd& gripper_to_world,
+                    const Eigen::Matrix<double, 3, 1>& Gun,
+                    const size_t num)
+{
+    std::vector<ArmorPosi> armors_posi_result;
+    armors_posi_result.reserve(armors_posi.size());
+
+    for (auto& armor_posi : armors_posi)
+    {
+        // 解算误差筛选
+        if (armor_posi.error > 1) continue;
+
+        // 相机系下的距离筛选
+        if (cv::norm(armor_posi.posi) > 800) continue;
+
+        // 坐标系变换到世界坐标系
+        this->ConverToWorld(armor_posi, gripper_to_world);
+
+        // 高度筛选
+        if (armor_posi.posi.z > 2000 || armor_posi.posi.z < -50) continue;
+
+        // 角度筛选
+        const auto& face = armor_posi.toward.cross(armor_posi.face);
+        cv::Point3d base{armor_posi.posi.x, armor_posi.posi.y, 0};
+        base = base / cv::norm(base);
+        double angle = base.dot(face);
+
+        if (angle < -0.5 || angle > 0.85) continue;
+
+        // 储存筛选结果
+        armors_posi_result.emplace_back(armor_posi);
+    }
+
+    // 选择与枪管夹角最小的num个装甲板
+    if (armors_posi_result.size() > num)
+    {
+        // 初始化索引数组
+        std::vector<size_t> indices(armors_posi_result.size());
+        std::iota(indices.begin(), indices.end(), 0);
+
+        // 枪管方向归一化
+        Eigen::Vector3d gun_vec = Gun.normalized();
+
+        // 按夹角部分排序
+        std::partial_sort(indices.begin(), indices.begin() + num, indices.end(),
+            [&](size_t i1, size_t i2) {
+                const auto& p1 = armors_posi_result[i1].posi;
+                const auto& p2 = armors_posi_result[i2].posi;
+
+                Eigen::Vector3d v1(p1.x, p1.y, p1.z);
+                Eigen::Vector3d v2(p2.x, p2.y, p2.z);
+                v1.normalize();
+                v2.normalize();
+
+                return v1.dot(gun_vec) > v2.dot(gun_vec);
+            });
+
+        // 根据排序好的索引提取结果
+        // 4. 根据排序好的索引提取结果
+        ArmorPosi dummy_armor(cv::Point3d(0,0,0), cv::Point3d(0,0,0), cv::Point3d(0,0,0), 0.0, 0.0);
+
+        armors_posi.resize(num, dummy_armor);
+        for (size_t i = 0; i < num; ++i) {
+            armors_posi[i] = armors_posi_result[indices[i]];
+        }
+        return;
+    }
+
+    // 更新装甲板位置
+    armors_posi = std::move(armors_posi_result);
+}
+

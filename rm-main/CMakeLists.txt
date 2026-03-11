@@ -40,26 +40,27 @@ add_executable(main
     src/HikCamera.cpp
     src/logger.cpp
     src/Detecor.cpp
-    src/NumClassifier.cpp
+    # src/NumClassifier.cpp
     src/Solver.cpp
     src/Target.cpp
+    src/Tracker.cpp
     src/EKFKalman.cpp
     ./Function.cpp
 )
-add_executable(Yolomain 
-    Yolomain.cpp
-    src/HikCamera.cpp
-    src/logger.cpp
-    src/Solver.cpp
-    src/Target.cpp
-    src/EKFKalman.cpp
-    ./Function.cpp
-)
+# add_executable(Yolomain 
+#     Yolomain.cpp
+#     src/HikCamera.cpp
+#     src/logger.cpp
+#     src/Solver.cpp
+#     src/Target.cpp
+#     src/EKFKalman.cpp
+#     ./Function.cpp
+# )
 target_include_directories(main PUBLIC ${MVS_INCLUDE_DIRS})
 target_link_libraries(main ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} openvino::runtime rerun_sdk)
 
-target_include_directories(Yolomain PUBLIC ${MVS_INCLUDE_DIRS})
-target_link_libraries(Yolomain ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} openvino::runtime rerun_sdk)
+#target_include_directories(Yolomain PUBLIC ${MVS_INCLUDE_DIRS})
+#target_link_libraries(Yolomain ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} openvino::runtime rerun_sdk)
 
 
 
