@@ -36,13 +36,8 @@ public:
 
         // 1. 计算target向量 Yaw (偏航角)
 
-        //处理 target 向量 (归一化)
-        double t_norm = cv::norm(ShootPosi);
-        if (t_norm < 1e-6) return {0.0, 0.0};
-        const cv::Point3d target = ShootPosi/t_norm;
-
         // atan2(y, x) 算出的是向量在水平面投影与 X轴 的夹角
-        double shoot_yaw = std::atan2(target.y, target.x);
+        double shoot_yaw = std::atan2(ShootPosi.y, ShootPosi.x);
 
 
         // 2. 计算target向量 Pitch (俯仰角）
