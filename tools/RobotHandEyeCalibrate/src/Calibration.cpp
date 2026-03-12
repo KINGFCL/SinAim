@@ -269,39 +269,41 @@ int main()
     Point3f mean_position(0, 0, 0);
     vector<Mat> R_base_to_worlds; // 存储旋转以便计算角度误差
 
-    for (size_t i = 0; i < Rs_world_to_camera.size(); i++) {
-        // A. 构造 基座->手 (T_Base_to_Hand)
-        // 云台模式下：T部分全为0 (或者非常小的偏移)，R随云台转动
+for (size_t i = 0; i < Rs_world_to_camera.size(); i++) {
+        // A. 构造 基座->手 (T_Base_to_Hand) 
+        // 按照 OpenCV 约定，输入的是 Base->Gripper
         Mat T_base_to_hand_i = Mat::eye(4, 4, CV_64F);
         Rs_base_to_hand[i].copyTo(T_base_to_hand_i(Rect(0, 0, 3, 3)));
-        // 注意：这里用你原始的 Ts_base_to_hand[i] (即 0,0,0)
-        Ts_base_to_hand[i].copyTo(T_base_to_hand_i(Rect(3, 0, 1, 3))); 
+        Ts_base_to_hand[i].copyTo(T_base_to_hand_i(Rect(3, 0, 1, 3)));
 
-        // B. 构造 世界->相机 (T_World_to_Cam) -> 对应标定板数据
+        // B. 构造 世界->相机 (T_World_to_Cam)
         Mat T_world_to_cam_i = Mat::eye(4, 4, CV_64F);
         Mat R_w2c;
         Rodrigues(rvecs[i], R_w2c);
         R_w2c.copyTo(T_world_to_cam_i(Rect(0, 0, 3, 3)));
         tvecs[i].copyTo(T_world_to_cam_i(Rect(3, 0, 1, 3)));
 
-        // C. 计算链：基座 -> 手 -> 相机 -> 世界 (标定板)
-        // 公式：T_Base_to_World = T_Base_to_Hand * T_Hand_to_Cam * T_Cam_to_World
-        // 其中 T_Cam_to_World 是 T_World_to_Cam 的逆矩阵
-        Mat T_cam_to_world_i = T_world_to_cam_i.inv();
+        // C. 核心修正：严格按照物理链条求解 World -> Base
+        // 我们需要把世界系的坐标点转换到基座系：P_base = T_hand2base * T_cam2hand * T_world2cam * P_world
+        // 即 T_world_to_base = T_base_to_hand.inv() * T_hand_to_cam.inv() * T_world_to_cam
         
-        Mat T_base_to_world_calc = T_base_to_hand_i * T_hand_to_cam * T_cam_to_world_i;
+        Mat T_hand_to_base_i = T_base_to_hand_i.inv();
+        Mat T_cam_to_hand = T_hand_to_cam.inv();
+        
+        Mat T_world_to_base_calc = T_hand_to_base_i * T_cam_to_hand * T_world_to_cam_i;
 
-        // D. 提取计算出的标定板位置 (平移部分)
-        Mat pos_mat = T_base_to_world_calc(Rect(3, 0, 1, 3));
+        // D. 提取标定板原点在基座坐标系下的位置 (平移部分)
+        Mat pos_mat = T_world_to_base_calc(Rect(3, 0, 1, 3));
         Point3f pos(pos_mat.at<double>(0), pos_mat.at<double>(1), pos_mat.at<double>(2));
-        
+
         board_positions_in_base.push_back(pos);
         mean_position += pos;
-        
-        // 存储旋转部分用于后续角度误差分析
-        R_base_to_worlds.push_back(T_base_to_world_calc(Rect(0, 0, 3, 3)).clone());
-    }
 
+        // E. 提取计算出的 R_base_to_world 用于后面的角度误差分析
+        // T_world_to_base_calc 的旋转部分是 R_world_to_base，求逆(转置)即得 R_base_to_world
+        Mat R_world_to_base_calc = T_world_to_base_calc(Rect(0, 0, 3, 3));
+        R_base_to_worlds.push_back(R_world_to_base_calc.t());
+    }
     // --- 统计平移误差 ---
     // 计算平均位置
     mean_position.x /= board_positions_in_base.size();
