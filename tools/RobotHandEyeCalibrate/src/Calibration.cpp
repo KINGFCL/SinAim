@@ -256,27 +256,25 @@ int main()
     cout << "手眼标定完成，结果已输出。" << endl;
 
     // --- 修正后的误差分析代码 ---
+// --- 修正后的误差分析代码 ---
     cout << "正在计算手眼标定误差..." << endl;
-
 
     // 1. 构造标定出的 手->眼 变换矩阵 (T_Hand_to_Cam)
     Mat T_hand_to_cam = Mat::eye(4, 4, CV_64F);
     R_hand_to_cam_out.copyTo(T_hand_to_cam(Rect(0, 0, 3, 3)));
     T_hand_to_cam_out.copyTo(T_hand_to_cam(Rect(3, 0, 1, 3)));
 
-    // 用于统计
-    vector<Point3f> board_positions_in_base; // 标定板原点在基座系下的位置
+    vector<Point3f> board_positions_in_base;
     Point3f mean_position(0, 0, 0);
-    vector<Mat> R_base_to_worlds; // 存储旋转以便计算角度误差
+    vector<Mat> R_base_to_worlds;
 
-for (size_t i = 0; i < Rs_world_to_camera.size(); i++) {
-        // A. 构造 基座->手 (T_Base_to_Hand) 
-        // 按照 OpenCV 约定，输入的是 Base->Gripper
+    for (size_t i = 0; i < Rs_world_to_camera.size(); i++) {
+        // A. 构造 基座->手
         Mat T_base_to_hand_i = Mat::eye(4, 4, CV_64F);
         Rs_base_to_hand[i].copyTo(T_base_to_hand_i(Rect(0, 0, 3, 3)));
         Ts_base_to_hand[i].copyTo(T_base_to_hand_i(Rect(3, 0, 1, 3)));
 
-        // B. 构造 世界->相机 (T_World_to_Cam)
+        // B. 构造 世界->相机
         Mat T_world_to_cam_i = Mat::eye(4, 4, CV_64F);
         Mat R_w2c;
         Rodrigues(rvecs[i], R_w2c);
@@ -284,35 +282,29 @@ for (size_t i = 0; i < Rs_world_to_camera.size(); i++) {
         tvecs[i].copyTo(T_world_to_cam_i(Rect(3, 0, 1, 3)));
 
         // C. 核心修正：严格按照物理链条求解 World -> Base
-        // 我们需要把世界系的坐标点转换到基座系：P_base = T_hand2base * T_cam2hand * T_world2cam * P_world
-        // 即 T_world_to_base = T_base_to_hand.inv() * T_hand_to_cam.inv() * T_world_to_cam
-        
+        // T_world_to_base = T_base_to_hand.inv() * T_hand_to_cam.inv() * T_world_to_cam
         Mat T_hand_to_base_i = T_base_to_hand_i.inv();
         Mat T_cam_to_hand = T_hand_to_cam.inv();
         
         Mat T_world_to_base_calc = T_hand_to_base_i * T_cam_to_hand * T_world_to_cam_i;
 
-        // D. 提取标定板原点在基座坐标系下的位置 (平移部分)
+        // D. 提取平移并统计
         Mat pos_mat = T_world_to_base_calc(Rect(3, 0, 1, 3));
         Point3f pos(pos_mat.at<double>(0), pos_mat.at<double>(1), pos_mat.at<double>(2));
-
         board_positions_in_base.push_back(pos);
         mean_position += pos;
 
-        // E. 提取计算出的 R_base_to_world 用于后面的角度误差分析
-        // T_world_to_base_calc 的旋转部分是 R_world_to_base，求逆(转置)即得 R_base_to_world
+        // E. 提取旋转并统计
         Mat R_world_to_base_calc = T_world_to_base_calc(Rect(0, 0, 3, 3));
         R_base_to_worlds.push_back(R_world_to_base_calc.t());
     }
+
     // --- 统计平移误差 ---
-    // 计算平均位置
     mean_position.x /= board_positions_in_base.size();
     mean_position.y /= board_positions_in_base.size();
     mean_position.z /= board_positions_in_base.size();
 
-    double total_dist_err = 0;
-    double max_dist_err = 0;
-
+    double total_dist_err = 0, max_dist_err = 0;
     for (const auto& pos : board_positions_in_base) {
         double err = norm(pos - mean_position);
         total_dist_err += err;
@@ -320,46 +312,56 @@ for (size_t i = 0; i < Rs_world_to_camera.size(); i++) {
     }
     double mean_dist_err = total_dist_err / board_positions_in_base.size();
 
-    // --- 统计旋转误差 ---
-    // 计算平均旋转矩阵 (简单平均近似，或取第一个作为基准)
-    // 这里为了简单，我们计算所有解相对于标定函数输出的 "R_base_to_world_out" 的偏差
-    double total_rot_err = 0;
-    double max_rot_err = 0;
-    
-    // 如果标定函数输出了 Base->World，我们以它为真值
-    Mat R_base_to_world_truth = R_base_to_world_out; 
+    // --- 统计旋转误差 (带单轴拆解) ---
+    double total_rot_err = 0, max_rot_err = 0;
+    double total_yaw_err = 0, total_pitch_err = 0, total_roll_err = 0;
 
-    for (const auto& R : R_base_to_worlds) {
-        // 计算 R * R_truth^T，如果是单位阵则无误差
-        Mat R_diff = R * R_base_to_world_truth.t();
+    Mat R_base_to_world_truth = R_base_to_world_out;
+
+    cout << "\n--- 单帧角度误差拆解明细 ---" << endl;
+    for (size_t i = 0; i < R_base_to_worlds.size(); i++) {
+        Mat R_diff = R_base_to_worlds[i] * R_base_to_world_truth.t();
+
+        // 计算总空间误差
         Mat rvec_diff;
         Rodrigues(R_diff, rvec_diff);
         double err_deg = norm(rvec_diff) * 180.0 / CV_PI;
-        
         total_rot_err += err_deg;
-        if (err_deg > max_rot_err) max_rot_err = err_deg;
-    }
-    double mean_rot_err = total_rot_err / R_base_to_worlds.size();
 
+        // 计算欧拉角单轴误差
+        Point3d euler_diff = rotationMatrixToEulerAngles(R_diff);
+        double yaw_err   = abs(euler_diff.x * 180.0 / CV_PI);
+        double pitch_err = abs(euler_diff.y * 180.0 / CV_PI);
+        double roll_err  = abs(euler_diff.z * 180.0 / CV_PI);
+
+        total_yaw_err   += yaw_err;
+        total_pitch_err += pitch_err;
+        total_roll_err  += roll_err;
+
+        cout << "图片 " << i + 1 << " 误差 -> "
+             << "Yaw: " << yaw_err << "° | "
+             << "Pitch: " << pitch_err << "° | "
+             << "Roll: " << roll_err << "°  (总空间角: " << err_deg << "°)" << endl;
+    }
+
+    double mean_rot_err   = total_rot_err / R_base_to_worlds.size();
+    double mean_yaw_err   = total_yaw_err / R_base_to_worlds.size();
+    double mean_pitch_err = total_pitch_err / R_base_to_worlds.size();
+    double mean_roll_err  = total_roll_err / R_base_to_worlds.size();
 
     cout << "\n=== 云台标定精度评估 ===" << endl;
-    cout << "逻辑：计算每一帧中标定板相对于基座的位置，统计离散程度。" << endl;
     cout << "标定板中心 (基座坐标系): [" << mean_position.x << ", " 
          << mean_position.y << ", " << mean_position.z << "] mm" << endl;
     cout << "-----------------------" << endl;
-    cout << "平均平移误差 (Std Dev): " << mean_dist_err << " mm" << endl;
+    cout << "平均平移误差: " << mean_dist_err << " mm" << endl;
     cout << "最大平移误差: " << max_dist_err << " mm" << endl;
-    cout << "平均旋转误差: " << mean_rot_err << " 度" << endl;
     cout << "-----------------------" << endl;
-    
-    if (mean_dist_err < 10.0) {
-        cout << "结果评价: 正常 (误差在毫米级)" << endl;
-    } else {
-        cout << "结果评价: 异常 (误差较大)" << endl;
-        cout << "可能原因: 1. 云台回转中心并非严格的0,0,0 (有机械偏置) \n"
-             << "          2. 标定板在拍摄过程中移动了 \n"
-             << "          3. 图像角点检测不准" << endl;
-    }
+    cout << "平均总空间误差: " << mean_rot_err << " 度 (最坏情况上限)" << endl;
+    cout << "  -> 平均 Yaw (偏航) 误差: " << mean_yaw_err << " 度" << endl;
+    cout << "  -> 平均 Pitch (俯仰) 误差: " << mean_pitch_err << " 度" << endl;
+    cout << "  -> 平均 Roll  (横滚) 误差: " << mean_roll_err << " 度" << endl;
+    cout << "-----------------------" << endl;
+
     return 0;
 }
     
