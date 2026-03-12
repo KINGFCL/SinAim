@@ -106,6 +106,7 @@ public:
 */
     Eigen::Matrix<double, 3, 4> Armors;
     double l_diff = 0, h_diff = 0;
+    const double r = 24.0f;
     double d_theta_1 = CV_PI/2, d_theta_2 = CV_PI, d_theta_3 = -CV_PI/2;
 
     std::array<ArmorView, 4> View = {ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual};

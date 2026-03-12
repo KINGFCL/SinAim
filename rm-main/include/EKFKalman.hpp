@@ -17,12 +17,36 @@ public:
     EKFKalman() = default;
 
     void Init();
-
+    
+    //观测噪声
+    const double r_view = 400, Var_yaw = 0.01, Var_dtheta = 0.001; // 观测yaw值方差
+    
     // 过程噪声参数
-    const double r_view = 400; // 观测噪声半径
-    const double Var_yaw = 0.01, Var_dtheta = 0.0001,Var_h_view = 10.0; // 观测yaw值方差
     const double Var_a = 10000.0, Var_alpha = 0.6;
-    const double Var_r = 0.01, Var_l = 0.01, Var_h = 0.01; // 结构参数收敛噪声极小
+    
+    // 从相机坐标系到手坐标系的旋转矩阵
+    const Eigen::Matrix<double, 3, 3> RCamera2Grip
+    {
+        {-0.01683042435774459, -0.01019468995300654, 0.9998063838127361},
+        {-0.9997914089500914, -0.01139989776604133, -0.01694641320499074},
+        {0.0115704539897411, -0.999883048475013, -0.01000069831488837}
+    };
+    
+    // 初始化协方差
+    const Eigen::Matrix<double, 14, 14> CovStateInit = (Eigen::Matrix<double, 14, 1>() << 
+        100, 100, 100,       // xc, yc, zc 位置方差
+        10000, 10000, 10000, // vxc, vyc, vzc 速度方差
+        0.01, 1,           // theta, w 角度与角速度方差
+        10, 10, 10,           // r, l, h 几何结构初始方差
+        0.001, 0.001, 0.001  //d_theta_1,d_theta_2,d_theta_3
+    ).finished().asDiagonal();
+
+    Eigen::Matrix<double, 3, 3> CovViewCamera = (Eigen::Matrix<double, 3, 1>() << 
+    this->r_view, 0.0004, 0.0004  // 相机中球坐标系下的方差，r,theta,phi 的观测噪声
+    ).finished().asDiagonal();
+    
+    // 结构参数收敛噪声极小
+    // const double Var_r = 0.01, Var_l = 0.01, Var_h = 0.01; 
 
     /*
         * 单装甲板更新
@@ -65,29 +89,13 @@ public:
 
     Eigen::Matrix<double, 14, 14> CovState;
 
-    // 初始化协方差
-    const Eigen::Matrix<double, 14, 14> CovStateInit = (Eigen::Matrix<double, 14, 1>() << 
-        100, 100, 100,       // xc, yc, zc 位置方差
-        10000, 10000, 10000, // vxc, vyc, vzc 速度方差
-        0.01, 0.0,           // theta, w 角度与角速度方差
-        0, 0, 10,           // r, l, h 几何结构初始方差
-        0.0016, 0.0016, 0.0016  //d_theta_1,d_theta_2,d_theta_3
-    ).finished().asDiagonal();
 
     // 测量噪声 R
     Eigen::Matrix<double, 4, 4> CovView = Eigen::Matrix<double, 4, 4>::Zero(); // 4维观测: [x, y, z, yaw]
     Eigen::Matrix<double, 10, 10> CovViews = Eigen::Matrix<double, 10, 10>::Zero(); 
     
-    Eigen::Matrix<double, 3, 3> CovViewCamera = (Eigen::Matrix<double, 3, 1>() << 
-        this->r_view, 0.0004, 0.0004  // 相机中球坐标系下的方差，r,theta,phi 的观测噪声
-    ).finished().asDiagonal();
 
-    const Eigen::Matrix<double, 3, 3> RCamera2Grip// 从相机坐标系到手坐标系的旋转矩阵
-    {
-        {-0.009102138195790865, 0.006927977296756926, -0.9999345749652024},
-        {0.999898703383153, -0.01087943808061275, -0.009177189097925642},
-        {-0.01094230565071617, -0.9999168170191085, -0.00682824936719284}
-    };
+
 };
 
 #endif // EKFKALMAN_HPP_INCLUDE
