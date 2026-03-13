@@ -277,6 +277,8 @@ std::vector<YoloArmor> rm::MatchYoloAndOpenCV(const std::deque<Armor>& armors, c
 
 bool rm::CheckFireCondition(const Eigen::Matrix<double, 3, 1> Gun, 
                             const Eigen::Matrix<double, 4, 1> aim,
-                            double pitch_thresh, double yaw_thresh) {
-    Eigen::Quaterniond gri_to_world{gripper_to_world.w, gripper_to_world.x, gripper_to_world.y, gripper_to_world.z};
+                            double pitch_thresh, double yaw_thresh) 
+{
+    
+
 }
