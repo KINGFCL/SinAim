@@ -180,18 +180,16 @@ public:
     }
 
     void EKFKalmanUpdate(const Eigen::Matrix<double, 8, 1>& State,
-                         const Eigen::Matrix<double, 4, 4>& CovArmor, 
                          const Eigen::Matrix<double, 4, 1>& View,
-                         const Eigen::Matrix<double, 8, 8>& CovState,
-                         const Eigen::Matrix<double, 8, 4>& KalmanGain, // 新增的卡尔曼增益
-                         double radius, 
+                        //  const Eigen::Matrix<double, 8, 8>& CovState,
+                        //  const Eigen::Matrix<double, 8, 4>& KalmanGain, // 新增的卡尔曼增益
                          double dt)
     {
         // ==========================================
         // 1. 基础标量数据监控
         // ==========================================
-        rec.log("EKF/dt", rerun::Scalars(dt));
-        rec.log("EKF/radius", rerun::Scalars(radius));
+        // rec.log("EKF/dt", rerun::Scalars(dt));
+        // rec.log("EKF/radius", rerun::Scalars(radius));
 
         // ==========================================
         // 2. 3D 空间几何对比 (直观查看滤波效果)
@@ -202,16 +200,11 @@ public:
         float zc = (float)State(2, 0);
         float w = (float)State(7, 0);
 
-        
-
         // C. 当前实际观测到的目标位置 (青色点，假设 View 前三维是观测到的 x, y, z)
         rec.log("world/EKF/view_position", 
             rerun::Points3D({{(float)View(0, 0), (float)View(1, 0), (float)View(2, 0)}})
-                .with_colors({{0, 255, 255, 255}}) // 青色
+                .with_colors({{0, 0, 255, 255}}) // 蓝色
                 .with_radii({3.0f}));
-        rec.log("world/EKF/view_yaw",rerun::SeriesLines().with_colors({{0, 255, 255, 255}})); // 青色
-        rec.log("world/EKF/view_yaw", 
-            rerun::Scalars((float)View(3, 0))); // 青色
     }
 
 

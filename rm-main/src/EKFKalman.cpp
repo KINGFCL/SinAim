@@ -9,6 +9,10 @@
 #include <vector>
 #include <algorithm>
 #include "opencv2/core/cvdef.h"
+#include "../include/RerunVisualizer.hpp"
+
+#define EKFKalmanDebug
+extern RerunVisualizer viz;
 
 void EKFKalman::Init()
 {
@@ -27,8 +31,11 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     const cv::Quatd& quat, 
     double dt)
 {
+    #ifdef EKFKalmanDebug
+        viz.EKFKalmanUpdate(State, View, dt);
+    #endif
     //计算观测噪声矩阵
-    this->CovViewCamera(0,0) = ( log(std::abs(delta_angle) + 1) + 1 )*this->r_view;
+    this->CovViewCamera(0,0) = ( log(std::abs(delta_angle) + 1) + 1 )*this->Var_r;
 
     Eigen::Matrix3d JacobianS2C = this->getJacobianSphericalToCartesian(SCS);
     Eigen::Matrix3d CovViewCameraCCS = JacobianS2C * this->CovViewCamera * JacobianS2C.transpose(); // 相机坐标系下的观测噪声
@@ -131,14 +138,18 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     const cv::Quatd& quat, 
     double dt)
 {
+    #ifdef EKFKalmanDebug
+    viz.EKFKalmanUpdate(State, Views.block<4, 1>(0, 0), dt);
+    viz.EKFKalmanUpdate(State, Views.block<4, 1>(4, 0), dt);
+    #endif
     //计算观测噪声矩阵
     Eigen::Matrix3d JacobianS2C1 = this->getJacobianSphericalToCartesian(SCS1);
     Eigen::Matrix3d JacobianS2C2 = this->getJacobianSphericalToCartesian(SCS2);
 
-    this->CovViewCamera(0,0) = ( log(std::abs(delta_angle1) + 1) + 1 )*this->r_view;
+    this->CovViewCamera(0,0) = ( log(std::abs(delta_angle1) + 1) + 1 )*this->Var_r;
     Eigen::Matrix3d CovViewCameraCCS1 = JacobianS2C1 * this->CovViewCamera * JacobianS2C1.transpose(); // 相机坐标系下的观测噪声
     
-    this->CovViewCamera(0,0) = ( log(std::abs(delta_angle2) + 1) + 1 )*this->r_view;
+    this->CovViewCamera(0,0) = ( log(std::abs(delta_angle2) + 1) + 1 )*this->Var_r;
     Eigen::Matrix3d CovViewCameraCCS2 = JacobianS2C2 * this->CovViewCamera * JacobianS2C2.transpose(); // 相机坐标系下的观测噪声
     
     Eigen::Quaterniond EigenQuat(quat.w, quat.x, quat.y, quat.z);

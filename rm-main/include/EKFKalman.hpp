@@ -19,7 +19,7 @@ public:
     void Init();
     
     //观测噪声
-    const double r_view = 400, Var_yaw = 0.01, Var_dtheta = 0.001; // 观测yaw值方差
+    const double Var_r = 400, Var_yaw = 0.01, Var_dtheta = 0.001; // 观测yaw值方差
     
     // 过程噪声参数
     const double Var_a = 10000.0, Var_alpha = 0.6;
@@ -42,7 +42,7 @@ public:
     ).finished().asDiagonal();
 
     Eigen::Matrix<double, 3, 3> CovViewCamera = (Eigen::Matrix<double, 3, 1>() << 
-    this->r_view, 0.0004, 0.0004  // 相机中球坐标系下的方差，r,theta,phi 的观测噪声
+    this->Var_r, 0.0004, 0.0004  // 相机中球坐标系下的方差，r,theta,phi 的观测噪声
     ).finished().asDiagonal();
     
     // 结构参数收敛噪声极小

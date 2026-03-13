@@ -21,7 +21,7 @@ public:
     };
 
     // 构造函数，可配置阈值参数
-    Tracker(size_t search_threshold = 5,
+    Tracker(size_t search_threshold = 20,
             size_t temp_lost_threshold = 10,
             size_t lost_threshold = 30,
             size_t switch_threshold = 8);
