@@ -122,13 +122,13 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     Y(3) = std::remainder(Y(3), CV_PI * 2.0);
 
     //独立维度鲁棒缩放，且完美保持相关性
-    double s_x   = this->GetDistanceRobustScale( std::abs(Y(0)) );
-    double s_y   = this->GetDistanceRobustScale( std::abs(Y(1)) );
-    double s_z   = this->GetDistanceRobustScale( std::abs(Y(2)) );
+    // double s_x   = this->GetDistanceRobustScale( std::abs(Y(0)) );
+    // double s_y   = this->GetDistanceRobustScale( std::abs(Y(1)) );
+    // double s_z   = this->GetDistanceRobustScale( std::abs(Y(2)) );
     double s_yaw = this->GetAngleRobustScale(std::abs(Y(3)));
 
     Eigen::Matrix<double, 4, 1> D_vec{
-        s_x, s_y, s_z, s_yaw
+        1.0, 1.0, 1.0, s_yaw
     };
 
     Eigen::Matrix<double, 4, 4> RobustView = D_vec.asDiagonal();
@@ -299,21 +299,21 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     Y(9,0) = std::remainder(Y(9), CV_PI * 2.0);
 
     //独立维度鲁棒缩放，且完美保持相关性
-    double s_x1   = this->GetDistanceRobustScale( std::abs(Y(0)) );
-    double s_y1   = this->GetDistanceRobustScale( std::abs(Y(1)) );
-    double s_z1   = this->GetDistanceRobustScale( std::abs(Y(2)) );
+    // double s_x1   = this->GetDistanceRobustScale( std::abs(Y(0)) );
+    // double s_y1   = this->GetDistanceRobustScale( std::abs(Y(1)) );
+    // double s_z1   = this->GetDistanceRobustScale( std::abs(Y(2)) );
     double s_yaw1 = this->GetAngleRobustScale(std::abs(Y(3)));
 
-    double s_x2   = this->GetDistanceRobustScale( std::abs(Y(4)) );
-    double s_y2   = this->GetDistanceRobustScale( std::abs(Y(5)) );
-    double s_z2   = this->GetDistanceRobustScale( std::abs(Y(6)) );
+    // double s_x2   = this->GetDistanceRobustScale( std::abs(Y(4)) );
+    // double s_y2   = this->GetDistanceRobustScale( std::abs(Y(5)) );
+    // double s_z2   = this->GetDistanceRobustScale( std::abs(Y(6)) );
     double s_yaw3 = this->GetAngleRobustScale(std::abs(Y(7)));
 
     double s_h    = this->GetDistanceRobustScale( std::abs(Y(8)) );
     double s_diff_angle = this->GetAngleRobustScale( std::abs(Y(9)) );
 
     Eigen::Matrix<double, 10, 1> D_vec{
-        s_x1, s_y1, s_z1, s_yaw1, s_x2, s_y2, s_z2, s_yaw3, s_h, s_diff_angle
+        1.0, 1.0, 1.0, s_yaw1, 1.0, 1.0, 1.0, s_yaw3, s_h, s_diff_angle
     };
 
     Eigen::Matrix<double, 10, 10> RobustViews = D_vec.asDiagonal();
