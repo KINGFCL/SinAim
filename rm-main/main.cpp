@@ -171,7 +171,6 @@ int main() {
             test.clear();
         }
         #ifdef MainDebug
-        if(test.num%4 == 0 && test.num != 0)
             viz.update(*current_robot, aims, dt, Gun);
         #endif
         // 可视化

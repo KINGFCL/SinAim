@@ -9,11 +9,14 @@
 #include <vector>
 #include <algorithm>
 #include "opencv2/core/cvdef.h"
-#include "../include/RerunVisualizer.hpp"
+
 
 #define EKFKalmanDebug
-extern RerunVisualizer viz;
 
+#ifdef EKFKalmanDebug
+#include "../include/RerunVisualizer.hpp"
+extern RerunVisualizer viz;
+#endif
 void EKFKalman::Init()
 {
     this->CovState = this->CovStateInit;

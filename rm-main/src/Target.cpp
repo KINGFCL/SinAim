@@ -16,9 +16,6 @@
 #include <opencv2/core/types.hpp>
 #include <vector>
 
-#include "../include/RerunVisualizer.hpp"
-
-extern RerunVisualizer viz;
 
 #define TargetDebug
 //Debug
@@ -123,9 +120,6 @@ void Robot::OneArmor(const ArmorPosi& armor, const cv::Quatd& gripper_to_world, 
 {
     // 计算装甲板状态
     Eigen::Matrix<double, 4, 1> ArmorState{armor.posi.x, armor.posi.y, armor.posi.z, this->SolveTheta(armor)};
-    #ifdef TargetDebug
-    viz.show("view_yaw", ArmorState(3,0));
-    #endif
     //装甲板匹配
     int ID = 0; 
     

@@ -8,7 +8,7 @@
 #include <vector>
 #include <numeric>
 
-#define SolverDebug
+// #define SolverDebug
 #ifdef SolverDebug
 #include "../include/RerunVisualizer.hpp"
 extern RerunVisualizer viz;
