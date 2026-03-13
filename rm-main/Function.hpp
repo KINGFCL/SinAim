@@ -17,7 +17,7 @@ namespace rm
 {
     void IMUAndImageMatchFunction(io::HikCamera& Hik, io::RTSerial<Packet>& ser,FastQueue<FrameData>& Frames);
     void SendMessageToRobot(io::RTSerial<Packet>& ser, float pitch, float yaw, bool fire);
-    Eigen::Matrix<double, 3, 1> ChooseBestAimArmor(const Eigen::Matrix<double, 4, 4>& aims,
+    Eigen::Matrix<double, 4, 1> ChooseBestAimArmor(const Eigen::Matrix<double, 4, 4>& aims,
                                                    const Eigen::Matrix<double,4, 1>& Speed,
                                                    const Eigen::Matrix<double, 3, 1>& Gun);
     std::deque<Armor> FilterCenterArmor(const std::deque<std::array<ArmorPosi,2>>& armors_posis, const cv::Point3d& Gun, int num = 1);

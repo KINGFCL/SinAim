@@ -54,7 +54,7 @@ void rm::SendMessageToRobot(io::RTSerial<Packet> &ser, float pitch, float yaw, b
     ser.writeBytes(&firemsg,sizeof(firemsg));
 }
 
-Eigen::Matrix<double, 3, 1> rm::ChooseBestAimArmor(
+Eigen::Matrix<double, 4, 1> rm::ChooseBestAimArmor(
     const Eigen::Matrix<double, 4, 4>& aims,
     const Eigen::Matrix<double, 4, 1>& Speed, // 修正为 4x1 (vx, vy, vz, w)
     const Eigen::Matrix<double, 3, 1>& Gun    // 当前枪管朝向（需为单位向量）
@@ -149,7 +149,7 @@ Eigen::Matrix<double, 3, 1> rm::ChooseBestAimArmor(
     }
     
     // 返回被选中的最优装甲板的 3D 绝对坐标
-    return aims.block<3, 1>(0, best_id);
+    return aims.block<4, 1>(0, best_id);
 }
 
 double rm::SolveDt(const std::chrono::steady_clock::time_point& start, const std::chrono::steady_clock::time_point& end, double pic) {
