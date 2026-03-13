@@ -102,7 +102,7 @@ int main() {
         // cv::waitKey(1);
         //计算枪管方向
 
-        const Eigen::Matrix<double, 3, 1>& Gun = shoot.GunDirection(frame.quat);
+        const Eigen::Matrix<double, 3, 1>& Gun = shoot.GunDirection(Eigen::Quaterniond{frame.quat.w, frame.quat.x, frame.quat.y, frame.quat.z});
 
     //   auto t1_ = std::chrono::steady_clock::now();
         // 1. 传统视觉检测
@@ -149,8 +149,6 @@ int main() {
         double dt = shoot.FlyTime(current_robot->center);
         Eigen::Matrix<double, 4, 4> aims = current_robot->Predic(dt);
 
-
-
         Eigen::Matrix<double, 4, 1> aim = rm::ChooseBestAimArmor(aims, current_robot->Speed, Gun);
 
         // std::cout<<aim.norm()<<"\n";
@@ -158,7 +156,7 @@ int main() {
         std::array<double, 2> Pitch_and_Yaw = shoot(aim.block<3,1>(0,0));
 
         // 11. 发送控制指令
-        bool fire_ = rm::CheckFireCondition(frame.quat, Pitch_and_Yaw[0], Pitch_and_Yaw[1], 0.1, 0.01);
+        bool fire_ = rm::CheckFireCondition(frame.quat, Pitch_and_Yaw, aim, Gun, 0.03, 0.03);
         rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], true);
         // std::cout<<fire_<<"\n";
         // std::cout<<"Pitch: "<<Pitch_and_Yaw[0]<<" Yaw: "<<Pitch_and_Yaw[1]<<"\n";

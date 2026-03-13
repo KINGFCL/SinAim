@@ -1,4 +1,5 @@
 #include "Function.hpp"
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <eigen3/Eigen/Geometry>
@@ -275,10 +276,40 @@ std::vector<YoloArmor> rm::MatchYoloAndOpenCV(const std::deque<Armor>& armors, c
     return matched_results;
 }
 
-bool rm::CheckFireCondition(const Eigen::Matrix<double, 3, 1> Gun, 
-                            const Eigen::Matrix<double, 4, 1> aim,
-                            double pitch_thresh, double yaw_thresh) 
+bool rm::CheckFireCondition(const cv::Quatd& gripper_to_world, 
+                            const std::array<double, 2>& Pitch_Yaw,
+                            const Eigen::Matrix<double, 4,1>& aim,
+                            const Eigen::Matrix<double, 3, 1>& Gun,
+                            double pitch_thresh, double yaw_thresh, double dist_thresh) 
 {
+    // 1. OpenCV 四元数转 Eigen 四元数 (w, x, y, z 顺序正确)
+    Eigen::Quaterniond grip_to_world_eig(gripper_to_world.w, gripper_to_world.x, 
+                                         gripper_to_world.y, gripper_to_world.z);
     
+    // 强烈建议确认：这里是否真的需要 inverse()？
+    // 如果 Pitch_Yaw 是枪管在世界系下的角度，应该直接用 grip_to_world_eig
+    Eigen::Matrix3d R = grip_to_world_eig.toRotationMatrix(); 
 
+    //手写解析旋转矩阵提取连续的 [-π, π] 角度
+    // 提取 Yaw (绕 Z 轴)
+    double yaw = std::atan2(R(1, 0), R(0, 0));
+    
+    // 提取 Pitch (绕 Y 轴)
+    // 使用 hypot 结合 atan2 比单纯的 asin 更稳定，特别是在接近 ±90度 (奇点) 时
+    double pitch = std::atan2(R(2, 0), std::hypot(R(0, 0), R(1, 0)));
+
+    // 3. 稳健的角度差值判断
+    bool diff_ok = std::abs(std::remainder(yaw - Pitch_Yaw[1], 2 * M_PI)) < yaw_thresh && 
+           std::abs(std::remainder(pitch - Pitch_Yaw[0], 2 * M_PI)) < pitch_thresh;
+
+    Eigen::Matrix<double, 3, 1> gun_direction = Eigen::Matrix<double, 3, 1>{Gun(0), Gun(1), 0};
+    gun_direction.normalize();
+
+    Eigen::Matrix<double, 3, 1> aim_direction = Eigen::Matrix<double, 3, 1>{cos(aim(3)), sin(aim(3)), 0};
+
+    double dot = -aim_direction.dot(gun_direction);
+
+    bool face_ok = (dot > cos(dist_thresh));
+
+    return face_ok && diff_ok;
 }
