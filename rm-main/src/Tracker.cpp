@@ -150,7 +150,7 @@ void Tracker::handleTracking(std::vector<ArmorPosi>& armors_posi,
         // 使用线性更新
         if (current_robot)
         {
-            current_robot->Update(gripper_to_world, dt);
+            current_robot->Update( dt );
         }
     }
     else
@@ -244,7 +244,7 @@ void Tracker::handleTempLost(std::vector<ArmorPosi>& armors_posi,
         // 使用线性更新
         if (current_robot)
         {
-            current_robot->Update(gripper_to_world, dt);
+            current_robot->Update(dt);
         }
     }
     else

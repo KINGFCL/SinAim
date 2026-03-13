@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <vector>
 #include <cmath>
-#define detectorDebug
+// #define detectorDebug
 //Debug
 
 Detector::Detector(Light::Color color,float confidence): 

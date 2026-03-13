@@ -14,7 +14,7 @@ public:
 
 public:
     // 构造函数：加载模型并配置 PrePostProcessor
-    YOLO11Detector(const std::string& model_path, Camp camp, float conf_threshold = 0.5f, float nms_threshold = 0.4f, const std::string& device = "AUTO")
+    YOLO11Detector(const std::string& model_path, Camp camp, float conf_threshold = 0.5f, float nms_threshold = 0.2f, const std::string& device = "AUTO")
         : camp_(camp),conf_threshold_(conf_threshold), nms_threshold_(nms_threshold) 
     {
         auto model = core_.read_model(model_path);

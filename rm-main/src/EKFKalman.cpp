@@ -73,17 +73,23 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     auto b = dt * dt * dt * 0.5;       
     auto c = dt * dt;                
     
-    Q(0,0)=Q(1,1)=Q(2,2) = a * this->Var_a;
-    Q(3,3)=Q(4,4)=Q(5,5) = c * this->Var_a;
+    // [修复] 严格区分 XY 轴和 Z 轴
+    Q(0,0) = Q(1,1) = a * this->Var_a_xy; // X, Y 位置
+    Q(2,2) = a * this->Var_a_z;           // Z 位置 (极小)
+    
+    Q(3,3) = Q(4,4) = c * this->Var_a_xy; // X, Y 速度
+    Q(5,5) = c * this->Var_a_z;           // Z 速度 (极小)
+    
+    Q(0,3) = Q(3,0) = Q(1,4) = Q(4,1) = b * this->Var_a_xy; // X,Y 协方差
+    Q(2,5) = Q(5,2) = b * this->Var_a_z;                    // Z 协方差 (极小)
+    
     Q(6,6) = a * this->Var_alpha;
     Q(7,7) = c * this->Var_alpha;
+    Q(6,7) = Q(7,6) = b * this->Var_alpha;
+
     // Q(8,8) = this->Var_r; 
     // Q(9,9) = this->Var_l; 
     // Q(10,10) = this->Var_h; 
-
-    Q(0,3) = Q(3,0) = Q(1,4) = Q(4,1) = Q(2,5) = Q(5,2) = b * this->Var_a;     
-    Q(6,7) = Q(7,6) = b * this->Var_alpha; 
-
     this->CovState = F * this->CovState * F.transpose() + Q;
 
     //获得观测矩阵H
@@ -196,16 +202,19 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     auto b = dt * dt * dt * 0.5;       
     auto c = dt * dt;                
     
-    Q(0,0)=Q(1,1)=Q(2,2) = a * this->Var_a;
-    Q(3,3)=Q(4,4)=Q(5,5) = c * this->Var_a;
+    // [修复] 严格区分 XY 轴和 Z 轴
+    Q(0,0) = Q(1,1) = a * this->Var_a_xy; // X, Y 位置
+    Q(2,2) = a * this->Var_a_z;           // Z 位置 (极小)
+    
+    Q(3,3) = Q(4,4) = c * this->Var_a_xy; // X, Y 速度
+    Q(5,5) = c * this->Var_a_z;           // Z 速度 (极小)
+    
+    Q(0,3) = Q(3,0) = Q(1,4) = Q(4,1) = b * this->Var_a_xy; // X,Y 协方差
+    Q(2,5) = Q(5,2) = b * this->Var_a_z;                    // Z 协方差 (极小)
+    
     Q(6,6) = a * this->Var_alpha;
     Q(7,7) = c * this->Var_alpha;
-    // Q(8,8) = this->Var_r; 
-    // Q(9,9) = this->Var_l; 
-    // Q(10,10) = this->Var_h; 
-
-    Q(0,3) = Q(3,0) = Q(1,4) = Q(4,1) = Q(2,5) = Q(5,2) = b * this->Var_a;     
-    Q(6,7) = Q(7,6) = b * this->Var_alpha; 
+    Q(6,7) = Q(7,6) = b * this->Var_alpha;
 
     this->CovState = F * this->CovState * F.transpose() + Q;
 
@@ -293,6 +302,53 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     this->CovState = I_KH * this->CovState * I_KH.transpose() + K * this->CovViews * K.transpose();
     return X_next;
 }
+
+
+Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
+    const Eigen::Matrix<double, 14, 1>& State,
+    double dt)
+{
+    // ==========================================
+    // 1. 预测阶段 (Predict) - 纯线性匀速模型
+    // ==========================================
+    const double& vxc = State(3), vyc = State(4), vzc = State(5), w = State(7);
+
+    Eigen::Matrix<double, 14, 1> X_curr = State;
+    X_curr(0) += vxc * dt;
+    X_curr(1) += vyc * dt;
+    X_curr(2) += vzc * dt;
+    X_curr(6) += w * dt;
+    X_curr(6) = std::remainder(X_curr(6), CV_PI * 2.0);
+
+    // 状态转移雅可比 F
+    Eigen::Matrix<double, 14, 14> F = Eigen::Matrix<double, 14, 14>::Identity();
+    F(0, 3) = dt; F(1, 4) = dt; F(2, 5) = dt; F(6, 7) = dt;
+
+// 过程噪声 Q
+    Eigen::Matrix<double, 14, 14> Q = Eigen::Matrix<double, 14, 14>::Zero();
+    auto a = dt * dt * dt * dt * 0.25;  
+    auto b = dt * dt * dt * 0.5;       
+    auto c = dt * dt;                
+    
+    // [修复] 严格区分 XY 轴和 Z 轴
+    Q(0,0) = Q(1,1) = a * this->Var_a_xy; // X, Y 位置
+    Q(2,2) = a * this->Var_a_z;           // Z 位置 (极小)
+    
+    Q(3,3) = Q(4,4) = c * this->Var_a_xy; // X, Y 速度
+    Q(5,5) = c * this->Var_a_z;           // Z 速度 (极小)
+    
+    Q(0,3) = Q(3,0) = Q(1,4) = Q(4,1) = b * this->Var_a_xy; // X,Y 协方差
+    Q(2,5) = Q(5,2) = b * this->Var_a_z;                    // Z 协方差 (极小)
+    
+    Q(6,6) = a * this->Var_alpha;
+    Q(7,7) = c * this->Var_alpha;
+    Q(6,7) = Q(7,6) = b * this->Var_alpha;
+
+    this->CovState = F * this->CovState * F.transpose() + Q;
+
+    return X_curr;
+}
+
 
 
 
@@ -403,4 +459,27 @@ Eigen::Matrix<double, 10, 14> EKFKalman::getStateToViewsJacobian(const Eigen::Ma
 
 
     return H2;
+}
+
+double EKFKalman::GetAngleRobustScale(double angle_error)const
+{
+    // 2. 角度误差的 6 阶放大
+    double p2_angle = angle_error * angle_error;
+    double p6_angle = p2_angle * p2_angle * p2_angle;
+    double T2_angle = this->Threshold_Angle * this->Threshold_Angle;
+    double T6_angle = T2_angle * T2_angle * T2_angle;
+    double scale_angle = 1.0 + (this->Max_Robust_Scale - 1.0) * (p6_angle / (p6_angle + T6_angle));
+    return std::sqrt(scale_angle);
+}
+
+double EKFKalman::GetDistanceRobustScale(double distance_error)const
+{
+// 1. 位置误差的 6 阶放大
+    double p2_pos = distance_error * distance_error;
+    double p6_pos = p2_pos * p2_pos * p2_pos;
+    double T2_pos = this->Threshold_Pos * this->Threshold_Pos;
+    double T6_pos = T2_pos * T2_pos * T2_pos;
+    double scale_pos = 1.0 + (this->Max_Robust_Scale - 1.0) * (p6_pos / (p6_pos + T6_pos));
+
+    return std::sqrt(scale_pos);
 }

@@ -39,7 +39,7 @@ static FastQueue<FrameData> Frames(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-io::HikCamera Hik(1,16);
+io::HikCamera Hik(2,16);
 io::RTSerial<Packet> ser(80);
 
 // 传统视觉检测器

@@ -46,23 +46,11 @@ void Robot::Update(const std::vector<ArmorPosi>& armors, const cv::Quatd& grippe
 
 }
 
-void Robot::Update(const cv::Quatd& gripper_to_world, double dt)
+void Robot::Update(double dt)
 {
-    size_t ID = 0;
-    for(size_t i=0;i<4;i++)
-    {
-        if(this->View[i] == ArmorView::Visual)
-        {
-            ID = i;
-            break;
-        }
-    }
-    auto armors = this->Predic(dt);
-    
-    const Eigen::Matrix<double, 4, 1>& armorView = armors.block<4,1>(0,ID);
 
     //卡尔曼滤波
-    //状态向量 State 为 14 维: [xc, yc, zc, vxc, vyc, vzc, theta_0, w, r,l,h]
+    //状态向量 State 为 14 维: [xc, yc, zc, vxc, vyc, vzc, theta_0, w, r,l,h,d_theta_1,d_theta_2,d_theta_3]
     Eigen::Matrix<double, 14, 1> State;
     State.block<3,1>(0,0) = this->center;
     State.block<3,1>(3,0) = this->Speed.block<3,1>(0,0);
@@ -75,37 +63,10 @@ void Robot::Update(const cv::Quatd& gripper_to_world, double dt)
     State(12,0) = this->d_theta_2;
     State(13,0) = this->d_theta_3;
 
-    const double& x = armorView(0), & y = armorView(1), & z = armorView(2);
-    double xx = x*x, yy = y*y, zz = z*z;
-    cv::Point3d SCS = cv::Point3d(std::sqrt(xx + yy + zz),
-                                  std::atan2(std::sqrt(xx + yy), z),
-                                  std::atan2(y, x));
-
-    auto ans = this->Kalman(State, armorView, SCS, 0.7, ID, gripper_to_world, dt);
-    
-    //更新l,h
-    this->l_diff = ans(9,0);
-    this->h_diff = ans(10,0);
-
-    //更新d_theta
-    this->d_theta_1 = ans(11,0);
-    this->d_theta_2 = ans(12,0);
-    this->d_theta_3 = ans(13,0);
-
-    //更新Robot信息
-    this->Speed.block<3,1>(0,0) = ans.block<3,1>(3,0);
-    this->Speed(3,0) = ans(7,0);
+    Eigen::Matrix<double, 14, 1> ans = this->Kalman( State, dt );
 
     //更新中心点
     this->center = ans.block<3,1>(0,0);
-
-    //更新半径
-    this->Armors(1,0) = this->Armors(1,2) = ans(8,0);
-    this->Armors(1,1) = this->Armors(1,3) = ans(8,0) + this->l_diff;
-
-    //更新高度
-    this->Armors(2,0) = this->Armors(2,2) = ans(2,0);
-    this->Armors(2,1) = this->Armors(2,3) = ans(2,0) + this->h_diff;
 
     // 更新装甲板角度：以 ans(6,0) 为绝对基准推算所有板 (使用逆时针排布)
     this->Armors(0,0) = ans(6,0);
@@ -221,7 +182,7 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, const cv::Quatd& grip
 
     // 防御性编程：万一两块装甲板由于识别噪点匹配到了同一个 ID，丢弃劣质数据
     if( (IDS.size() == 2 && IDS[0] == IDS[1]) || ( ( (IDS[0]+2)%4 ) == IDS[1] ) ) {
-        this->Update( gripper_to_world, dt);
+        this->Update( dt );
         return;
     }
 
@@ -284,7 +245,7 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, const cv::Quatd& grip
     StateViews(8,0) = ArmorStates[1](2,0) - ArmorStates[0](2,0);
     StateViews(9,0) = std::remainder(ArmorStates[1](3,0) - ArmorStates[0](3,0), 2*CV_PI);
 
-    auto ans = this->Kalman(State, StateViews, SCSs[0], SCSs[1], yaws[0], yaws[1], IDS[0], gripper_to_world, dt);
+    Eigen::Matrix<double, 14, 1> ans = this->Kalman(State, StateViews, SCSs[0], SCSs[1], yaws[0], yaws[1], IDS[0], gripper_to_world, dt);
     
     // 更新 l, h
     this->l_diff = ans(9,0);
