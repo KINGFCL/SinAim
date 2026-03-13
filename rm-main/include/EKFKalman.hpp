@@ -1,8 +1,8 @@
 #ifndef EKFKALMAN_HPP_INCLUDE
 #define EKFKALMAN_HPP_INCLUDE
-#include <eigen3/Eigen/Dense>
-#include <eigen3/Eigen/src/Core/Matrix.h>
+#include <eigen3/Eigen/Core>
 #include <opencv2/core/quaternion.hpp>
+#include <eigen3/Eigen/Geometry>
 #include <vector>
 
 
@@ -19,7 +19,7 @@ public:
     void Init();
     
     //观测噪声
-    const double Var_r = 400, Var_yaw = 0.01, Var_dtheta = 0.001; // 观测yaw值方差
+    const double Var_r = 100, Var_yaw = 0.01, Var_dtheta = 0.001; // 观测yaw值方差
     
     // 过程噪声参数
     const double Var_a = 10000.0, Var_alpha = 0.6;
@@ -37,7 +37,7 @@ public:
         100, 100, 100,       // xc, yc, zc 位置方差
         10000, 10000, 10000, // vxc, vyc, vzc 速度方差
         0.01, 1,           // theta, w 角度与角速度方差
-        10, 10, 10,           // r, l, h 几何结构初始方差
+        0, 10, 10,           // r, l, h 几何结构初始方差
         0.001, 0.001, 0.001  //d_theta_1,d_theta_2,d_theta_3
     ).finished().asDiagonal();
 

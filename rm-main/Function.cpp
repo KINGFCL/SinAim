@@ -29,10 +29,10 @@ void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::RTSerial<Packet> &ser,
             //配对超时
 
             //串口数据比相机数据早8ms以上
-            if( t > 9 ) continue;
+            if( t > 8 ) continue;
 
             //串口数据比相机数据早5ms以下
-            if( t < 7 ) break;
+            if( t < 5 ) break;
 
             //配对成功
             cv::Quatd quat( IMU.q3, IMU.q0, IMU.q1, IMU.q2 );
@@ -175,6 +175,7 @@ double rm::SolveDt(const std::chrono::steady_clock::time_point& start, const std
     return n * pic;
 }
 
+
 std::vector<YoloArmor> rm::MatchYoloAndOpenCV(const std::deque<Armor>& armors, const std::vector<YoloArmor>& yolo_armors)
 {
     std::vector<YoloArmor> matched_results;
@@ -264,7 +265,7 @@ std::vector<YoloArmor> rm::MatchYoloAndOpenCV(const std::deque<Armor>& armors, c
             // Lightcorners顺序: [左上, 右上, 右下, 左下]
             result.keypoints = armor.Lightcorners;
 
-            matched_results.push_back(result);
+            matched_results.emplace_back(result);
         }
     }
 

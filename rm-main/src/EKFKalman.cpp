@@ -3,7 +3,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
-#include <eigen3/Eigen/src/Core/Matrix.h>
+#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Geometry>
 #include <eigen3/Eigen/src/Geometry/Quaternion.h>
 #include <opencv2/core/types.hpp>
 #include <vector>

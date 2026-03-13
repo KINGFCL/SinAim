@@ -179,7 +179,7 @@ public:
         rec.log("world/speed/w", rerun::Scalars((float)rotation_speed));                   // 传入数据
     }
 
-    void EKFKalmanUpdate(const Eigen::Matrix<double, 8, 1>& State,
+    void EKFKalmanUpdate(const Eigen::Matrix<double, 14, 1>& State,
                          const Eigen::Matrix<double, 4, 1>& View,
                         //  const Eigen::Matrix<double, 8, 8>& CovState,
                         //  const Eigen::Matrix<double, 8, 4>& KalmanGain, // 新增的卡尔曼增益
@@ -196,7 +196,8 @@ public:
             rerun::Points3D({{(float)View(0, 0), (float)View(1, 0), (float)View(2, 0)}})
                 .with_colors({{0, 0, 255, 255}}) // 蓝色
                 .with_radii({3.0f}));
-        rec.log("world/raw_yaw", View(3, 0));
+        rec.log("world/raw_yaw", rerun::Scalars((float)View(3, 0)));
+        rec.log("world/l_diff", rerun::Scalars((float)State(9, 0)));
         
     }
 

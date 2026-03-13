@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <vector>
 #include <cmath>
-// #define Debug
+#define detectorDebug
 //Debug
 
 Detector::Detector(Light::Color color,float confidence): 
@@ -29,13 +29,16 @@ std::deque<Armor> Detector:: operator () (cv::Mat& frame,std::vector<cv::Mat>& a
     cv::Mat binary_img = preprocessImage(frame); //预处理图像
 
     std::deque<Light> lights = FindLight(binary_img); //寻找灯条
-    #ifdef Debug
+    #ifdef detectorDebug
     std::cout <<"lights num:" << lights.size() << "\n";
     #endif
 
     std::deque<Armor> armors = FindArmor(lights); //寻找装甲板
-    #ifdef Debug
-    std::cout <<"possible_armors num:" << possible_armors.size() << "\n";
+    #ifdef detectorDebug
+    std::cout <<"possible_armors num:" << armors.size() << "\n";
+    cv::Mat show__ = this->rgb_img.clone();
+    this->ArmorShow(show__,armors);
+    cv::imshow("armors",show__);
     #endif 
 
     armors_pattern = this->ROIArmor(armors);
@@ -55,9 +58,13 @@ cv::Mat Detector::preprocessImage(cv::Mat& rgb_img) //图像预处理
 {
 
   cv::cvtColor(rgb_img, this->gray_img, cv::COLOR_RGB2GRAY);
-  
+
   cv::Mat binary_img;
-  cv::threshold(gray_img, binary_img, 150, 255, cv::THRESH_BINARY);
+  cv::threshold(gray_img, binary_img, 200, 255, cv::THRESH_BINARY);
+  #ifdef detectorDebug
+  cv::imshow("binary_img",binary_img);
+  cv::waitKey(1);
+  #endif
 
   return binary_img;
 }

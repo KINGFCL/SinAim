@@ -39,11 +39,11 @@ static FastQueue<FrameData> Frames(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-io::HikCamera Hik(2,16);
-io::RTSerial<Packet> ser(180);
+io::HikCamera Hik(1,16);
+io::RTSerial<Packet> ser(80);
 
 // 传统视觉检测器
-Detector detect(Light::Color::Blue, 0.5);
+Detector detect(Light::Color::Blue, 0.4);
 
 // YOLO检测器
 YOLO11Detector yolo11detect("../model/yolo11.xml", YOLO11Detector::Camp::Blue);
@@ -84,8 +84,7 @@ int main() {
     std::thread match_thread = std::thread(rm::IMUAndImageMatchFunction, std::ref(Hik), std::ref(ser), std::ref(Frames));
 
     // cv::namedWindow("frame");
-    auto start = std::chrono::steady_clock::now();
-
+        auto start = std::chrono::steady_clock::now();
     std::printf("Start main loop\n");
 
     while(true)
@@ -103,26 +102,31 @@ int main() {
         // cv::imshow("frame", frame.image);
         // cv::waitKey(1);
         //计算枪管方向
+
         const auto& Gun = shoot.GunDirection(frame.quat);
 
+    //   auto t1_ = std::chrono::steady_clock::now();
         // 1. 传统视觉检测
         std::vector<cv::Mat> armors_pattern;
         auto opencv_armors = detect(frame.image, armors_pattern);
-
+        // std::cout<<"time: " << (std::chrono::steady_clock::now()-t1_).count() <<"\n";
         // std::cout<<"opencv_armors num:" << opencv_armors.size() << "\n";
-
+  
         // 2. YOLO检测
-        auto yolo_armors = yolo11detect(frame.image);
+        std::vector<YoloArmor> yolo_armors = yolo11detect(frame.image);
 
         // std::cout<<"yolo_armors num:" << yolo_armors.size() << "\n";
 
         // 3. 融合传统视觉和YOLO的结果
         auto fused_yolo_armors = rm::MatchYoloAndOpenCV(opencv_armors, yolo_armors);
 
+        // yolo11detect.draw(frame.image, fused_yolo_armors);
+        // cv::imshow("frame", frame.image);
+        // cv::waitKey(1);
         // std::cout<<"fused_yolo_armors num:" << fused_yolo_armors.size() << "\n";
 
         // 4. 解算装甲板位置 (使用融合后的YOLO结果)
-        auto armors_posi = Sov(fused_yolo_armors);
+        std::vector<ArmorPosi> armors_posi = Sov(fused_yolo_armors);
 
         // 5. 筛选装甲板，内部自动坐标系转换到世界坐标系
         Sov.FilterAndConverToWorld(armors_posi, frame.quat, Gun, 20);
