@@ -7,13 +7,13 @@
 #include "include/Shooter.hpp"
 #include "include/Target.hpp"
 #include "include/Tracker.hpp"
-#include "include/ShootTable.hpp"
 #include "include/Data.hpp"
 #include "Function.hpp"
 #include "include/RerunVisualizer.hpp"
 
 #include <chrono>
 #include <cstdio>
+#include <eigen3/Eigen/src/Core/MatrixBase.h>
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <thread>
@@ -55,8 +55,7 @@ Solver Sov("../../config/Solver_config.yaml");
 // 追踪器
 Tracker track;
 
-ShootTable::TableConfig tableconfig(10,0,2,-1,0.01,"../../config/infantry_10_table.bin");
-Shooter shoot(cv::Point3d(0.9992001066609,0,0.039989334186634),tableconfig);
+Shooter shoot(Eigen::Matrix<double,3,1>(0.9992001066609,0,0.039989334186634));
 
 Test test;
 
@@ -103,7 +102,7 @@ int main() {
         // cv::waitKey(1);
         //计算枪管方向
 
-        const auto& Gun = shoot.GunDirection(frame.quat);
+        const Eigen::Matrix<double, 3, 1>& Gun = shoot.GunDirection(frame.quat);
 
     //   auto t1_ = std::chrono::steady_clock::now();
         // 1. 传统视觉检测
@@ -147,22 +146,19 @@ int main() {
         }
 
         // 9. 预测和瞄准
-        double dt = shoot.FlyTime(cv::Point3d(current_robot->center.x()/100.0,
-                                               current_robot->center.y()/100.0,
-                                               current_robot->center.z()/100.0));
-        auto aims = current_robot->Predic(dt);
+        double dt = shoot.FlyTime(current_robot->center);
+        Eigen::Matrix<double, 4, 4> aims = current_robot->Predic(dt);
 
 
 
-        auto aim = rm::ChooseBestAimArmor(aims, current_robot->Speed, Gun);
+        Eigen::Matrix<double, 4, 1> aim = rm::ChooseBestAimArmor(aims, current_robot->Speed, Gun);
 
         // std::cout<<aim.norm()<<"\n";
         // 10. 计算射击角度
-        auto predict_posi = cv::Point3d(aim(0,0)/100.0, aim(1,0)/100.0, aim(2,0)/100.0);
-        std::array<double, 2> Pitch_and_Yaw = shoot(predict_posi);
+        std::array<double, 2> Pitch_and_Yaw = shoot(aim.block<3,1>(0,0));
 
         // 11. 发送控制指令
-        //bool fire_ = rm::checkPitchYawDeviation(frame.quat, Pitch_and_Yaw[0], Pitch_and_Yaw[1], 0.1, 0.01);
+        bool fire_ = rm::CheckFireCondition(frame.quat, Pitch_and_Yaw[0], Pitch_and_Yaw[1], 0.1, 0.01);
         rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], true);
         // std::cout<<fire_<<"\n";
         // std::cout<<"Pitch: "<<Pitch_and_Yaw[0]<<" Yaw: "<<Pitch_and_Yaw[1]<<"\n";

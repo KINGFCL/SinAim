@@ -24,9 +24,9 @@ namespace rm
     double SolveDt(const std::chrono::steady_clock::time_point& start, const std::chrono::steady_clock::time_point& end, double pic);
     
     std::vector<YoloArmor> MatchYoloAndOpenCV(const std::deque<Armor>& armors,const std::vector<YoloArmor>& yolo_armors);
-    bool checkPitchYawDeviation(const cv::Quatd& quad, 
-                                double pitch_C, double yaw_C, 
-                                double pitch_thresh, double yaw_thresh);
+    bool CheckFireCondition(const Eigen::Matrix<double, 3, 1> Gun,
+                            const Eigen::Matrix<double, 4, 1> aim,
+                            double pitch_thresh, double yaw_thresh);
 }
 
 
