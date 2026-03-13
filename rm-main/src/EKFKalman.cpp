@@ -92,12 +92,6 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     // Q(10,10) = this->Var_h; 
     this->CovState = F * this->CovState * F.transpose() + Q;
 
-    //获得观测矩阵H
-    Eigen::Matrix<double, 4, 14> H = this->getStateToViewJacobian(X_curr, armor_id);
-
-    //计算卡尔曼增益
-    Eigen::Matrix<double, 14, 4> K = this->CovState * H.transpose() * (H * this->CovState * H.transpose() + this->CovView).inverse();
-
     //更新状态
     int& id = armor_id;
     const double& pred_xc = X_curr(0);
@@ -126,6 +120,25 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
 
     Eigen::Matrix<double, 4, 1> Y = View - View_curr;
     Y(3) = std::remainder(Y(3), CV_PI * 2.0);
+
+    //独立维度鲁棒缩放，且完美保持相关性
+    double s_x   = this->GetDistanceRobustScale( std::abs(Y(0)) );
+    double s_y   = this->GetDistanceRobustScale( std::abs(Y(1)) );
+    double s_z   = this->GetDistanceRobustScale( std::abs(Y(2)) );
+    double s_yaw = this->GetAngleRobustScale(std::abs(Y(3)));
+
+    Eigen::Matrix<double, 4, 1> D_vec{
+        s_x, s_y, s_z, s_yaw
+    };
+
+    Eigen::Matrix<double, 4, 4> RobustView = D_vec.asDiagonal();
+    this->CovView = RobustView * this->CovView * RobustView.transpose();
+    
+    //获得观测矩阵H
+    Eigen::Matrix<double, 4, 14> H = this->getStateToViewJacobian(X_curr, armor_id);
+
+    //计算卡尔曼增益
+    Eigen::Matrix<double, 14, 4> K = this->CovState * H.transpose() * (H * this->CovState * H.transpose() + this->CovView).inverse();
 
     Eigen::Matrix<double, 14, 1> X_next = X_curr + K * Y;
 
@@ -218,12 +231,6 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
 
     this->CovState = F * this->CovState * F.transpose() + Q;
 
-    //获得观测矩阵H
-    Eigen::Matrix<double, 10, 14> H = this->getStateToViewsJacobian(X_curr, armor_id);
-
-    //计算卡尔曼增益
-    Eigen::Matrix<double, 14, 10> K = this->CovState * H.transpose() * (H * this->CovState * H.transpose() + this->CovViews).inverse();
-
     //更新状态
     int id1 = armor_id;
     int id2 = (id1 + 1) % 4;
@@ -290,6 +297,33 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     Y(3,0) = std::remainder(Y(3), CV_PI * 2.0);
     Y(7,0) = std::remainder(Y(7), CV_PI * 2.0);
     Y(9,0) = std::remainder(Y(9), CV_PI * 2.0);
+
+    //独立维度鲁棒缩放，且完美保持相关性
+    double s_x1   = this->GetDistanceRobustScale( std::abs(Y(0)) );
+    double s_y1   = this->GetDistanceRobustScale( std::abs(Y(1)) );
+    double s_z1   = this->GetDistanceRobustScale( std::abs(Y(2)) );
+    double s_yaw1 = this->GetAngleRobustScale(std::abs(Y(3)));
+
+    double s_x2   = this->GetDistanceRobustScale( std::abs(Y(4)) );
+    double s_y2   = this->GetDistanceRobustScale( std::abs(Y(5)) );
+    double s_z2   = this->GetDistanceRobustScale( std::abs(Y(6)) );
+    double s_yaw3 = this->GetAngleRobustScale(std::abs(Y(7)));
+
+    double s_h    = this->GetDistanceRobustScale( std::abs(Y(8)) );
+    double s_diff_angle = this->GetAngleRobustScale( std::abs(Y(9)) );
+
+    Eigen::Matrix<double, 10, 1> D_vec{
+        s_x1, s_y1, s_z1, s_yaw1, s_x2, s_y2, s_z2, s_yaw3, s_h, s_diff_angle
+    };
+
+    Eigen::Matrix<double, 10, 10> RobustViews = D_vec.asDiagonal();
+    this->CovViews = RobustViews * this->CovViews * RobustViews.transpose();
+
+    //获得观测矩阵H
+    Eigen::Matrix<double, 10, 14> H = this->getStateToViewsJacobian(X_curr, armor_id);
+
+    //计算卡尔曼增益
+    Eigen::Matrix<double, 14, 10> K = this->CovState * H.transpose() * (H * this->CovState * H.transpose() + this->CovViews).inverse();
 
     Eigen::Matrix<double, 14, 1> X_next = X_curr + K * Y;
 
@@ -465,9 +499,12 @@ double EKFKalman::GetAngleRobustScale(double angle_error)const
 {
     // 2. 角度误差的 6 阶放大
     double p2_angle = angle_error * angle_error;
-    double p6_angle = p2_angle * p2_angle * p2_angle;
+    double p4_angle = p2_angle * p2_angle;
+    double p6_angle = p4_angle * p2_angle;
+
     double T2_angle = this->Threshold_Angle * this->Threshold_Angle;
-    double T6_angle = T2_angle * T2_angle * T2_angle;
+    double T4_angle = T2_angle * T2_angle;
+    double T6_angle = T4_angle * T2_angle;
     double scale_angle = 1.0 + (this->Max_Robust_Scale - 1.0) * (p6_angle / (p6_angle + T6_angle));
     return std::sqrt(scale_angle);
 }
@@ -476,10 +513,28 @@ double EKFKalman::GetDistanceRobustScale(double distance_error)const
 {
 // 1. 位置误差的 6 阶放大
     double p2_pos = distance_error * distance_error;
-    double p6_pos = p2_pos * p2_pos * p2_pos;
+    double p4_pos = p2_pos * p2_pos;
+    double p6_pos = p4_pos * p2_pos;
+
     double T2_pos = this->Threshold_Pos * this->Threshold_Pos;
-    double T6_pos = T2_pos * T2_pos * T2_pos;
+    double T4_pos = T2_pos * T2_pos;
+    double T6_pos = T4_pos * T2_pos;
     double scale_pos = 1.0 + (this->Max_Robust_Scale - 1.0) * (p6_pos / (p6_pos + T6_pos));
 
     return std::sqrt(scale_pos);
+}
+
+double EKFKalman::GetAngleDiffRobustScale(double angle_diff_error)const
+{
+// 1. 位置误差的 6 阶放大
+    double p2_angle_diff = angle_diff_error * angle_diff_error;
+    double p4_angle_diff = p2_angle_diff * p2_angle_diff;
+    double p6_angle_diff = p4_angle_diff * p2_angle_diff;
+
+    double T2_angle_diff = this->Threshold_Angle_diff * this->Threshold_Angle_diff;
+    double T4_angle_diff = T2_angle_diff * T2_angle_diff;
+    double T6_angle_diff = T4_angle_diff * T2_angle_diff;
+    double scale_angle_diff = 1.0 + (this->Max_Robust_Scale - 1.0) * (p6_angle_diff / (p6_angle_diff + T6_angle_diff));
+
+    return std::sqrt(scale_angle_diff);
 }
