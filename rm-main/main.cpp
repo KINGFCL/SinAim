@@ -95,13 +95,13 @@ int main() {
         FrameData frame;
 
         while (!Frames.empty())
-        {
+        {  
             Frames.pop(frame);
         }
         if(frame.image.empty()) continue;
 
-        // cv::imshow("frame", frame.image);
-        // cv::waitKey(1);
+        cv::imshow("frame", frame.image);
+        cv::waitKey(1);
         
                 // 性能统计
         // test.count(std::chrono::steady_clock::now() - start);

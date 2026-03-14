@@ -42,7 +42,7 @@ static FastQueue<FrameData> Frames(10);
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
 io::HikCamera Hik(1,16);
-io::RTSerial<Packet> ser(80);
+io::RTSerial<Packet> ser(50);
 
 // 传统视觉检测器
 Detector detect(Light::Color::Blue, 0.4);
@@ -150,7 +150,7 @@ int main() {
         // std::cout<<"FilterAndConverToWorld armors_posi num:" << armors_posi.size() << "\n";
         
         // 7. 使用Tracker进行追踪
-        track(armors, frame.quat, Gun, rm::SolveDt(next_point, frame.time, 0.01));
+        track(armors, frame.quat, Gun, rm::SolveDt(next_point, frame.time, 0.005));
         next_point = frame.time;
 
         // 8. 获取当前追踪的机器人

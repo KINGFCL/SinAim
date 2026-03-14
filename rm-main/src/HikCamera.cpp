@@ -1,6 +1,7 @@
 #include "../include/HikCamera.hpp"
 #include "../include/logger.hpp"
 #include <chrono>
+#include <iostream>
 #include <thread>
 
 namespace io
@@ -169,7 +170,7 @@ void HikCamera::capture_init()
 
 
 
-  ret = MV_CC_SetFloatValue(handle_, "AcquisitionFrameRate", 100);
+  ret = MV_CC_SetFloatValue(handle_, "AcquisitionFrameRate", 200);
   if (ret != MV_OK) {
     tools::logger()->warn("MV_CC_SetFloatValue(set framerate) failed: {:#x}", ret);
     return;
