@@ -1,6 +1,7 @@
+#include "include/Armor.hpp"
 #include "include/HikCamera.hpp"
 #include "include/RTSerial.hpp"
-#include "include/Yolo.hpp"
+#include "include/SmallNumClassifier.hpp"
 #include "include/fastqueue.hpp"
 #include "include/Detector.hpp"
 #include "include/Solver.hpp"
@@ -17,9 +18,10 @@
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <thread>
+#include <vector>
 
-#define SmallMainDebug
-#ifdef SmallMainDebug
+#define MainDebug
+#ifdef MainDebug
 double R_sum = 0.0;
 int R_count = 0;
 #endif
@@ -46,7 +48,7 @@ io::RTSerial<Packet> ser(80);
 Detector detect(Light::Color::Blue, 0.4);
 
 // YOLO检测器
-YOLO11Detector yolo11detect("../model/yolo11.xml", YOLO11Detector::Camp::Blue);
+SmallNumClassifier smallnet("../model/mlp.onnx");
 
 RerunVisualizer viz("RoboMaster_AutoAim");
 
@@ -118,33 +120,37 @@ int main() {
     //   auto t1_ = std::chrono::steady_clock::now();
         // 1. 传统视觉检测
         std::vector<cv::Mat> armors_pattern;
-        auto opencv_armors = detect(frame.image, armors_pattern);
+        
+        auto opencv_armors = detect(frame.image, armors_pattern,true);
 
         // std::cout<<"opencv_armors num:" << opencv_armors.size() << "\n";
+        std::vector< std::array<ArmorPosi,2> > armors_2 =  Sov(opencv_armors);
+
+        // 4. 解算装甲板位置 (使用融合后的YOLO结果)
+        Sov.Filter(armors_2, armors_pattern, frame.quat, Gun);
   
-        // 2. YOLO检测
-        std::vector<YoloArmor> yolo_armors = yolo11detect(frame.image);
+        // 2.
+        std::vector<ArmorPosi> armors = smallnet(armors_2,frame.image);
+
+
+        //结果
+        for(auto& armor : armors)
+        {
+            Sov.ansShow(armor,frame.image);
+        }
+        cv::imshow("frame", frame.image);
+        cv::waitKey(1);
 
         // std::cout<<"yolo_armors num:" << yolo_armors.size() << "\n";
 
-        // 3. 融合传统视觉和YOLO的结果
-        auto fused_yolo_armors = rm::MatchYoloAndOpenCV(opencv_armors, yolo_armors);
 
-        // yolo11detect.draw(frame.image, fused_yolo_armors);
-        // cv::imshow("frame", frame.image);
-        // cv::waitKey(1);
         // std::cout<<"fused_yolo_armors num:" << fused_yolo_armors.size() << "\n";
 
-        // 4. 解算装甲板位置 (使用融合后的YOLO结果)
-        std::vector<ArmorPosi> armors_posi = Sov(fused_yolo_armors);
-
-        // 5. 筛选装甲板，内部自动坐标系转换到世界坐标系
-        Sov.FilterAndConverToWorld(armors_posi, frame.quat, Gun, 20);
         // std::cout<<"time: " << (std::chrono::steady_clock::now()-t1_).count() <<"\n";
         // std::cout<<"FilterAndConverToWorld armors_posi num:" << armors_posi.size() << "\n";
         
         // 7. 使用Tracker进行追踪
-        track(armors_posi, frame.quat, Gun, rm::SolveDt(next_point, frame.time, 0.01));
+        track(armors, frame.quat, Gun, rm::SolveDt(next_point, frame.time, 0.01));
         next_point = frame.time;
 
         // 8. 获取当前追踪的机器人
@@ -179,7 +185,7 @@ int main() {
             test.show();
             test.clear();
         }
-        #ifdef SmallMainDebug
+        #ifdef MainDebug
             viz.update(*current_robot, aims, dt, Gun);
         #endif
         // 可视化
@@ -215,3 +221,4 @@ void Test::show()
 {
     std::cout<< this->num / ( ( (double)this->total.count() ) * 1e-9 )<< "Hz\n" ;
 }
+

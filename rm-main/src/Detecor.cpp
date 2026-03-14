@@ -46,7 +46,29 @@ std::deque<Armor> Detector:: operator () (cv::Mat& frame,std::vector<cv::Mat>& a
     return armors;
 }
 
+std::deque<Armor> Detector::operator () (cv::Mat& frame,std::vector<cv::Mat>& armors_pattern,bool isSmallROI)
+{
+    this->rgb_img = frame;
 
+    cv::Mat binary_img = preprocessImage(frame); //预处理图像
+
+    std::deque<Light> lights = FindLight(binary_img); //寻找灯条
+    #ifdef detectorDebug
+    std::cout <<"lights num:" << lights.size() << "\n";
+    #endif
+
+    std::deque<Armor> armors = FindArmor(lights); //寻找装甲板
+    #ifdef detectorDebug
+    std::cout <<"possible_armors num:" << armors.size() << "\n";
+    cv::Mat show__ = this->rgb_img.clone();
+    this->ArmorShow(show__,armors);
+    cv::imshow("armors",show__);
+    #endif 
+
+    armors_pattern = this->SmallROIArmor(armors);
+
+    return armors;
+}
 
 /**
  * @brief 该函数用于对图像进行预处理
@@ -298,7 +320,42 @@ std::vector<cv::Mat> Detector::ROIArmor(const std::deque<Armor> & armors)
     }
     return armors_pattern;
 }
-
+std::vector<cv::Mat> Detector::SmallROIArmor(const std::deque<Armor> & armors)
+{
+    std::vector<cv::Mat> armors_pattern;
+    if(armors.empty()) return armors_pattern;
+    armors_pattern.reserve(armors.size());
+    
+    for(const auto& armor:armors)
+    {
+        const cv::Size roi_sz(20, 28); //裁剪后图像大小
+        const cv::Size armor_sz(32,28);
+        const int extendLen = 8;
+        const int contractWid = 6;
+        
+        std::vector<cv::Point2f> aim_rect{
+            cv::Point2f(-contractWid,extendLen),
+            cv::Point2f(armor_sz.width - contractWid - 1, extendLen),
+            cv::Point2f(armor_sz.width - contractWid - 1, armor_sz.height - extendLen - 1),
+            cv::Point2f(-contractWid, roi_sz.height - extendLen - 1)
+        };
+        
+        // 计算透视变换矩阵
+        cv::Mat M = cv::getPerspectiveTransform(armor.Lightcorners, aim_rect,cv::INTER_NEAREST);
+        
+        // 应用透视变换
+        cv::Mat armor_roi;
+        cv::warpPerspective(this->gray_img, armor_roi, M, roi_sz);
+        
+        cv::threshold(armor_roi, armor_roi, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);//cv::THRESH_OTSU自动计算最优阈值
+        
+        // cv::imwrite("/home/king/desktop/homework/workindentify/images/roi2.png",armor_roi);
+        // cv::waitKey(1);
+        armor_roi = armor_roi/255.0;//神经网络输入归一化
+        armors_pattern.push_back(armor_roi);
+    }
+    return armors_pattern;
+}
 
 void Detector::ArmorShow(cv::Mat & rgb_img, const std::deque<Armor> & armors)
 {

@@ -14,8 +14,8 @@ private:
 
 const Eigen::Matrix<double, 3, 1> toward;
 const double toward_pitch,toward_yaw;
-const double a = 0.0003083, b = -0.0002537, c = 0.0002843;
-const double GRAVITY =  9.8, BULLET_SPEED  = 20.0; //重力加速度9.8m/s^2 弹速 20m/s;
+const double a = 0.01333, b = -0.00977, c = 0.01082;
+const double GRAVITY =  9.8, BULLET_SPEED  = 22.8; //重力加速度9.8m/s^2 弹速 22.8m/s;
 const double BULLET_SPEED_2 = 2.0 * BULLET_SPEED * BULLET_SPEED;
 
 // ================= 空气动力学物理参数配置 =================
@@ -43,7 +43,7 @@ static constexpr double K = (0.5 * RHO * C_D * AREA) / M_BULLET;
 
 public:
     Shooter(const Eigen::Matrix<double, 3, 1>& Vector):
-            toward(Vector), 
+            toward(Vector.normalized()), 
             toward_pitch(std::asin(toward(2,0))),
             toward_yaw(std::atan2(toward(1,0), toward(0,0)))
             {}
