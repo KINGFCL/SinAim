@@ -24,10 +24,10 @@ public:
     const double Threshold_Angle = 0.8;      // 角度误差容忍阈值 (单位: rad)
     const double Threshold_Angle_diff = 0.2; // 角度差误差容忍阈值 (单位: rad)
     //观测噪声
-    const double Var_r = 100.0, Var_yaw = 0.001, Var_dtheta = 0.0001; // 观测yaw值方差
+    const double Var_r = 100.0, Var_yaw = 0.01, Var_dtheta = 0.0001; // 观测yaw值方差
     
     // 过程噪声参数
-    const double Var_a_xy = 10000.0,  Var_a_z = 10.0, Var_alpha = 10;
+    const double Var_a_xy = 10000.0,  Var_a_z = 10.0, Var_alpha = 5;
     
     // 从相机坐标系到手坐标系的旋转矩阵
     const Eigen::Matrix<double, 3, 3> RCamera2Grip
@@ -47,7 +47,7 @@ public:
     ).finished().asDiagonal();
 
     Eigen::Matrix<double, 3, 3> CovViewCamera = (Eigen::Matrix<double, 3, 1>() << 
-    this->Var_r, 0.0004, 0.0004  // 相机中球坐标系下的方差，r,theta,phi 的观测噪声
+    this->Var_r, 0.004, 0.004  // 相机中球坐标系下的方差，r,theta,phi 的观测噪声
     ).finished().asDiagonal();
     
     // 结构参数收敛噪声极小

@@ -13,6 +13,7 @@
 #include "include/RerunVisualizer.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <eigen3/Eigen/src/Core/MatrixBase.h>
 #include <iostream>
@@ -57,10 +58,12 @@ Solver Sov("../../config/Solver_config.yaml");
 // 追踪器
 Tracker track;
 
-Shooter shoot(Eigen::Matrix<double,3,1>(0.9999283656297303,
+// Shooter shoot(Eigen::Matrix<double,3,1>(0.9999283656297303,
+//  0.002822337907989043,
+//  -0.01163176761242803));
+Shooter shoot(Eigen::Matrix<double,3,1>(1,
  0.002822337907989043,
- -0.01163176761242803));
-
+ 0.01));
 Test test;
 
 int main() {
@@ -175,9 +178,10 @@ int main() {
         std::array<double, 2> Pitch_and_Yaw = shoot(aim.block<3,1>(0,0));
 
         // 11. 发送控制指令
-        bool fire_ = rm::CheckFireCondition(frame.quat, Pitch_and_Yaw, aim, Gun, 0.03, 0.03);
+        bool fire_ = rm::CheckFireCondition(frame.quat, Pitch_and_Yaw, aim, Gun, 0.03, 0.03,M_PI/4);
+        // if(Pitch_and_Yaw[0]<0.05) Pitch_and_Yaw[0] += 0.02;
         rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], true);
-        // std::cout<<fire_<<"\n";
+        // // std::cout<<fire_<<"\n";
         // std::cout<<"Pitch: "<<Pitch_and_Yaw[0]<<" Yaw: "<<Pitch_and_Yaw[1]<<"\n";
         // 性能统计
         test.count(std::chrono::steady_clock::now() - start);

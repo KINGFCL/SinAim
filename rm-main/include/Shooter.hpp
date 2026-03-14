@@ -15,8 +15,8 @@ private:
 
 const Eigen::Matrix<double, 3, 1> toward;
 const double toward_pitch,toward_yaw;
-const double a = 0.000233, b = -0.000171, c = 0.000189;
-const double GRAVITY =  9.8, BULLET_SPEED  = 22.8; //重力加速度9.8m/s^2 弹速 22.8m/s;
+const double a = 0.000244, b = -0.000182, c = 0.000202;
+const double GRAVITY =  9.8, BULLET_SPEED  = 22.3; //重力加速度9.8m/s^2 弹速 22.8m/s;
 const double BULLET_SPEED_2 = 2.0 * BULLET_SPEED * BULLET_SPEED;
 
 // ================= 空气动力学物理参数配置 =================

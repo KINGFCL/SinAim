@@ -33,10 +33,10 @@ void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::RTSerial<Packet> &ser,
             //配对超时
 
             //串口数据比相机数据早8ms以上
-            if( t > 4 ) {continue;}
+            if( t > 8 ) {continue;}
 
             //串口数据比相机数据早5ms以下
-            if( t < 2 ) { std::cout << "IMU and Image time out" << std::endl;break;}
+            if( t < 6 ) { std::cout << "IMU and Image time out" << std::endl;break;}
 
             //配对成功
             cv::Quatd quat( IMU.q3, IMU.q0, IMU.q1, IMU.q2 );
@@ -121,7 +121,7 @@ Eigen::Matrix<double, 4, 1> rm::ChooseBestAimArmor(
         // -------------------------------------------------------------
         const double w_face = 1.0;  // 权重1：对装甲板正度的重视程度
         const double w_track = 1.5; // 权重2：对云台响应速度的重视程度（通常云台物理响应最慢，给高权重）
-        const double w_spin = 0.5;  // 权重3：对旋转提前量的奖励权重
+        const double w_spin = 2.0;  // 权重3：对旋转提前量的奖励权重
         
         double cost = w_face * (1.0 - face_proj) 
                     + w_track * (1.0 - tracking_proj) 
