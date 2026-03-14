@@ -450,8 +450,8 @@ Eigen::Matrix<double, 4, 14> EKFKalman::getStateToViewJacobian(const Eigen::Matr
     // 2. 位置对结构参数求导
     H(0, 8) = cos_theta;                  // 对 r
     H(1, 8) = sin_theta;                  // 对 r
-    H(0, 9) = is_side ? cos_theta : 0.0;  // 对 l
-    H(1, 9) = is_side ? sin_theta : 0.0;  // 对 l
+    // H(0, 9) = is_side ? cos_theta : 0.0;  // 对 l
+    // H(1, 9) = is_side ? sin_theta : 0.0;  // 对 l
     H(2, 10) = is_side ? 1.0 : 0.0;       // 对 h
 
     // 3. 对全局 yaw_0 求导

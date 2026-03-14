@@ -39,7 +39,7 @@ static FastQueue<FrameData> Frames(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-io::HikCamera Hik(2,16);
+io::HikCamera Hik(1,16);
 io::RTSerial<Packet> ser(80);
 
 // 传统视觉检测器
@@ -100,6 +100,15 @@ int main() {
 
         // cv::imshow("frame", frame.image);
         // cv::waitKey(1);
+        
+                // 性能统计
+        // test.count(std::chrono::steady_clock::now() - start);
+        // start = std::chrono::steady_clock::now();
+
+        // if(test.num%200 == 0 && test.num != 0) {
+        //     test.show();
+        //     test.clear();
+        // }
         //计算枪管方向
 
         const Eigen::Matrix<double, 3, 1>& Gun = shoot.GunDirection(Eigen::Quaterniond{frame.quat.w, frame.quat.x, frame.quat.y, frame.quat.z});
@@ -108,7 +117,7 @@ int main() {
         // 1. 传统视觉检测
         std::vector<cv::Mat> armors_pattern;
         auto opencv_armors = detect(frame.image, armors_pattern);
-        // std::cout<<"time: " << (std::chrono::steady_clock::now()-t1_).count() <<"\n";
+
         // std::cout<<"opencv_armors num:" << opencv_armors.size() << "\n";
   
         // 2. YOLO检测
@@ -129,7 +138,7 @@ int main() {
 
         // 5. 筛选装甲板，内部自动坐标系转换到世界坐标系
         Sov.FilterAndConverToWorld(armors_posi, frame.quat, Gun, 20);
-
+        // std::cout<<"time: " << (std::chrono::steady_clock::now()-t1_).count() <<"\n";
         // std::cout<<"FilterAndConverToWorld armors_posi num:" << armors_posi.size() << "\n";
         
         // 7. 使用Tracker进行追踪
