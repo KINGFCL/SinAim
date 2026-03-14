@@ -19,15 +19,15 @@ public:
     void Init();
     
     // [新增] 鲁棒卡尔曼超参数
-    const double Max_Robust_Scale = 100.0; // 最大放大系数
+    const double Max_Robust_Scale = 10.0; // 最大放大系数
     const double Threshold_Pos = 1000.0;       // 位置误差容忍阈值 (单位: cm)
-    const double Threshold_Angle = 0.6;      // 角度误差容忍阈值 (单位: rad)
+    const double Threshold_Angle = 0.8;      // 角度误差容忍阈值 (单位: rad)
     const double Threshold_Angle_diff = 0.2; // 角度差误差容忍阈值 (单位: rad)
     //观测噪声
     const double Var_r = 100.0, Var_yaw = 0.001, Var_dtheta = 0.0001; // 观测yaw值方差
     
     // 过程噪声参数
-    const double Var_a_xy = 10000.0,  Var_a_z = 10.0, Var_alpha = 5;
+    const double Var_a_xy = 10000.0,  Var_a_z = 10.0, Var_alpha = 10;
     
     // 从相机坐标系到手坐标系的旋转矩阵
     const Eigen::Matrix<double, 3, 3> RCamera2Grip
