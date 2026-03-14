@@ -41,7 +41,7 @@ static FastQueue<FrameData> Frames(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-io::HikCamera Hik(1,16);
+io::HikCamera Hik(0.5,16);
 io::RTSerial<Packet> ser(50);
 
 // 传统视觉检测器
@@ -130,16 +130,17 @@ int main() {
         Sov.Filter(armors_2, armors_pattern, frame.quat, Gun);
   
         // 2.
-        std::vector<ArmorPosi> armors = smallnet(armors_2,frame.image);
-
-
+        std::vector<ArmorPosi> armors = smallnet(armors_2, armors_pattern);
+                            
         //结果
-        for(auto& armor : armors)
-        {
-            Sov.ansShow(armor,frame.image);
-        }
-        cv::imshow("frame", frame.image);
-        cv::waitKey(1);
+        // for(auto& armor : armors)
+        // {
+        //     Sov.ansShow(armor.posi,frame.image);
+        // }
+
+
+        // cv::imshow("frame", frame.image);
+        // cv::waitKey(1);
 
         // std::cout<<"yolo_armors num:" << yolo_armors.size() << "\n";
 
@@ -150,6 +151,7 @@ int main() {
         // std::cout<<"FilterAndConverToWorld armors_posi num:" << armors_posi.size() << "\n";
         
         // 7. 使用Tracker进行追踪
+        Sov.ConverToWorld(armors, frame.quat); 
         track(armors, frame.quat, Gun, rm::SolveDt(next_point, frame.time, 0.005));
         next_point = frame.time;
 
@@ -168,7 +170,7 @@ int main() {
 
         Eigen::Matrix<double, 4, 1> aim = rm::ChooseBestAimArmor(aims, current_robot->Speed, Gun);
 
-        // std::cout<<aim.norm()<<"\n";
+        // std::cout<<aim<<"\n";
         // 10. 计算射击角度
         std::array<double, 2> Pitch_and_Yaw = shoot(aim.block<3,1>(0,0));
 
@@ -176,7 +178,7 @@ int main() {
         bool fire_ = rm::CheckFireCondition(frame.quat, Pitch_and_Yaw, aim, Gun, 0.03, 0.03);
         rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], true);
         // std::cout<<fire_<<"\n";
-        // std::cout<<"Pitch: "<<Pitch_and_Yaw[0]-0.05<<" Yaw: "<<Pitch_and_Yaw[1]<<"\n";
+        // std::cout<<"Pitch: "<<Pitch_and_Yaw[0]<<" Yaw: "<<Pitch_and_Yaw[1]<<"\n";
         // 性能统计
         test.count(std::chrono::steady_clock::now() - start);
         start = std::chrono::steady_clock::now();

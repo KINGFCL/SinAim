@@ -1,7 +1,6 @@
 #include "../include/HikCamera.hpp"
 #include "../include/logger.hpp"
 #include <chrono>
-#include <iostream>
 #include <thread>
 
 namespace io

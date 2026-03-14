@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <eigen3/Eigen/src/Core/Matrix.h>
+#include "iostream"
 
 class Shooter
 {
@@ -14,7 +15,7 @@ private:
 
 const Eigen::Matrix<double, 3, 1> toward;
 const double toward_pitch,toward_yaw;
-const double a = 0.01333, b = -0.00977, c = 0.01082;
+const double a = 0.000233, b = -0.000171, c = 0.000189;
 const double GRAVITY =  9.8, BULLET_SPEED  = 22.8; //重力加速度9.8m/s^2 弹速 22.8m/s;
 const double BULLET_SPEED_2 = 2.0 * BULLET_SPEED * BULLET_SPEED;
 
@@ -99,6 +100,8 @@ public:
         // 3. 计算差值 (需要的旋转量)
         double delta_yaw   = shoot_yaw - this->toward_yaw;
         double delta_pitch = shoot_pitch - this->toward_pitch;
+
+        // std::cout<<"toward "<<toward_pitch<<" shoot pitch "<<shoot_pitch<<" ideal pitch "<<ideal_pitch_rad<<" air_comp "<<air_comp_rad<<"\n";
 
         // 5. 角度归一化 (关键步骤)
         // 处理跨越 ±180 度的情况，保证走最短路径

@@ -33,10 +33,10 @@ void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::RTSerial<Packet> &ser,
             //配对超时
 
             //串口数据比相机数据早8ms以上
-            if( t > 9 ) {continue;}
+            if( t > 4 ) {continue;}
 
             //串口数据比相机数据早5ms以下
-            if( t < 5 ) { std::cout << "IMU and Image time out" << std::endl;break;}
+            if( t < 2 ) { std::cout << "IMU and Image time out" << std::endl;break;}
 
             //配对成功
             cv::Quatd quat( IMU.q3, IMU.q0, IMU.q1, IMU.q2 );

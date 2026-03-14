@@ -19,7 +19,7 @@ public:
     void Init();
     
     // [新增] 鲁棒卡尔曼超参数
-    const double Max_Robust_Scale = 10.0; // 最大放大系数
+    const double Max_Robust_Scale = 100.0; // 最大放大系数
     const double Threshold_Pos = 1000.0;       // 位置误差容忍阈值 (单位: cm)
     const double Threshold_Angle = 0.6;      // 角度误差容忍阈值 (单位: rad)
     const double Threshold_Angle_diff = 0.2; // 角度差误差容忍阈值 (单位: rad)

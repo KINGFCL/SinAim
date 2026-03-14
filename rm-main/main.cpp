@@ -100,8 +100,8 @@ int main() {
         }
         if(frame.image.empty()) continue;
 
-        cv::imshow("frame", frame.image);
-        cv::waitKey(1);
+        // cv::imshow("frame", frame.image);
+        // cv::waitKey(1);
         
                 // 性能统计
         // test.count(std::chrono::steady_clock::now() - start);
@@ -162,6 +162,7 @@ int main() {
 
         Eigen::Matrix<double, 4, 1> aim = rm::ChooseBestAimArmor(aims, current_robot->Speed, Gun);
 
+        std::cout<<aim<<"\n";
         // std::cout<<aim.norm()<<"\n";
         // 10. 计算射击角度
         std::array<double, 2> Pitch_and_Yaw = shoot(aim.block<3,1>(0,0));
