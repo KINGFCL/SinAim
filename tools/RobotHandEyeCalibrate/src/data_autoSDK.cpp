@@ -101,7 +101,7 @@ int main() {
 
     std::function<bool(const Packet&)> check_fuc = io::CRC8::Check<Packet>;
     ser.setCheckfuc(check_fuc);
-    int ret = ser.openDevice("/dev/ttyACM0", 460800);
+    int ret = ser.openDevice("/dev/ttyACM1", 460800);
     
     if(ret == 1)
         std::cout<<"serial open ok"<<"\n";

@@ -198,6 +198,7 @@ public:
                 .with_radii({3.0f}));
         rec.log("world/raw_yaw", rerun::Scalars((float)View(3, 0)));
         rec.log("world/l_diff", rerun::Scalars((float)State(9, 0)));
+                rec.log("world/d_diff", rerun::Scalars((float)State(10, 0)));
         
     }
 

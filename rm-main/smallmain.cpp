@@ -42,7 +42,7 @@ static FastQueue<FrameData> Frames(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-io::HikCamera Hik(0.5,16);
+io::HikCamera Hik(1,16);
 io::RTSerial<Packet> ser(50);
 
 // 传统视觉检测器
@@ -61,9 +61,7 @@ Tracker track;
 // Shooter shoot(Eigen::Matrix<double,3,1>(0.9999283656297303,
 //  0.002822337907989043,
 //  -0.01163176761242803));
-Shooter shoot(Eigen::Matrix<double,3,1>(1,
- 0.002822337907989043,
- 0.01));
+Shooter shoot(0.005,0.050);
 Test test;
 
 int main() {
@@ -178,9 +176,10 @@ int main() {
         std::array<double, 2> Pitch_and_Yaw = shoot(aim.block<3,1>(0,0));
 
         // 11. 发送控制指令
-        bool fire_ = rm::CheckFireCondition(frame.quat, Pitch_and_Yaw, aim, Gun, 0.03, 0.03,M_PI/4);
+        bool fire_ = rm::CheckFireCondition(frame.quat, Pitch_and_Yaw, aim, Gun, 0.01, 0.02,M_PI/4);
         // if(Pitch_and_Yaw[0]<0.05) Pitch_and_Yaw[0] += 0.02;
-        rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], true);
+        //rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], fire_);
+                rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], fire_);
         // // std::cout<<fire_<<"\n";
         // std::cout<<"Pitch: "<<Pitch_and_Yaw[0]<<" Yaw: "<<Pitch_and_Yaw[1]<<"\n";
         // 性能统计

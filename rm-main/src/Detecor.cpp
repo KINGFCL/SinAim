@@ -7,8 +7,8 @@
 #include <opencv2/imgcodecs.hpp>
 #include <sys/types.h>
 #include <vector>
-#include <cmath>
-// #define detectorDebug
+//#include <cmath>
+//#define detectorDebug
 //Debug
 
 Detector::Detector(Light::Color color,float confidence): 

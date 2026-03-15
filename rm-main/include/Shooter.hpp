@@ -95,14 +95,14 @@ public:
         // 3. 计算空气阻力补偿量 (弧度)
         double air_comp_rad = this->a * distance_2 + this->b * distance + this->c;
         double shoot_pitch = air_comp_rad + ideal_pitch_rad;
-
+        shoot_pitch = ideal_pitch_rad+0.03;
 
         // 3. 计算差值 (需要的旋转量)
         double delta_yaw   = shoot_yaw - this->toward_yaw;
         double delta_pitch = shoot_pitch - this->toward_pitch;
 
         // std::cout<<"toward "<<toward_pitch<<" shoot pitch "<<shoot_pitch<<" ideal pitch "<<ideal_pitch_rad<<" air_comp "<<air_comp_rad<<"\n";
-
+// std::cout<<shoot_pitch<<"\n";
         // 5. 角度归一化 (关键步骤)
         // 处理跨越 ±180 度的情况，保证走最短路径
         // 例如：从 -170度 转到 +170度，应该是转 -20度，而不是 +340度
