@@ -15,7 +15,7 @@ private:
 
 const Eigen::Matrix<double, 3, 1> toward;
 const double toward_pitch,toward_yaw;
-const double a = 0.000244, b = -0.000182, c = 0.000202;
+const double a = 0.00024383, b = -0.00018171, c = 0.00020150;
 const double GRAVITY =  9.8, BULLET_SPEED  = 22.3; //重力加速度9.8m/s^2 弹速 22.8m/s;
 const double BULLET_SPEED_2 = 2.0 * BULLET_SPEED * BULLET_SPEED;
 
@@ -95,7 +95,6 @@ public:
         // 3. 计算空气阻力补偿量 (弧度)
         double air_comp_rad = this->a * distance_2 + this->b * distance + this->c;
         double shoot_pitch = air_comp_rad + ideal_pitch_rad;
-        shoot_pitch = ideal_pitch_rad+0.03;
 
         // 3. 计算差值 (需要的旋转量)
         double delta_yaw   = shoot_yaw - this->toward_yaw;
