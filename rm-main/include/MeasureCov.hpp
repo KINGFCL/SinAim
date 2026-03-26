@@ -1,7 +1,6 @@
 #ifndef  INCLUDE_MEASURECOV_HPP
 #define  INCLUDE_MEASURECOV_HPP
 
-#include "eigen3/Eigen/Core"
 #include <array>
 
 class MeasureCov

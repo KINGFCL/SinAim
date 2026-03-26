@@ -1,6 +1,5 @@
 #ifndef LIGHT_AND_ARMOR_STRUCT
 #define LIGHT_AND_ARMOR_STRUCT
-#include "opencv2/opencv.hpp"
 #include <algorithm>
 #include <cmath>
 #include <opencv2/core/types.hpp>

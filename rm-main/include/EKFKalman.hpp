@@ -3,8 +3,6 @@
 #include <eigen3/Eigen/Core>
 #include <opencv2/core/quaternion.hpp>
 #include <eigen3/Eigen/Geometry>
-#include <vector>
-
 
 
 class EKFKalman
