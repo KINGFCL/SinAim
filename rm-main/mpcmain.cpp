@@ -11,6 +11,7 @@
 #include "include/Data.hpp"
 #include "Function.hpp"
 #include "include/RerunVisualizer.hpp"
+#include "include/TargetState.hpp"
 
 #include "planner/planner.hpp"
 
@@ -19,6 +20,7 @@
 #include <cstdio>
 #include <eigen3/Eigen/Core>
 #include <iostream>
+#include <memory>
 #include <opencv2/highgui.hpp>
 #include <thread>
 #include <vector>
@@ -169,22 +171,18 @@ int main() {
             continue;
         }
 
-        // 9. 预测和瞄准
-        double dt = shoot.FlyTime(current_robot->center);
-        Eigen::Matrix<double, 4, 4> aims = current_robot->Predict(dt);
+        auto target_ptr = std::make_unique<RobotState>(*current_robot,frame.time);
+        MPC::Plan plan = planner.plan(target_ptr, 20.0);
 
-        Eigen::Matrix<double, 4, 1> aim = rm::ChooseBestAimArmor(aims, current_robot->Speed, Gun);
-
-        // std::cout<<aim<<"\n";
-        // 10. 计算射击角度
-        std::array<double, 2> Pitch_and_Yaw = shoot(aim.block<3,1>(0,0));
-
-        // 11. 发送控制指令
-        bool fire_ = rm::CheckFireCondition(frame.quat, Pitch_and_Yaw, aim, Gun, 0.01, 0.02,M_PI/4);
-        // if(Pitch_and_Yaw[0]<0.05) Pitch_and_Yaw[0] += 0.02;
-        //rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], fire_);
-                rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], fire_);
+        // std::cout<<"fire: "<<plan.fire<<"\n";
+        // std::cout<<"yaw: "<<plan.yaw<<"\n";
+        // std::cout<<"pitch: "<<plan.pitch<<"\n";
+        // std::cout<<"yaw_vel: "<<plan.yaw_vel<<"\n";
+        // std::cout<<"pitch_vel: "<<plan.pitch_vel<<"\n";
+        // std::cout<<"yaw_acc: "<<plan.yaw_acc<<"\n";
+        // std::cout<<"pitch_acc: "<<plan.pitch_acc<<"\n";
         // // std::cout<<fire_<<"\n";
+        
         // std::cout<<"Pitch: "<<Pitch_and_Yaw[0]<<" Yaw: "<<Pitch_and_Yaw[1]<<"\n";
         // 性能统计
         test.count(std::chrono::steady_clock::now() - start);
@@ -195,7 +193,7 @@ int main() {
             test.clear();
         }
         #ifdef MainDebug
-            viz.update(*current_robot, aims, dt, Gun);
+            // viz.update(*current_robot, aims, dt, Gun);
         #endif
         // 可视化
         // for(const auto& armor_posi : armors_posi)

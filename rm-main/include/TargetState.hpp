@@ -1,3 +1,5 @@
+#ifndef INCLUDE_TARGET_STATE_HPP
+#define INCLUDE_TARGET_STATE_HPP
 #include "Target.hpp"
 
 struct RobotState
@@ -37,3 +39,5 @@ struct RobotState
 
     void Predict(const std::chrono::steady_clock::time_point& t);
 };
+
+#endif
