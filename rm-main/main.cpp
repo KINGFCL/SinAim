@@ -158,7 +158,7 @@ int main() {
 
         // 9. 预测和瞄准
         double dt = shoot.FlyTime(current_robot->center);
-        Eigen::Matrix<double, 4, 4> aims = current_robot->Predic(dt);
+        Eigen::Matrix<double, 4, 4> aims = current_robot->Predict(dt);
 
         Eigen::Matrix<double, 4, 1> aim = rm::ChooseBestAimArmor(aims, current_robot->Speed, Gun);
 

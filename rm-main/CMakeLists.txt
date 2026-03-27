@@ -3,6 +3,9 @@ project(MyProject VERSION 1.0 LANGUAGES CXX)
 
 # add_definitions(-Wall -Werror)
 
+#引入 MPCPlanner 子模块
+add_subdirectory(planner)
+
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
 endif()
@@ -61,6 +64,19 @@ add_executable(smallmain
     ./Function.cpp
 )
 
+add_executable(mpcmain 
+    mpcmain.cpp
+    src/HikCamera.cpp
+    src/logger.cpp
+    src/Detecor.cpp
+    src/SmallNumClassifier.cpp
+    src/Solver.cpp
+    src/Target.cpp
+    src/Tracker.cpp
+    src/EKFKalman.cpp
+    ./Function.cpp
+)
+
 # add_executable(Yolomain 
 #     Yolomain.cpp
 #     src/HikCamera.cpp
@@ -75,6 +91,9 @@ target_link_libraries(main ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} op
 
 target_include_directories(smallmain PUBLIC ${MVS_INCLUDE_DIRS})
 target_link_libraries(smallmain ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} rerun_sdk)
+
+target_include_directories(mpcmain PUBLIC ${MVS_INCLUDE_DIRS})
+target_link_libraries(mpcmain PUBLIC planner_lib ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} rerun_sdk)
 
 #target_include_directories(Yolomain PUBLIC ${MVS_INCLUDE_DIRS})
 #target_link_libraries(Yolomain ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} openvino::runtime rerun_sdk)

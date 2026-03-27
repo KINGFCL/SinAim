@@ -4,7 +4,7 @@
 // OpenCV
 #include "Armor.hpp"
 #include <array>
-#include <eigen3/Eigen/src/Core/Matrix.h>
+#include <eigen3/Eigen/Core>
 #include <opencv2/opencv.hpp>
 #include <openvino/openvino.hpp>
 // STL

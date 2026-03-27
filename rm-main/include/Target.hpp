@@ -4,6 +4,7 @@
 #include "Armor.hpp"
 #include "EKFKalman.hpp"
 
+#include <chrono>
 #include <deque>
 #include <eigen3/Eigen/Core>
 #include <array>
@@ -80,7 +81,7 @@ public:
     */
     double SolveTheta(const ArmorPosi& armors) ;
 
-    Eigen::Matrix<double,4,4> Predic(double dt) ;//mm/s, rad/s
+    Eigen::Matrix<double,4,4> Predict(double dt) ;//mm/s, rad/s
 
     /*!
     @return 旋转点Point绕轴axis旋转angle角度后的新坐标
@@ -125,41 +126,10 @@ private:
     //记录是否初始化
     bool is_init = false;
     
-    static std::array<RobotSize, 5> Size;//不同类型机器人信息
+    // static std::array<RobotSize, 5> Size;//不同类型机器人信息
 };
 
 
 
-// class Target
-// {
-// public:
-//     virtual Eigen::Matrix<double,8,1> Predict(const Eigen::Matrix<double,8,1>& X,double dt) = 0;
-//     virtual std::vector< Eigen::Matrix<double,8,1> > EveryArmorState(const std::vector< Eigen::Matrix<double,8,1> >& X) = 0;
-    
-//     /*!
-//     @return 返回当前装甲板的朝向角
-//     */
-//     virtual double SolveAngel(const ArmorPosi& armors) = 0;
-
-//     //中心转轴方向
-//     cv::Point3d axis = cv::Point3d{0,0,1};//单位向量
-    
-//     //中心点坐标
-//     Eigen::Matrix<double,3,1> center{0,0,0};
-
-//     //对象速度向量
-//     Eigen::Matrix<double,4,1> speed{0,0,0,0};
-
-
-// };
-    // //坐标系的变化矩阵
-    // cv::Matx<double, 3, 3> R{1,0,0,
-    //                          0,1,0,
-    //                          0,0,1};
-
-
-//中心转轴
-    // std::queue<cv::Point3d> axis_set{std::deque<cv::Point3d>{cv::Point3d(0,0,1)}};
-    // cv::Point3d axis_sum{0,0,1};
 
 #endif // TARGET_HPP

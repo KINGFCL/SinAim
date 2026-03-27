@@ -20,7 +20,7 @@
 #define TargetDebug
 //Debug
 
-std::array<RobotSize, 5> Robot::Size;
+// std::array<RobotSize, 5> Robot::Size;
 
 void Robot::Update(const std::vector<ArmorPosi>& armors, const cv::Quatd& gripper_to_world, double dt)
 {
@@ -279,7 +279,7 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, const cv::Quatd& grip
 
 
 
-Eigen::Matrix<double, 4, 4> Robot::Predic(double dt)
+Eigen::Matrix<double, 4, 4> Robot::Predict(double dt)
 {
     double& w = this->Speed(3,0);
 
@@ -306,71 +306,6 @@ Eigen::Matrix<double, 4, 4> Robot::Predic(double dt)
 
     return ans;
 }
-
-
-
-/**
- * @brief 如果输入的装甲板数量为2，函数将更新Robot的尺寸
- * @param armors 输入的装甲板位置，必须包含两个装甲板
- * @note 如果输入的装甲板数量不为2，函数不会执行任何操作
- */
- void Robot::SolveRobotSize(std::vector<ArmorPosi>& armors)
-{
-    //如果输入的装甲板数量不为2，则函数不会执行任何操作
-    if(armors.size() != 2 || armors[0].type != armors[1].type) return;
-    
-    #ifdef TargetDebug
-    //观测到的装甲板朝向夹角
-    double theta_debug = std::acos((armors[0].toward.dot(armors[1].toward))/(cv::norm(armors[0].toward)*cv::norm(armors[1].toward)));
-    theta_debug = (theta_debug/CV_PI)*180.0;
-    std::cout <<"armor theta: "<< theta_debug << "\n";
-    #endif
-
-    //计算中心轴向量
-    cv::Point3d axis_ = armors[0].toward.cross(armors[1].toward);
-    axis_ = axis_ / cv::norm(axis_);//单位化
-
-    //统一方向
-    double cos0 = axis_.dot(cv::Point3d(0,-1,0));
-    if(cos0 < 0) axis_ = -axis_;
-
-
-//计算半径和高度差
-    cv::Point3d armor1_face = axis_.cross(armors[0].toward);
-    cv::Point3d armor2_face = axis_.cross(armors[1].toward);
-    armor1_face = armor1_face / cv::norm(armor1_face);//单位化
-    armor2_face = armor2_face / cv::norm(armor2_face);//单位化
-
-    cv::Point3d armorOneToTwo = armors[1].posi - armors[0].posi;
-
-    double b1 = armorOneToTwo.dot(armor1_face);
-    double b2 = armorOneToTwo.dot(armor2_face);
-
-
-    double k = armor1_face.dot(armor2_face);
-    
-    double deno = 1 - k*k;
-
-//计算r
-    double ArmorOneR = std::abs( ( b1 - b2 * k ) / deno );
-    double ArmorTwoR = std::abs( ( b1 * k - b2 ) / deno );
-
-//判断半径大小,并更新Robot尺寸
-    if(ArmorOneR < ArmorTwoR) 
-    {
-        armors[0].radius = ArmorPosi::Radius::Short;
-        armors[1].radius = ArmorPosi::Radius::Long;
-        Robot::Size[static_cast<int>(armors[0].type)-1](ArmorOneR, ArmorTwoR);
-    }
-    else
-    {
-        armors[0].radius = ArmorPosi::Radius::Long;
-        armors[1].radius = ArmorPosi::Radius::Short;
-        Robot::Size[static_cast<int>(armors[0].type)-1](ArmorTwoR, ArmorOneR);
-    }
-}
-
-
 
 
 
@@ -468,6 +403,70 @@ Eigen::Matrix<double, 3, 1> Robot::Rotate(
     // 4. 旋转并还原中心
     return (rotation_vector * P) + this->center;
 }
+
+
+
+
+// /**
+//  * @brief 如果输入的装甲板数量为2，函数将更新Robot的尺寸
+//  * @param armors 输入的装甲板位置，必须包含两个装甲板
+//  * @note 如果输入的装甲板数量不为2，函数不会执行任何操作
+//  */
+//  void Robot::SolveRobotSize(std::vector<ArmorPosi>& armors)
+// {
+//     //如果输入的装甲板数量不为2，则函数不会执行任何操作
+//     if(armors.size() != 2 || armors[0].type != armors[1].type) return;
+    
+//     #ifdef TargetDebug
+//     //观测到的装甲板朝向夹角
+//     double theta_debug = std::acos((armors[0].toward.dot(armors[1].toward))/(cv::norm(armors[0].toward)*cv::norm(armors[1].toward)));
+//     theta_debug = (theta_debug/CV_PI)*180.0;
+//     std::cout <<"armor theta: "<< theta_debug << "\n";
+//     #endif
+
+//     //计算中心轴向量
+//     cv::Point3d axis_ = armors[0].toward.cross(armors[1].toward);
+//     axis_ = axis_ / cv::norm(axis_);//单位化
+
+//     //统一方向
+//     double cos0 = axis_.dot(cv::Point3d(0,-1,0));
+//     if(cos0 < 0) axis_ = -axis_;
+
+
+// //计算半径和高度差
+//     cv::Point3d armor1_face = axis_.cross(armors[0].toward);
+//     cv::Point3d armor2_face = axis_.cross(armors[1].toward);
+//     armor1_face = armor1_face / cv::norm(armor1_face);//单位化
+//     armor2_face = armor2_face / cv::norm(armor2_face);//单位化
+
+//     cv::Point3d armorOneToTwo = armors[1].posi - armors[0].posi;
+
+//     double b1 = armorOneToTwo.dot(armor1_face);
+//     double b2 = armorOneToTwo.dot(armor2_face);
+
+
+//     double k = armor1_face.dot(armor2_face);
+    
+//     double deno = 1 - k*k;
+
+// //计算r
+//     double ArmorOneR = std::abs( ( b1 - b2 * k ) / deno );
+//     double ArmorTwoR = std::abs( ( b1 * k - b2 ) / deno );
+
+// //判断半径大小,并更新Robot尺寸
+//     if(ArmorOneR < ArmorTwoR) 
+//     {
+//         armors[0].radius = ArmorPosi::Radius::Short;
+//         armors[1].radius = ArmorPosi::Radius::Long;
+//         Robot::Size[static_cast<int>(armors[0].type)-1](ArmorOneR, ArmorTwoR);
+//     }
+//     else
+//     {
+//         armors[0].radius = ArmorPosi::Radius::Long;
+//         armors[1].radius = ArmorPosi::Radius::Short;
+//         Robot::Size[static_cast<int>(armors[0].type)-1](ArmorTwoR, ArmorOneR);
+//     }
+// }
 
 
 

@@ -52,7 +52,7 @@ public:
         std::vector<rerun::Position3D> armor_normals;   // 装甲板朝向(法向量)
         std::vector<rerun::Position3D> normal_origins;  // 法向量起点
 
-        Eigen::Matrix<double, 4, 4> current_armors = const_cast<Robot&>(robot).Predic(0.0);
+        Eigen::Matrix<double, 4, 4> current_armors = const_cast<Robot&>(robot).Predict(0.0);
         // 解析 4 个装甲板的状态
         for(int i = 0; i < 4; ++i) {
             double x = current_armors(0, i);

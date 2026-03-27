@@ -2,7 +2,7 @@
 #define LIGHT_AND_ARMOR_STRUCT
 #include <algorithm>
 #include <cmath>
-#include <opencv2/core/types.hpp>
+#include <opencv2/core.hpp>
 #include <vector>
 struct Light{
     explicit Light(const cv::RotatedRect& rect)

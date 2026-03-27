@@ -12,10 +12,12 @@
 #include "Function.hpp"
 #include "include/RerunVisualizer.hpp"
 
+#include "planner/planner.hpp"
+
 #include <chrono>
 #include <cmath>
 #include <cstdio>
-#include <eigen3/Eigen/src/Core/MatrixBase.h>
+#include <eigen3/Eigen/Core>
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <thread>
@@ -62,6 +64,8 @@ Tracker track;
 //  0.002822337907989043,
 //  -0.01163176761242803));
 Shooter shoot(0.005,0.050);
+
+MPC::Planner planner("../../config/MPC_config.yaml");
 Test test;
 
 int main() {

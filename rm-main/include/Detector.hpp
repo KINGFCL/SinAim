@@ -2,6 +2,7 @@
 #define DETECTOR_CLASS
 #include "Armor.hpp"
 #include <deque>
+#include <opencv2/opencv.hpp>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <string>
