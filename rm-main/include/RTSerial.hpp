@@ -853,6 +853,64 @@ class CRC8
   }
 };
 
+class CRC32 {
+private:
+    // 声明静态成员变量
+    static uint32_t tab_[256];
+    static bool inited_;
+    
+    // 定义初始值 INIT，标准 CRC32 通常使用 0xFFFFFFFF
+    static const uint32_t INIT = 0xFFFFFFFF; 
+
+    /**
+     * @brief 生成 CRC32 查找表 / Generates the CRC32 lookup table
+     */
+    static void GenerateTable()
+    {
+        uint32_t crc = 0;
+        for (int i = 0; i < 256; ++i)
+        {
+            crc = i;
+            for (int j = 0; j < 8; ++j)
+            {
+                if (crc & 1)
+                {
+                    crc = (crc >> 1) ^ 0xEDB88320;
+                }
+                else
+                {
+                    crc >>= 1;
+                }
+            }
+            tab_[i] = crc;
+        }
+        inited_ = true;
+    }
+
+public:
+    /**
+     * @brief 计算数据的 CRC32 校验码 / Computes the CRC32 checksum for the given data
+     * @param raw 输入数据指针 / Pointer to input data
+     * @param len 数据长度 / Length of the data
+     * @return 计算得到的 CRC32 值 / Computed CRC32 value
+     */
+    static uint32_t Calculate(const void* raw, size_t len)
+    {
+        const uint8_t* buf = reinterpret_cast<const uint8_t*>(raw);
+        if (!inited_)
+        {
+            GenerateTable();
+        }
+
+        uint32_t crc = INIT;
+        while (len--)
+        {
+            crc = tab_[(crc ^ *buf++) & 0xff] ^ (crc >> 8);
+        }
+        
+        return crc; 
+    }
+};
 
 
 }//namespace io
