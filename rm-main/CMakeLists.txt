@@ -87,10 +87,10 @@ add_executable(mpcmain
 #     ./Function.cpp
 # )
 target_include_directories(main PUBLIC ${MVS_INCLUDE_DIRS})
-target_link_libraries(main ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} openvino::runtime rerun_sdk)
+target_link_libraries(main planner_lib ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} openvino::runtime rerun_sdk)
 
 target_include_directories(smallmain PUBLIC ${MVS_INCLUDE_DIRS})
-target_link_libraries(smallmain ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} rerun_sdk)
+target_link_libraries(smallmain planner_lib ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} rerun_sdk)
 
 target_include_directories(mpcmain PUBLIC ${MVS_INCLUDE_DIRS})
 target_link_libraries(mpcmain PUBLIC planner_lib ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} rerun_sdk)

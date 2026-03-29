@@ -6,6 +6,8 @@
 #include "include/HikCamera.hpp"
 #include "include/RTSerial.hpp"
 #include "include/fastqueue.hpp"
+#include "include/TargetState.hpp"
+#include "planner/planner.hpp"
 
 #include <cmath>
 #include <deque>
@@ -17,6 +19,9 @@
 namespace rm
 {
     void IMUAndImageMatchFunction(io::HikCamera& Hik, io::RTSerial<Packet>& ser,FastQueue<FrameData>& Frames);
+
+    void MPCPlanFunction(MPC::Planner& planner, FastQueue<std::unique_ptr<RobotState>>& RobotStates, io::RTSerial<Packet>& ser);
+
     void SendMessageToRobot(io::RTSerial<Packet>& ser, float pitch, float yaw, bool fire);
     Eigen::Matrix<double, 4, 1> ChooseBestAimArmor(const Eigen::Matrix<double, 4, 4>& aims,
                                                    const Eigen::Matrix<double,4, 1>& Speed,

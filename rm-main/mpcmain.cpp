@@ -43,6 +43,7 @@ struct Test
 };
 
 static FastQueue<FrameData> Frames(10);
+static FastQueue<std::unique_ptr<RobotState>> robotStates(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
@@ -92,6 +93,7 @@ int main() {
 
     //3.0创建数据配对线程，并将数据发布到Frames环形队列
     std::thread match_thread = std::thread(rm::IMUAndImageMatchFunction, std::ref(Hik), std::ref(ser), std::ref(Frames));
+    std::thread plan_thread = std::thread(rm::MPCPlanFunction, std::ref(planner), std::ref(robotStates), std::ref(ser));
 
     // cv::namedWindow("frame");
         auto start = std::chrono::steady_clock::now();
@@ -133,7 +135,7 @@ int main() {
         // std::cout<<"opencv_armors num:" << opencv_armors.size() << "\n";
         std::vector< std::array<ArmorPosi,2> > armors_2 =  Sov(opencv_armors);
 
-        // 4. 解算装甲板位置 (使用融合后的YOLO结果)
+        // 4. 解算装甲板位置 
         Sov.Filter(armors_2, armors_pattern, frame.quat, Gun);
   
         // 2.
@@ -159,31 +161,22 @@ int main() {
         
         // 7. 使用Tracker进行追踪
         Sov.ConverToWorld(armors, frame.quat); 
-        track(armors, frame.quat, Gun, rm::SolveDt(next_point, frame.time, 0.005));
+        double dt = rm::SolveDt(next_point, frame.time, 0.005);
+        track(armors, frame.quat, Gun, dt);
         next_point = frame.time;
 
         // 8. 获取当前追踪的机器人
-        Robot* current_robot = track.getCurrentRobot();
+        const auto& current_robot = track.getCurrentRobot();
 
         if (current_robot == nullptr)
         {
             // 没有追踪到目标，跳过
+            robotStates.push(nullptr);
             continue;
         }
 
-        auto target_ptr = std::make_unique<RobotState>(*current_robot,frame.time);
-        MPC::Plan plan = planner.plan(target_ptr, 20.0);
+        robotStates.push(std::make_unique<RobotState>(*current_robot,frame.time));
 
-        // std::cout<<"fire: "<<plan.fire<<"\n";
-        // std::cout<<"yaw: "<<plan.yaw<<"\n";
-        // std::cout<<"pitch: "<<plan.pitch<<"\n";
-        // std::cout<<"yaw_vel: "<<plan.yaw_vel<<"\n";
-        // std::cout<<"pitch_vel: "<<plan.pitch_vel<<"\n";
-        // std::cout<<"yaw_acc: "<<plan.yaw_acc<<"\n";
-        // std::cout<<"pitch_acc: "<<plan.pitch_acc<<"\n";
-        // // std::cout<<fire_<<"\n";
-        
-        // std::cout<<"Pitch: "<<Pitch_and_Yaw[0]<<" Yaw: "<<Pitch_and_Yaw[1]<<"\n";
         // 性能统计
         test.count(std::chrono::steady_clock::now() - start);
         start = std::chrono::steady_clock::now();
@@ -193,7 +186,7 @@ int main() {
             test.clear();
         }
         #ifdef MainDebug
-            // viz.update(*current_robot, aims, dt, Gun);
+            viz.update(*current_robot, current_robot->Predict(0), dt, Gun);
         #endif
         // 可视化
         // for(const auto& armor_posi : armors_posi)

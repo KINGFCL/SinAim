@@ -2,9 +2,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
-#include <eigen3/Eigen/Geometry>
-#include <eigen3/Eigen/src/Core/Matrix.h>
-#include <eigen3/Eigen/src/Geometry/Quaternion.h>
+#include <eigen3/Eigen/Core>
 #include <opencv2/core/quaternion.hpp>
 #include <ratio>
 #include <sys/types.h>
@@ -48,6 +46,29 @@ void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::RTSerial<Packet> &ser,
 
     }
 }
+
+
+void rm::MPCPlanFunction(MPC::Planner& planner, FastQueue<std::unique_ptr<RobotState>>& RobotStates, io::RTSerial<Packet>& ser)
+{
+    while (true) {
+        if(RobotStates.empty()) {std::this_thread::sleep_for(std::chrono::milliseconds(1)); continue;}; // 避免空转CPU
+
+        while (RobotStates.size() > 1) {
+            RobotStates.pop(); // 丢弃过时的状态，保持最新的状态进行MPC规划
+        }
+
+        const std::unique_ptr<RobotState>& target = RobotStates.front();
+
+        if(target == nullptr) {RobotStates.pop(); continue;} //丢弃空指针
+
+        MPC::Plan plan = planner.plan(target, 22.0);
+
+        rm::SendMessageToRobot(ser, plan.pitch, plan.yaw, plan.fire);
+        
+        std::this_thread::sleep_for(std::chrono::milliseconds(10)); // 控制发送频率，避免过快发送
+    }
+}
+
 
 void rm::SendMessageToRobot(io::RTSerial<Packet> &ser, float pitch, float yaw, bool fire)
 {
@@ -313,3 +334,6 @@ bool rm::CheckFireCondition(const cv::Quatd& gripper_to_world,
 
     return face_ok && diff_ok;
 }
+
+
+
