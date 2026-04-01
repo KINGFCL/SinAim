@@ -4,6 +4,7 @@ project(MPC_Planner)
 # 指定 C++17 标准
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+add_compile_options(-O3 -march=native)
 
 find_package(OpenCV REQUIRED )
 find_package(yaml-cpp REQUIRED)

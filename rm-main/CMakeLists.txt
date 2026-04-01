@@ -1,16 +1,21 @@
 cmake_minimum_required(VERSION 3.10)
 project(MyProject VERSION 1.0 LANGUAGES CXX)
 
-# add_definitions(-Wall -Werror)
-
-#引入 MPCPlanner 子模块
-add_subdirectory(planner)
-
+#Release 模式 (这会带来 -O3 和 -DNDEBUG)
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
 endif()
 
+#在 Release 的基础上，加上硬件特化指令（-march=native）
 add_compile_options(-march=native -O3)
+
+# 指定 C++17 标准
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+# 3. 第三步：现在可以安心引入子模块了，planner 会完美继承上面的所有暴力优化
+add_subdirectory(planner)
+
 
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
