@@ -1,4 +1,4 @@
-#include "../include/logger.hpp"
+#include "logger.hpp"
 
 #include <fmt/chrono.h>
 #include <spdlog/sinks/basic_file_sink.h>

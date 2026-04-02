@@ -1,7 +1,7 @@
 #include "include/Armor.hpp"
 #include "include/HikCamera.hpp"
 #include "include/RTSerial.hpp"
-#include "include/SmallNumClassifier.hpp"
+#include "include/MlpNumClassifier.hpp"
 #include "include/fastqueue.hpp"
 #include "include/Detector.hpp"
 #include "include/Solver.hpp"
@@ -54,7 +54,7 @@ io::RTSerial<Packet> ser(50);
 Detector detect(Light::Color::Blue, 0.4);
 
 // YOLO检测器
-SmallNumClassifier smallnet("../model/mlp.onnx");
+MlpNumClassifier mlpnet("../model/mlp.onnx");
 
 RerunVisualizer viz("RoboMaster_AutoAim");
 
@@ -139,7 +139,7 @@ int main() {
         Sov.Filter(armors_2, armors_pattern, frame.quat, Gun);
   
         // 2.
-        std::vector<ArmorPosi> armors = smallnet(armors_2, armors_pattern);
+        std::vector<ArmorPosi> armors = mlpnet(armors_2, armors_pattern);
                             
         //结果
         // for(auto& armor : armors)

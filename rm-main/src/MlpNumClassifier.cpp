@@ -1,9 +1,9 @@
-#include "../include/SmallNumClassifier.hpp"
+#include "../include/MlpNumClassifier.hpp"
 #include <opencv2/core/types.hpp>
 #include <vector>
 
 
-SmallNumClassifier::SmallNumClassifier(std::string model_path)
+MlpNumClassifier::MlpNumClassifier(std::string model_path)
 {
     Net = cv::dnn::readNetFromONNX(model_path);
     // 设置首选的计算后端为 OpenVINO Inference Engine
@@ -13,9 +13,9 @@ SmallNumClassifier::SmallNumClassifier(std::string model_path)
     // Create blob from image
 
 }
-std::vector<SmallNumClassifier::Ans> SmallNumClassifier::Classify(const std::vector<cv::Mat>& armors_pattern)
+std::vector<MlpNumClassifier::Ans> MlpNumClassifier::Classify(const std::vector<cv::Mat>& armors_pattern)
 {
-    std::vector<SmallNumClassifier::Ans> ans;
+    std::vector<MlpNumClassifier::Ans> ans;
     if(armors_pattern.empty()) return ans;
     ans.reserve(armors_pattern.size());
 
@@ -49,14 +49,14 @@ std::vector<SmallNumClassifier::Ans> SmallNumClassifier::Classify(const std::vec
     }
     return ans;
 }
-std::vector<ArmorPosi> SmallNumClassifier::operator()(std::vector< std::array<ArmorPosi,2> >& armors,const std::vector<cv::Mat>& armors_pattern)
+std::vector<ArmorPosi> MlpNumClassifier::operator()(std::vector< std::array<ArmorPosi,2> >& armors,const std::vector<cv::Mat>& armors_pattern)
 {
     std::vector<ArmorPosi> result;
     if(armors.empty()) return result;
 
     result.reserve(armors.size());
 
-    std::vector<SmallNumClassifier::Ans> ans = Classify(armors_pattern);
+    std::vector<MlpNumClassifier::Ans> ans = Classify(armors_pattern);
     
     for(int i = 0;i < ans.size();i++)
     {
