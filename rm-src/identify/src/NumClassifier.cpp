@@ -1,4 +1,4 @@
-#include "../include/NumClassifier.hpp"
+#include "NumClassifier.hpp"
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/src/Core/util/Constants.h>
 #include <opencv2/highgui.hpp>

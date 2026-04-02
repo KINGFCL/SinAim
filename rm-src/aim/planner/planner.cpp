@@ -2,7 +2,7 @@
 #include <chrono>
 #include <cmath>
 #include <stdexcept>
-#include "../include/yaml.hpp"
+#include "yaml.hpp"
 
 using namespace std::chrono_literals;
 

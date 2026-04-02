@@ -1,4 +1,4 @@
-#include "../include/Tracker.hpp"
+#include "Tracker.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>

@@ -1,5 +1,5 @@
-#ifndef YOLO11_DETECTOR_HPP
-#define YOLO11_DETECTOR_HPP
+#ifndef YOLO_DETECTOR_HPP
+#define YOLO_DETECTOR_HPP
 #include "Armor.hpp"
 #include <iostream>
 #include <vector>
@@ -7,14 +7,14 @@
 #include <opencv2/opencv.hpp>
 #include <openvino/openvino.hpp>
 
-class YOLO11Detector {
+class YOLODetector {
 
 public:
     enum class Camp : bool { Blue = false, Red = true };
 
 public:
     // 构造函数：加载模型并配置 PrePostProcessor
-    YOLO11Detector(const std::string& model_path, Camp camp, float conf_threshold = 0.5f, float nms_threshold = 0.2f, const std::string& device = "AUTO");
+    YOLODetector(const std::string& model_path, Camp camp, float conf_threshold = 0.5f, float nms_threshold = 0.2f, const std::string& device = "AUTO");
 
     // 执行推理和后处理
     std::vector<YoloArmor> operator()(const cv::Mat& raw_img);

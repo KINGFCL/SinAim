@@ -1,4 +1,4 @@
-#include "../include/Solver.hpp"
+#include "Solver.hpp"
 // #include <array>
 #include <deque>
 #include <iostream>
@@ -10,7 +10,7 @@
 
 // #define SolverDebug
 #ifdef SolverDebug
-#include "../include/RerunVisualizer.hpp"
+#include "RerunVisualizer.hpp"
 extern RerunVisualizer viz;
 #endif
 

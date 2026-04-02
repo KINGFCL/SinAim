@@ -1,5 +1,5 @@
 #include "HikCamera.hpp"
-#include "../include/logger.hpp"
+#include "logger.hpp"
 #include <chrono>
 #include <thread>
 

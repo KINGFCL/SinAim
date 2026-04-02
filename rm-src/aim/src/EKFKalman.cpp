@@ -1,4 +1,4 @@
-#include "../include/EKFKalman.hpp"
+#include "EKFKalman.hpp"
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -12,10 +12,10 @@
 #include "opencv2/core/cvdef.h"
 
 
-#define EKFKalmanDebug
+//#define EKFKalmanDebug
 
 #ifdef EKFKalmanDebug
-#include "../include/RerunVisualizer.hpp"
+#include "RerunVisualizer.hpp"
 extern RerunVisualizer viz;
 #endif
 void EKFKalman::Init()

@@ -1,4 +1,4 @@
-#include "../include/Detector.hpp"
+#include "CVDetector.hpp"
 #include <deque>
 #include <iostream>
 #include <opencv2/core/mat.hpp>

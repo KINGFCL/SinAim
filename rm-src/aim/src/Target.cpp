@@ -1,4 +1,4 @@
-#include "../include/Target.hpp"
+#include "Target.hpp"
 
 #include <array>
 #include <cmath>
