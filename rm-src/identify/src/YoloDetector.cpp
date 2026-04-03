@@ -1,5 +1,4 @@
 #include "YoloDetector.hpp"
-#include <iostream>
 #include <vector>
 #include <string>
 #include <opencv2/opencv.hpp>
