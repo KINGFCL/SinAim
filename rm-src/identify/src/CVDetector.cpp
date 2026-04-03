@@ -11,7 +11,7 @@
 //#define detectorDebug
 //Debug
 
-Detector::Detector(Light::Color color,float confidence): 
+CVDetector::CVDetector(Light::Color color,float confidence): 
                    confidence(confidence),
                    color(color)
                    {}
@@ -22,7 +22,7 @@ Detector::Detector(Light::Color color,float confidence):
  * @param armors_pattern 装甲板的图像
  * @return 可能的装甲板
  */
-std::deque<Armor> Detector:: operator () (cv::Mat& frame,std::vector<cv::Mat>& armors_pattern) 
+std::deque<CVArmor> CVDetector:: operator () (cv::Mat& frame,std::vector<cv::Mat>& armors_pattern) 
 {
     this->rgb_img = frame;
 
@@ -33,7 +33,7 @@ std::deque<Armor> Detector:: operator () (cv::Mat& frame,std::vector<cv::Mat>& a
     std::cout <<"lights num:" << lights.size() << "\n";
     #endif
 
-    std::deque<Armor> armors = FindArmor(lights); //寻找装甲板
+    std::deque<CVArmor> armors = FindArmor(lights); //寻找装甲板
     #ifdef detectorDebug
     std::cout <<"possible_armors num:" << armors.size() << "\n";
     cv::Mat show__ = this->rgb_img.clone();
@@ -46,7 +46,7 @@ std::deque<Armor> Detector:: operator () (cv::Mat& frame,std::vector<cv::Mat>& a
     return armors;
 }
 
-std::deque<Armor> Detector::operator () (cv::Mat& frame,std::vector<cv::Mat>& armors_pattern,bool isSmallROI)
+std::deque<CVArmor> CVDetector::operator () (cv::Mat& frame,std::vector<cv::Mat>& armors_pattern,bool isSmallROI)
 {
     this->rgb_img = frame;
 
@@ -57,7 +57,7 @@ std::deque<Armor> Detector::operator () (cv::Mat& frame,std::vector<cv::Mat>& ar
     std::cout <<"lights num:" << lights.size() << "\n";
     #endif
 
-    std::deque<Armor> armors = FindArmor(lights); //寻找装甲板
+    std::deque<CVArmor> armors = FindArmor(lights); //寻找装甲板
     #ifdef detectorDebug
     std::cout <<"possible_armors num:" << armors.size() << "\n";
     cv::Mat show__ = this->rgb_img.clone();
@@ -76,7 +76,7 @@ std::deque<Armor> Detector::operator () (cv::Mat& frame,std::vector<cv::Mat>& ar
  * @return  binary_img  二值图像
  * @details 该函数将 RGB 图像转换为灰度图像，然后对其进行二值化处理
  */
-cv::Mat Detector::preprocessImage(cv::Mat& rgb_img) //图像预处理
+cv::Mat CVDetector::preprocessImage(cv::Mat& rgb_img) //图像预处理
 {
 
   cv::cvtColor(rgb_img, this->gray_img, cv::COLOR_RGB2GRAY);
@@ -98,7 +98,7 @@ cv::Mat Detector::preprocessImage(cv::Mat& rgb_img) //图像预处理
  * @return std::deque<Light>  可能的灯条
  * @details 该函数使用OpenCV的findContours函数来找到图像中的所有轮廓，然后对每个轮廓进行拟合矩形，过滤掉不符合灯条特征的矩形，最后记录识别到的灯条
  */
-std::deque<Light> Detector::FindLight(const cv::Mat & binary_img) //寻找灯条
+std::deque<Light> CVDetector::FindLight(const cv::Mat & binary_img) //寻找灯条
 {
   std::vector<std::vector<cv::Point>> contours;
   cv::findContours(binary_img, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
@@ -187,9 +187,9 @@ std::deque<Light> Detector::FindLight(const cv::Mat & binary_img) //寻找灯条
  * if the distance between the two lights is less than 3 times the length of the shorter light
  * If all conditions are met, the two lights are added to the result deque
  */
-std::deque<Armor> Detector::FindArmor(const std::deque<Light> & lights)
+std::deque<CVArmor> CVDetector::FindArmor(const std::deque<Light> & lights)
 {
-    std::deque<Armor> armors;
+    std::deque<CVArmor> armors;
     std::deque<unsigned long> LightIndex;//记录配对成功的灯条索引
     std::deque<std::array<unsigned long, 2>> armorLightIndex;//记录每个装甲板两个等条的索引
     std::vector<bool> HaxLight(lights.size(),false);//灯条是否配对成功的哈希表
@@ -264,7 +264,7 @@ std::deque<Armor> Detector::FindArmor(const std::deque<Light> & lights)
         return !(has_positive && has_negative);//返回真，表明内部或边界上
     };
 
-    std::deque<Armor> result;
+    std::deque<CVArmor> result;
     int num = 0;
     for(auto& armor:armors)
     {
@@ -290,7 +290,7 @@ std::deque<Armor> Detector::FindArmor(const std::deque<Light> & lights)
  * @param      armors 装甲板std::deque<Armor>
  * @return     裁剪后图像std::vector<cv::Mat>
  */
-std::vector<cv::Mat> Detector::ROIArmor(const std::deque<Armor> & armors)
+std::vector<cv::Mat> CVDetector::ROIArmor(const std::deque<CVArmor> & armors)
 {
     std::vector<cv::Mat> armors_pattern;
     if(armors.empty()) return armors_pattern;
@@ -320,7 +320,7 @@ std::vector<cv::Mat> Detector::ROIArmor(const std::deque<Armor> & armors)
     }
     return armors_pattern;
 }
-std::vector<cv::Mat> Detector::SmallROIArmor(const std::deque<Armor> & armors)
+std::vector<cv::Mat> CVDetector::SmallROIArmor(const std::deque<CVArmor> & armors)
 {
     std::vector<cv::Mat> armors_pattern;
     if(armors.empty()) return armors_pattern;
@@ -357,7 +357,7 @@ std::vector<cv::Mat> Detector::SmallROIArmor(const std::deque<Armor> & armors)
     return armors_pattern;
 }
 
-void Detector::ArmorShow(cv::Mat & rgb_img, const std::deque<Armor> & armors)
+void CVDetector::ArmorShow(cv::Mat & rgb_img, const std::deque<CVArmor> & armors)
 {
     for(auto& armor:armors)
     {
@@ -369,7 +369,7 @@ void Detector::ArmorShow(cv::Mat & rgb_img, const std::deque<Armor> & armors)
         cv::polylines(rgb_img,contours,1,cv::Scalar(0, 255, 0),3,cv::LINE_AA);
     }
 }
-void Detector::ArmorShow(cv::Mat & rgb_img, const std::vector<Armor> & armors)
+void CVDetector::ArmorShow(cv::Mat & rgb_img, const std::vector<CVArmor> & armors)
 {
     for(auto& armor:armors)
     {

@@ -30,8 +30,8 @@ struct Light{
 
 
 
-struct Armor{
-    Armor(const Light& light1, const Light& light2):
+struct CVArmor{
+    CVArmor(const Light& light1, const Light& light2):
         left(light1), right(light2)
     {
         if(light1.center.x>light2.center.x) std::swap(left, right);

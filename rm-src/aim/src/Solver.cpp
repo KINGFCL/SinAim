@@ -51,7 +51,7 @@ Solver::Solver(std::string config_path)
 }
 
 //解算单个装甲板的位置
-std::array<ArmorPosi,2> Solver::operator () (const Armor& armor)
+std::array<ArmorPosi,2> Solver::operator () (const CVArmor& armor)
 {
     //ArmorPosi(posi, face, toward, std::atan2(toward.z,toward.x), error);
     cv::Point3d posi0, face0, toward0, posi1, face1, toward1;
@@ -303,7 +303,7 @@ std::vector<ArmorPosi> Solver::operator()(const std::vector<YoloArmor>& armors)
     return results;
 }
 
-std::vector< std::array< ArmorPosi, 2> > Solver::operator()(const std::deque<Armor>& armors)
+std::vector< std::array< ArmorPosi, 2> > Solver::operator()(const std::deque<CVArmor>& armors)
 {
     std::vector< std::array< ArmorPosi, 2> > armors_posi;
     if(armors.empty()) return armors_posi;
@@ -316,7 +316,7 @@ std::vector< std::array< ArmorPosi, 2> > Solver::operator()(const std::deque<Arm
     return armors_posi;
 }
 
-std::vector< std::array< ArmorPosi, 2> > Solver::operator()(const std::vector<Armor>& armors)
+std::vector< std::array< ArmorPosi, 2> > Solver::operator()(const std::vector<CVArmor>& armors)
 {
     std::vector< std::array< ArmorPosi, 2> > armors_posi;
     if(armors.empty()) return armors_posi;

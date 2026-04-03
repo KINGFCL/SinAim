@@ -18,14 +18,14 @@ public:
     Solver(std::string config_path);
     
     //解算传入的所有装甲板并返回
-    std::vector< std::array<ArmorPosi,2> > operator () (const std::deque<Armor>& armors);
-    std::vector< std::array<ArmorPosi,2> > operator () (const std::vector<Armor>& armors);
+    std::vector< std::array<ArmorPosi,2> > operator () (const std::deque<CVArmor>& armors);
+    std::vector< std::array<ArmorPosi,2> > operator () (const std::vector<CVArmor>& armors);
 
 
     std::vector< ArmorPosi > operator () (const std::vector<YoloArmor>& armors);
     
     //解算单个装甲板的位置
-    std::array<ArmorPosi,2> operator () (const Armor& armor);
+    std::array<ArmorPosi,2> operator () (const CVArmor& armor);
 
     //坐标系变换
     void ConverToWorld(std::array<ArmorPosi,2>& armor_posis, const cv::Quatd& gripper_to_world);
