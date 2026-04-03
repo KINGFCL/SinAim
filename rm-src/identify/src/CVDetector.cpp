@@ -10,9 +10,9 @@
 //#define detectorDebug
 //Debug
 
-CVDetector::CVDetector(Light::Color color,float confidence): 
-                   confidence(confidence),
-                   color(color)
+CVDetector::CVDetector(Light::Color color, cv::Size ROISize): 
+                   color(color),
+                   ROISize(ROISize)
                    {}
 
 /**
@@ -130,44 +130,57 @@ std::deque<Light> CVDetector::FindLight(const cv::Mat & binary_img) //寻找灯�
     if (!AngleIsOK()) continue; //角度阈值
     
     auto& rgb_image = this->rgb_img;
-    auto getLightColor = [&rect, &rgb_image]() -> Light::Color
-    {
-        //getRoi
-        std::vector<cv::Point2f> src_rect(4);
-        rect.points(src_rect.data());// points() 返回的顺序是 左下 -> 左上 -> 右上 -> 右下
-        src_rect.resize(3);//只能是三个点
-        cv::Size roi_sz = rect.size;
-        
-        // 目标图像中的三个对应顶点
-        // 源矩形的三个点将被映射到这个新的正放矩形的三个角点
-        std::vector<cv::Point2f> aim_rect{
-            cv::Point2f(0, roi_sz.height - 1),
-            cv::Point2f(0, 0),
-            cv::Point2f(roi_sz.width - 1, 0),
-        };
 
-        // 计算仿射变换矩阵
-        cv::Mat M = cv::getAffineTransform(src_rect, aim_rect);
-        // 应用仿射变换
-        cv::Mat light_roi;
-        cv::warpAffine(rgb_image, light_roi, M, roi_sz,cv::INTER_NEAREST);
-        // cv::Scalar light_color=cv::sum(light_roi);
-        // return (light_color[0] < light_color[2]) ? Light::Red : Light::Blue;
+    auto getLightColor = [&rect, &rgb_image]() -> Light::Color {
+        // 获取正方向的外接矩形，并与原图边界求交集，防止越界访问引发段错误
+        cv::Rect bbox = rect.boundingRect();
+        cv::Rect safe_bbox = bbox & cv::Rect(0, 0, rgb_image.cols, rgb_image.rows);
 
-        int redrate = 0, bluerate = 0;
-        for(int i=0;i<light_roi.rows;i++)
-        {
-            for(int j=0;j<light_roi.cols;j++)
-            {
-                cv::Vec3b color = light_roi.at<cv::Vec3b>(i,j);
-                if(color[2] > color[0])
-                    redrate++;
-                else if(color[2] < color[0])
-                    bluerate++;
+        // 提前提取旋转矩形的几何参数，供后续的投影计算使用
+        float cx = rect.center.x;
+        float cy = rect.center.y;
+        // 注意：OpenCV 中角度的单位可能依版本和生成方式不同，确保转为弧度
+        float angle = rect.angle * CV_PI / 180.0f; 
+        float cosA = std::cos(angle);
+        float sinA = std::sin(angle);
+        float half_w = rect.size.width * 0.5f;
+        float half_h = rect.size.height * 0.5f;
+
+        int redrate = 0;
+        int bluerate = 0;
+
+        //在原图上按行连续遍历外接矩形区域（对 CPU Cache 最友好的方式）
+        for (int y = safe_bbox.y; y < safe_bbox.y + safe_bbox.height; ++y) {
+            // 获取当前行的行首指针，避免使用缓慢的 .at()
+            const cv::Vec3b* row_ptr = rgb_image.ptr<cv::Vec3b>(y);
+            float dy = y - cy;
+            
+            for (int x = safe_bbox.x; x < safe_bbox.x + safe_bbox.width; ++x) {
+                float dx = x - cx;
+                
+                // 将当前坐标 (dx, dy) 投影到旋转矩形的局部 X 轴和 Y 轴上
+                float local_x = dx * cosA + dy * sinA;
+                float local_y = -dx * sinA + dy * cosA;
+                
+                // 判断投影后的局部坐标是否落在旋转矩形的宽高范围内
+                if (std::abs(local_x) <= half_w && std::abs(local_y) <= half_h) {
+                    // 如果在内部，执行原有的红蓝判断逻辑
+                    uchar b = row_ptr[x][0];
+                    uchar r = row_ptr[x][2];
+                    
+                    if (r > b) {
+                        redrate++;
+                    } else if (b > r) {
+                        bluerate++;
+                    }
+                }
             }
         }
+
+        // 返回数量较多的一方
         return (redrate > bluerate) ? Light::Color::Red : Light::Color::Blue;
     };
+
     if(getLightColor() != this->color) continue; //不是目标颜色
  
     lights.emplace_back(rect);//记录识别到的灯条

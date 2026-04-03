@@ -25,7 +25,7 @@ struct Light{
 
     double length;
     double width;
-    enum class Color { Red, Blue } color;
+    enum class Color : int { Red = 0, Blue = 1 } color;
 };
 
 

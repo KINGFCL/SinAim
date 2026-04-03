@@ -8,7 +8,7 @@
 #include <vector>
 class CVDetector {
 public:
-    CVDetector(Light::Color color,float confidence);
+    CVDetector(Light::Color color, cv::Size ROISize);
     
     std::deque<CVArmor> operator () (cv::Mat& frame,std::vector<cv::Mat>& armors_pattern);
     std::deque<CVArmor> operator () (cv::Mat& frame,std::vector<cv::Mat>& armors_pattern,bool isSmallROI);
@@ -16,11 +16,16 @@ public:
     void ArmorShow(cv::Mat & rgb_img, const std::deque<CVArmor> & armors);
     void ArmorShow(cv::Mat & rgb_img, const std::vector<CVArmor> & armors);
 
-public:
-    float confidence;
+private:
+
     Light::Color color;
+    cv::Size ROISize;
+
+public:
+
     cv::Mat gray_img;
     cv::Mat rgb_img;
+
     
 public:
     cv::Mat preprocessImage(cv::Mat& rgb_img); //图像预处理
