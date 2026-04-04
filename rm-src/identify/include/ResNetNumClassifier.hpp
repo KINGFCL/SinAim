@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-class NumClassifier
+class ResNetNumClassifier
 {
 public:
     struct Ans{
@@ -19,7 +19,7 @@ public:
         float confidence;
         Ans(int id,double con):id(id),confidence(con){}
     };
-    NumClassifier(std::string model_path,std::string yaml_path);
+    explicit ResNetNumClassifier(std::string model_path);
     std::vector<ArmorPosi> operator()(std::vector< std::array<ArmorPosi,2> >& armors,const std::vector<cv::Mat>& armors_pattern);
     std::vector<Ans> Classify(const std::vector<cv::Mat>& armors_pattern);
     

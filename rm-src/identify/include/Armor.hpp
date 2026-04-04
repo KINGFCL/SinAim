@@ -44,8 +44,6 @@ struct CVArmor{
     }
     Light left, right;
     std::vector<cv::Point2f> Lightcorners; //装甲板四个顶点
-    cv::Mat pattern; //装甲板的裁剪图像
- 
 };
 
 struct ArmorPosi{

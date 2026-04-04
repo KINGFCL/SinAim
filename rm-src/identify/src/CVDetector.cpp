@@ -21,7 +21,7 @@ CVDetector::CVDetector(Light::Color color, cv::Size ROISize):
  * @param armors_pattern 装甲板的图像
  * @return 可能的装甲板
  */
-std::deque<CVArmor> CVDetector:: operator () (cv::Mat& frame) 
+std::deque<CVArmor> CVDetector:: operator () (cv::Mat& frame, std::vector<cv::Mat> armors_pattern) 
 {
     this->rgb_img = frame;
 
@@ -40,12 +40,12 @@ std::deque<CVArmor> CVDetector:: operator () (cv::Mat& frame)
     cv::imshow("armors",show__);
     #endif 
 
-    this->ResNetROIPattern(armors);
+    armors_pattern = this->ResNetROIPattern(armors);
 
     return armors;
 }
 
-std::deque<CVArmor> CVDetector::operator () (cv::Mat& frame, ROIType Type)
+std::deque<CVArmor> CVDetector::operator () (cv::Mat& frame, std::vector<cv::Mat> armors_pattern, ROIType Type)
 {
     this->rgb_img = frame;
 
@@ -67,10 +67,10 @@ std::deque<CVArmor> CVDetector::operator () (cv::Mat& frame, ROIType Type)
     switch (Type)
     {
     case ROIType::ResNet:
-        this->ResNetROIPattern(armors);
+        armors_pattern = this->ResNetROIPattern(armors);
         break;
     case ROIType::MLP:  
-        this->MlpROIPattern(armors);
+        armors_pattern = this->MlpROIPattern(armors);
         break;
     };
 
@@ -310,9 +310,11 @@ std::deque<CVArmor> CVDetector::FindArmor(const std::deque<Light> & lights)
  * @param      armors 装甲板std::deque<Armor>
  * @return     裁剪后图像std::vector<cv::Mat>
  */
-void CVDetector::ResNetROIPattern(std::deque<CVArmor> & armors)
+std::vector<cv::Mat> CVDetector::ResNetROIPattern(const std::deque<CVArmor> & armors)
 {
-    if(armors.empty()) return;
+    std::vector<cv::Mat> armors_pattern;
+    if(armors.empty()) return armors_pattern;
+    armors_pattern.reserve(armors.size());
     
     for(auto& armor : armors)
     {
@@ -350,7 +352,7 @@ void CVDetector::ResNetROIPattern(std::deque<CVArmor> & armors)
         
         // 5.1 创建指定目标尺寸的全黑背景 Mat
         // 假设 target 图像通道数为 1 (因为来源是 gray_img)
-        armor.pattern = cv::Mat(this->ROISize, CV_8UC1, cv::Scalar(0));
+        cv::Mat pattern = cv::Mat(this->ROISize, CV_8UC1, cv::Scalar(0));
         
         // 5.2 计算 X 和 Y 方向的缩放比例
         double x_scale = static_cast<double>(this->ROISize.width) / armor_roi.cols;
@@ -371,13 +373,18 @@ void CVDetector::ResNetROIPattern(std::deque<CVArmor> & armors)
         
         // 5.5 将等比缩放后的图像放置到纯黑背景的左上角 (0, 0)
         cv::Rect paste_roi(0, 0, w, h);
-        cv::resize(armor_roi, armor.pattern(paste_roi), cv::Size(w, h), 0, 0, interp_method);
+        cv::resize(armor_roi, pattern(paste_roi), cv::Size(w, h), 0, 0, interp_method);
+        
+        armors_pattern.push_back(pattern);
     }
+    
+    return armors_pattern;
 }
 
-void CVDetector::MlpROIPattern(const std::deque<CVArmor> & armors)
+std::vector<cv::Mat> CVDetector::MlpROIPattern(const std::deque<CVArmor> & armors)
 {
-    if(armors.empty()) return;
+    std::vector<cv::Mat> armors_pattern;
+    if(armors.empty()) return armors_pattern;
     
     for(const auto& armor:armors)
     {
@@ -399,12 +406,17 @@ void CVDetector::MlpROIPattern(const std::deque<CVArmor> & armors)
         // 应用透视变换
         cv::Mat armor_roi;
         cv::warpPerspective(this->gray_img, armor_roi, M, roi_sz);
+        cv::Mat pattern;
         
-        cv::threshold(armor_roi, armor.pattern, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);//cv::THRESH_OTSU自动计算最优阈值
+        cv::threshold(armor_roi, pattern, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);//cv::THRESH_OTSU自动计算最优阈值
         
+        armors_pattern.push_back(pattern);
+        // cv::imwrite("/home/king/desktop/homework/workindentify/images/roi1.png",pattern);
         // cv::imwrite("/home/king/desktop/homework/workindentify/images/roi2.png",armor_roi);
         // cv::waitKey(1);
     }
+    
+    return armors_pattern;
 }
 
 void CVDetector::ArmorShow(cv::Mat & rgb_img, const std::deque<CVArmor> & armors)

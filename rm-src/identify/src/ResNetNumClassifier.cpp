@@ -16,43 +16,8 @@ static const size_t CPU_request_num = 12;
 static const size_t GPU_ENABLE_THRESHOLD = 8;
 
 
-NumClassifier::NumClassifier(std::string model_path,std::string yaml_path)
+NumClassifier::NumClassifier(std::string model_path)
 {
-// --------------------------------------
-
-
-    // 2. 使用 OpenCV FileStorage 读取 YAML
-    cv::FileStorage fs(yaml_path, cv::FileStorage::READ);
-    if (!fs.isOpened()) {
-        std::cerr << "❌ 错误: 无法打开 standard.yaml，请检查路径或确认第一行有 %YAML:1.0" << std::endl;
-        return ;
-    }
-
-    // 3. 获取 "centers" 节点
-    cv::FileNode centers_node = fs["centers"];
-    if (centers_node.type() != cv::FileNode::SEQ) {
-        std::cerr << "❌ 错误: YAML 格式不对，'centers' 应该是一个列表(Sequence)。" << std::endl;
-        return ;
-    }
-
-    // 4. 双层循环遍历解析二维列表，并存入 Eigen::Matrix
-    int row_idx = 0;
-    for (cv::FileNodeIterator row_it = centers_node.begin(); row_it != centers_node.end(); ++row_it, ++row_idx) {
-        cv::FileNode row = *row_it;
-        int col_idx = 0;
-        for (cv::FileNodeIterator col_it = row.begin(); col_it != row.end(); ++col_it, ++col_idx) {
-            // 读取浮点数并赋值给 Eigen 矩阵对应的 (行, 列)
-            this->centers(row_idx, col_idx) = (float)(*col_it);
-        }
-    }
-    fs.release();
-
-    std::cout << "✅ 成功加载 ArcFace 中心向量，矩阵维度: " 
-              << this->centers.rows() << " x " << this->centers.cols() << "\n";
-
-
-
-
 // ---------------------------------------------------
     // 1. 读取模型
     std::shared_ptr<ov::Model> model_CPU = core.read_model(model_path);
