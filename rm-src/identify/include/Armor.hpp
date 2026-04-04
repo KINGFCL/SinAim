@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <opencv2/core.hpp>
+#include <opencv2/core/mat.hpp>
 #include <vector>
 struct Light{
     explicit Light(const cv::RotatedRect& rect)
@@ -43,6 +44,7 @@ struct CVArmor{
     }
     Light left, right;
     std::vector<cv::Point2f> Lightcorners; //装甲板四个顶点
+    cv::Mat pattern; //装甲板的裁剪图像
  
 };
 

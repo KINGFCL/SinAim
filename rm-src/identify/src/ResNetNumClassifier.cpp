@@ -1,4 +1,4 @@
-#include "NumClassifier.hpp"
+#include "ResNetNumClassifier.hpp"
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/src/Core/util/Constants.h>
 #include <opencv2/highgui.hpp>
@@ -15,7 +15,6 @@ static const size_t GPU_request_num = 2;
 static const size_t CPU_request_num = 12;
 static const size_t GPU_ENABLE_THRESHOLD = 8;
 
-Eigen::Matrix<float, 7, 128> NumClassifier::centers;
 
 NumClassifier::NumClassifier(std::string model_path,std::string yaml_path)
 {

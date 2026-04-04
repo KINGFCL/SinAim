@@ -7,19 +7,22 @@
 #include <opencv2/core/types.hpp>
 #include <vector>
 class CVDetector {
+    enum class ROIType : int { ResNet = 0, MLP = 1 };
+
 public:
-    CVDetector(Light::Color color, cv::Size ROISize);
+    explicit CVDetector(Light::Color color, cv::Size ROISize = cv::Size(32, 32));
+
     
-    std::deque<CVArmor> operator () (cv::Mat& frame,std::vector<cv::Mat>& armors_pattern);
-    std::deque<CVArmor> operator () (cv::Mat& frame,std::vector<cv::Mat>& armors_pattern,bool isSmallROI);
+    std::deque<CVArmor> operator () (cv::Mat& frame);
+    std::deque<CVArmor> operator () (cv::Mat& frame, ROIType Type);
 
     void ArmorShow(cv::Mat & rgb_img, const std::deque<CVArmor> & armors);
     void ArmorShow(cv::Mat & rgb_img, const std::vector<CVArmor> & armors);
 
 private:
 
-    Light::Color color;
-    cv::Size ROISize;
+    const Light::Color color;
+    const cv::Size ROISize;
 
 public:
 
@@ -31,7 +34,7 @@ public:
     cv::Mat preprocessImage(cv::Mat& rgb_img); //图像预处理
     std::deque<Light> FindLight(const cv::Mat & binary_img); //寻找灯条
     std::deque<CVArmor> FindArmor(const std::deque<Light> & lights); //寻找装甲板
-    std::vector<cv::Mat> ROIArmor(const std::deque<CVArmor>& armors);
-    std::vector<cv::Mat> SmallROIArmor(const std::deque<CVArmor> & armors);
+    void ResNetROIPattern(std::deque<CVArmor>& armors);
+    void MlpROIPattern(const std::deque<CVArmor> & armors);
 };
 #endif

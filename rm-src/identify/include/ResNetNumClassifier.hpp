@@ -32,8 +32,6 @@ private:
     ov::CompiledModel compiled_model_GPU, compiled_model_CPU;
 
     std::vector<ov::InferRequest> infer_request_GPU, infer_request_CPU;
-
-    static Eigen::Matrix<float, 7, 128> centers;
 };
 
 

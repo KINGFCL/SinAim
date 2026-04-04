@@ -1,6 +1,7 @@
 add_library(rm_identify STATIC
     src/CVDetector.cpp
-    src/NumClassifier.cpp
+    src/MlpNumClassifier.cpp
+    src/ResNetNumClassifier.cpp
     src/YoloDetector.cpp
 )
 

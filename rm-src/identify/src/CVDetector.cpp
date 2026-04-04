@@ -11,8 +11,8 @@
 //Debug
 
 CVDetector::CVDetector(Light::Color color, cv::Size ROISize): 
-                   color(color),
-                   ROISize(ROISize)
+                    color(color),
+                    ROISize(ROISize)
                    {}
 
 /**
@@ -21,7 +21,7 @@ CVDetector::CVDetector(Light::Color color, cv::Size ROISize):
  * @param armors_pattern 装甲板的图像
  * @return 可能的装甲板
  */
-std::deque<CVArmor> CVDetector:: operator () (cv::Mat& frame,std::vector<cv::Mat>& armors_pattern) 
+std::deque<CVArmor> CVDetector:: operator () (cv::Mat& frame) 
 {
     this->rgb_img = frame;
 
@@ -40,12 +40,12 @@ std::deque<CVArmor> CVDetector:: operator () (cv::Mat& frame,std::vector<cv::Mat
     cv::imshow("armors",show__);
     #endif 
 
-    armors_pattern = this->ROIArmor(armors);
+    this->ResNetROIPattern(armors);
 
     return armors;
 }
 
-std::deque<CVArmor> CVDetector::operator () (cv::Mat& frame,std::vector<cv::Mat>& armors_pattern,bool isSmallROI)
+std::deque<CVArmor> CVDetector::operator () (cv::Mat& frame, ROIType Type)
 {
     this->rgb_img = frame;
 
@@ -64,7 +64,15 @@ std::deque<CVArmor> CVDetector::operator () (cv::Mat& frame,std::vector<cv::Mat>
     cv::imshow("armors",show__);
     #endif 
 
-    armors_pattern = this->SmallROIArmor(armors);
+    switch (Type)
+    {
+    case ROIType::ResNet:
+        this->ResNetROIPattern(armors);
+        break;
+    case ROIType::MLP:  
+        this->MlpROIPattern(armors);
+        break;
+    };
 
     return armors;
 }
@@ -132,39 +140,40 @@ std::deque<Light> CVDetector::FindLight(const cv::Mat & binary_img) //寻找灯�
     auto& rgb_image = this->rgb_img;
 
     auto getLightColor = [&rect, &rgb_image]() -> Light::Color {
-        // 获取正方向的外接矩形，并与原图边界求交集，防止越界访问引发段错误
+        // 1. 获取外接正矩形并防止越界访问
         cv::Rect bbox = rect.boundingRect();
         cv::Rect safe_bbox = bbox & cv::Rect(0, 0, rgb_image.cols, rgb_image.rows);
 
-        // 提前提取旋转矩形的几何参数，供后续的投影计算使用
-        float cx = rect.center.x;
-        float cy = rect.center.y;
-        // 注意：OpenCV 中角度的单位可能依版本和生成方式不同，确保转为弧度
-        float angle = rect.angle * CV_PI / 180.0f; 
-        float cosA = std::cos(angle);
-        float sinA = std::sin(angle);
-        float half_w = rect.size.width * 0.5f;
-        float half_h = rect.size.height * 0.5f;
+        // 2. 提取旋转矩形的四个角点
+        cv::Point2f pts[4];
+        rect.points(pts);
+
+        // 3. 构建局部坐标系的基向量 (以 pts[0] 为原点)
+        cv::Point2f origin = pts[0];
+        cv::Point2f vec1 = pts[1] - pts[0]; // 边 1 向量
+        cv::Point2f vec2 = pts[3] - pts[0]; // 边 2 向量
+
+        // 提前计算向量的模的平方（即最大点乘值，避免除法和开方）
+        float len1_sq = vec1.dot(vec1); 
+        float len2_sq = vec2.dot(vec2);
 
         int redrate = 0;
         int bluerate = 0;
 
-        //在原图上按行连续遍历外接矩形区域（对 CPU Cache 最友好的方式）
+        // 4. 按行连续遍历，最大化利用 CPU Cache
         for (int y = safe_bbox.y; y < safe_bbox.y + safe_bbox.height; ++y) {
-            // 获取当前行的行首指针，避免使用缓慢的 .at()
             const cv::Vec3b* row_ptr = rgb_image.ptr<cv::Vec3b>(y);
-            float dy = y - cy;
             
             for (int x = safe_bbox.x; x < safe_bbox.x + safe_bbox.width; ++x) {
-                float dx = x - cx;
+                // 当前像素到局部原点的向量
+                cv::Point2f p_vec(x - origin.x, y - origin.y);
                 
-                // 将当前坐标 (dx, dy) 投影到旋转矩形的局部 X 轴和 Y 轴上
-                float local_x = dx * cosA + dy * sinA;
-                float local_y = -dx * sinA + dy * cosA;
-                
-                // 判断投影后的局部坐标是否落在旋转矩形的宽高范围内
-                if (std::abs(local_x) <= half_w && std::abs(local_y) <= half_h) {
-                    // 如果在内部，执行原有的红蓝判断逻辑
+                // 计算点乘（即未归一化的投影长度）
+                float dot1 = p_vec.dot(vec1);
+                float dot2 = p_vec.dot(vec2);
+
+                // 如果投影长度在 [0, len_sq] 之间，说明点在旋转矩形内部！
+                if (dot1 >= 0 && dot1 <= len1_sq && dot2 >= 0 && dot2 <= len2_sq) {
                     uchar b = row_ptr[x][0];
                     uchar r = row_ptr[x][2];
                     
@@ -177,7 +186,6 @@ std::deque<Light> CVDetector::FindLight(const cv::Mat & binary_img) //寻找灯�
             }
         }
 
-        // 返回数量较多的一方
         return (redrate > bluerate) ? Light::Color::Red : Light::Color::Blue;
     };
 
@@ -302,41 +310,74 @@ std::deque<CVArmor> CVDetector::FindArmor(const std::deque<Light> & lights)
  * @param      armors 装甲板std::deque<Armor>
  * @return     裁剪后图像std::vector<cv::Mat>
  */
-std::vector<cv::Mat> CVDetector::ROIArmor(const std::deque<CVArmor> & armors)
+void CVDetector::ResNetROIPattern(std::deque<CVArmor> & armors)
 {
-    std::vector<cv::Mat> armors_pattern;
-    if(armors.empty()) return armors_pattern;
-    armors_pattern.reserve(armors.size());
+    if(armors.empty()) return;
     
-    for(const auto& armor:armors)
+    for(auto& armor : armors)
     {
-        const cv::Size roi_sz(112,112); //裁剪后图像大小
-        const int extendHei = 28;
-        const int contractWid = 18;
+        // 1. 方向向量：从上指向下
+        cv::Point2f left_top2bottom = armor.left.bottom - armor.left.top;
+        cv::Point2f right_top2bottom = armor.right.bottom - armor.right.top;
         
-        std::vector<cv::Point2f> Roi_rect{
-            cv::Point2f(-contractWid,extendHei),
-            cv::Point2f(roi_sz.width + contractWid - 1, extendHei),
-            cv::Point2f(roi_sz.width + contractWid - 1, roi_sz.height - extendHei - 1),
-            cv::Point2f(-contractWid, roi_sz.height - extendHei - 1)
-        };
+        // 2. 延长灯条获得装甲板真实的四个虚拟角点
+        // 1.125 = 0.5 * 126mm / 56mm (装甲板高度与灯条长度的比例系数)
+        auto tl = armor.left.center - left_top2bottom * 1.125f;
+        auto bl = armor.left.center + left_top2bottom * 1.125f;
+        auto tr = armor.right.center - right_top2bottom * 1.125f;
+        auto br = armor.right.center + right_top2bottom * 1.125f;
+
+        // 3. 计算能完全包围这四个角的正矩形 (Bounding Box)
+        // 使用 std::min/max 列表找出绝对边界，防止大角度倾斜时的坐标交叉错乱
+        int roi_left   = std::max<int>(0, std::floor(std::min({tl.x, bl.x, tr.x, br.x})));
+        int roi_top    = std::max<int>(0, std::floor(std::min({tl.y, bl.y, tr.y, br.y})));
+        int roi_right  = std::min<int>(this->rgb_img.cols, std::ceil(std::max({tl.x, bl.x, tr.x, br.x})));
+        int roi_bottom = std::min<int>(this->rgb_img.rows, std::ceil(std::max({tl.y, bl.y, tr.y, br.y})));
         
-        // 计算透视变换矩阵
-        cv::Mat M = cv::getPerspectiveTransform(armor.Lightcorners, Roi_rect);
+        cv::Rect roi(cv::Point(roi_left, roi_top), cv::Point(roi_right, roi_bottom));
+
+        // 防止极端情况下算出长宽为 0 或负数的非法矩形导致崩溃
+        if (roi.width <= 0 || roi.height <= 0) {
+            continue;
+        }
+
+        // 4. 从原图中截取 ROI (零拷贝操作，极快)
+        cv::Mat armor_roi = this->gray_img(roi);
         
-        // 应用透视变换
-        cv::Mat armor_roi;
-        cv::warpPerspective(this->rgb_img, armor_roi, M, roi_sz,cv::INTER_LINEAR);
-    
-        armors_pattern.emplace_back(armor_roi);
+        // ========================================================
+        // 5. 保持原比例缩放 (等比缩放) + 纯黑背景填充逻辑
+        // ========================================================
+        
+        // 5.1 创建指定目标尺寸的全黑背景 Mat
+        // 假设 target 图像通道数为 1 (因为来源是 gray_img)
+        armor.pattern = cv::Mat(this->ROISize, CV_8UC1, cv::Scalar(0));
+        
+        // 5.2 计算 X 和 Y 方向的缩放比例
+        double x_scale = static_cast<double>(this->ROISize.width) / armor_roi.cols;
+        double y_scale = static_cast<double>(this->ROISize.height) / armor_roi.rows;
+        
+        // 5.3 取最小比例，确保缩放后的图像能完全放入目标区域且不丢失比例
+        double scale = std::min(x_scale, y_scale);
+        int w = static_cast<int>(armor_roi.cols * scale);
+        int h = static_cast<int>(armor_roi.rows * scale);
+        
+        // 预防极端缩放导致宽高为 0 的异常
+        if (w == 0 || h == 0) {
+            continue; 
+        }
+
+        // 5.4 智能选择插值算法（缩小用 INTER_AREA，放大用 INTER_LINEAR）
+        int interp_method = (armor_roi.cols > this->ROISize.width) ? cv::INTER_AREA : cv::INTER_LINEAR;
+        
+        // 5.5 将等比缩放后的图像放置到纯黑背景的左上角 (0, 0)
+        cv::Rect paste_roi(0, 0, w, h);
+        cv::resize(armor_roi, armor.pattern(paste_roi), cv::Size(w, h), 0, 0, interp_method);
     }
-    return armors_pattern;
 }
-std::vector<cv::Mat> CVDetector::SmallROIArmor(const std::deque<CVArmor> & armors)
+
+void CVDetector::MlpROIPattern(const std::deque<CVArmor> & armors)
 {
-    std::vector<cv::Mat> armors_pattern;
-    if(armors.empty()) return armors_pattern;
-    armors_pattern.reserve(armors.size());
+    if(armors.empty()) return;
     
     for(const auto& armor:armors)
     {
@@ -359,14 +400,11 @@ std::vector<cv::Mat> CVDetector::SmallROIArmor(const std::deque<CVArmor> & armor
         cv::Mat armor_roi;
         cv::warpPerspective(this->gray_img, armor_roi, M, roi_sz);
         
-        cv::threshold(armor_roi, armor_roi, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);//cv::THRESH_OTSU自动计算最优阈值
+        cv::threshold(armor_roi, armor.pattern, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);//cv::THRESH_OTSU自动计算最优阈值
         
         // cv::imwrite("/home/king/desktop/homework/workindentify/images/roi2.png",armor_roi);
         // cv::waitKey(1);
-        armor_roi = armor_roi/255.0;//神经网络输入归一化
-        armors_pattern.push_back(armor_roi);
     }
-    return armors_pattern;
 }
 
 void CVDetector::ArmorShow(cv::Mat & rgb_img, const std::deque<CVArmor> & armors)

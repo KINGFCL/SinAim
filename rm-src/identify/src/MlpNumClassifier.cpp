@@ -1,4 +1,4 @@
-#include "../include/MlpNumClassifier.hpp"
+#include "MlpNumClassifier.hpp"
 #include <opencv2/core/types.hpp>
 #include <vector>
 
