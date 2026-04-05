@@ -3,7 +3,8 @@
 #include <vector>
 
 
-MlpNumClassifier::MlpNumClassifier(std::string model_path)
+MlpNumClassifier::MlpNumClassifier(std::string model_path, float confidence_threshold)
+    : confidence_threshold(confidence_threshold)
 {
     Net = cv::dnn::readNetFromONNX(model_path);
     // 设置首选的计算后端为 OpenVINO Inference Engine
@@ -58,26 +59,57 @@ std::vector<ArmorPosi> MlpNumClassifier::operator()(std::vector< std::array<Armo
 
     std::vector<MlpNumClassifier::Ans> ans = Classify(armors_pattern);
     
-    for(int i = 0;i < ans.size();i++)
-    {
-        if(ans[i].id == 7) continue ;
-        
-        if(ans[i].confidence > 0.70)
-        {
-            if(ans[i].id == 0 || ans[i].id == 1)
-            {
-                result.emplace_back(armors[i][1]);
-                result.back().type = static_cast<ArmorPosi::Type>(ans[i].id);
-                result.back().confidence = ans[i].confidence;
-            } 
-                
-            else 
-            {
-                result.emplace_back(armors[i][0]);
-                result.back().type = static_cast<ArmorPosi::Type>(ans[i].id);
-                result.back().confidence = ans[i].confidence;
-            } 
-                
+    for (size_t i = 0; i < ans.size(); i++) {
+        // 1. 置信度过滤
+        if (ans[i].confidence > this->confidence_threshold) {
+            int model_id = ans[i].id; // 模型的原始 ID (0-8)
+            ArmorPosi::Type final_type = ArmorPosi::Type::Unknow;
+            int target_idx = 0; // 默认小装甲板
+
+            // 2. 映射逻辑：将模型 ID (ArmorName 顺序) 映射到你的 Type 枚举
+            switch (model_id) {
+                case 0: // 模型 0 = 英雄 (one)
+                    final_type = ArmorPosi::Type::hero;
+                    target_idx = 1; // 英雄是大装甲板
+                    break;
+                case 1: // 模型 1 = 工程 (two)
+                    final_type = ArmorPosi::Type::two;
+                    target_idx = 0; // 工程通常是小装甲板
+                    break;
+                case 2: // 模型 2 = 3号步兵 (three)
+                    final_type = ArmorPosi::Type::three;
+                    target_idx = 0;
+                    break;
+                case 3: // 模型 3 = 4号步兵 (four)
+                    final_type = ArmorPosi::Type::four;
+                    target_idx = 0;
+                    break;
+                case 5: // 模型 5 = 前哨站 (outpost)
+                    final_type = ArmorPosi::Type::outpost;
+                    target_idx = 0;
+                    break;
+                case 6: // 模型 6 = 哨兵 (sentry)
+                    final_type = ArmorPosi::Type::guard;
+                    target_idx = 0;
+                    break;
+                case 7: // 模型 7 = 基地 (base)
+                    final_type = ArmorPosi::Type::base;
+                    target_idx = 1; // 基地是大装甲板
+                    break;
+                case 4: // 5号步兵已不存在，跳过或设为未知
+                case 8: // 非装甲板
+                default:
+                    final_type = ArmorPosi::Type::Unknow;
+                    break;
+            }
+
+            // 3. 过滤掉无效目标
+            if (final_type == ArmorPosi::Type::Unknow) continue;
+
+            // 4. 压入结果
+            result.emplace_back(armors[i][target_idx]);
+            result.back().type = final_type;
+            result.back().confidence = ans[i].confidence;
         }
     }
     

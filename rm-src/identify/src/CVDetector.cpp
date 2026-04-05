@@ -21,7 +21,7 @@ CVDetector::CVDetector(Light::Color color, cv::Size ROISize):
  * @param armors_pattern 装甲板的图像
  * @return 可能的装甲板
  */
-std::deque<CVArmor> CVDetector:: operator () (cv::Mat& frame, std::vector<cv::Mat> armors_pattern) 
+std::deque<CVArmor> CVDetector:: operator () (cv::Mat& frame, std::vector<cv::Mat>& armors_pattern) 
 {
     this->rgb_img = frame;
 
@@ -45,7 +45,7 @@ std::deque<CVArmor> CVDetector:: operator () (cv::Mat& frame, std::vector<cv::Ma
     return armors;
 }
 
-std::deque<CVArmor> CVDetector::operator () (cv::Mat& frame, std::vector<cv::Mat> armors_pattern, ROIType Type)
+std::deque<CVArmor> CVDetector::operator () (cv::Mat& frame, std::vector<cv::Mat>& armors_pattern, ROIType Type)
 {
     this->rgb_img = frame;
 

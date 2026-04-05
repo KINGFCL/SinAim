@@ -13,8 +13,8 @@ public:
     explicit CVDetector(Light::Color color, cv::Size ROISize = cv::Size(32, 32));
 
     
-    std::deque<CVArmor> operator () (cv::Mat& frame, std::vector<cv::Mat> armors_pattern);
-    std::deque<CVArmor> operator () (cv::Mat& frame, std::vector<cv::Mat> armors_pattern, ROIType Type);
+    std::deque<CVArmor> operator () (cv::Mat& frame, std::vector<cv::Mat>& armors_pattern);
+    std::deque<CVArmor> operator () (cv::Mat& frame, std::vector<cv::Mat>& armors_pattern, ROIType Type);
 
     void ArmorShow(cv::Mat & rgb_img, const std::deque<CVArmor> & armors);
     void ArmorShow(cv::Mat & rgb_img, const std::vector<CVArmor> & armors);

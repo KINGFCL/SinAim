@@ -62,7 +62,7 @@ struct ArmorPosi{
 
     enum class Type : int {base    = 0, hero     = 1, two   = 2,
                            three   = 3, four     = 4, guard = 5,
-                           outpost = 6} type;
+                           outpost = 6, Unknow = 7} type = Type::Unknow;
     float confidence = 0; 
 
     ArmorPosi(cv::Point3d posi, cv::Point3d face, cv::Point3d toward, double theta, double error):
