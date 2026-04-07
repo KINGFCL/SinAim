@@ -168,19 +168,19 @@ void PoseDetector::operator()(std::vector<ArmorPosi>& armors_posis) const
             case ArmorPosi::Type::base:
                 if (armor_posi.posi.z > this->base_range.high_max || armor_posi.posi.z < this->base_range.high_min) {
                     armor_posi.type = ArmorPosi::Type::Unknow; // 不满足高度条件，类型设为未知
-                    continue; // 不满足高度条件，置信度设为0
+                    continue; 
                 }
                 break;
             case ArmorPosi::Type::outpost:
                 if (armor_posi.posi.z > this->outpost_range.high_max || armor_posi.posi.z < this->outpost_range.high_min) {
                     armor_posi.type = ArmorPosi::Type::Unknow; // 不满足高度条件，类型设为未知
-                    continue; // 不满足高度条件，置信度设为0
+                    continue; 
                 }
                 break;
             default:
                 if (armor_posi.posi.z > this->robot_range.high_max || armor_posi.posi.z < this->robot_range.high_min) {
                     armor_posi.type = ArmorPosi::Type::Unknow; // 不满足高度条件，类型设为未知
-                    continue; // 不满足高度条件，置信度设为0
+                    continue;
                 }
                 break; 
         }
