@@ -21,7 +21,7 @@ public:
 
     std::vector< std::array<bool,2> > InWorld (std::vector<std::array<ArmorPosi,2>>& armors_posis, std::vector<cv::Mat>& armors_pattern, const std::vector<std::array<bool, 2>>& PosePassHax, const Eigen::Matrix<double, 3, 1>& Gun) const;
 
-    void operator()(std::vector<ArmorPosi>& armors_posis, const cv::Quatd& gripper_to_world) const;
+    void operator()(std::vector<ArmorPosi>& armors_posis) const;
     
     bool IsInCameraRange(const ArmorPosi& posi) const;
     bool IsInWorldRange(const ArmorPosi& posi, Eigen::Matrix<double, 3, 1> Gun, Type type) const;

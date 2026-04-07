@@ -49,9 +49,6 @@ std::vector<std::array<bool,2>>
     std::vector<cv::Mat> ans_pattern;
     ans_posis.reserve(armors_posis.size());
     ans_pattern.reserve(armors_pattern.size());
-    Eigen::Matrix<double, 3, 1> Gun_xy = Eigen::Matrix<double, 3, 1>(Gun[0], Gun[1], 0).normalized(); // 枪管方向向量
-    const cv::Point3d Gun_cv(Gun_xy[0], Gun_xy[1], 0); // 转换为 OpenCV 的 Point3d
-
 
     for (size_t i = 0; i < armors_posis.size(); i++) {
         if (armors_pattern[i].empty()) continue; // 跳过无效图案
@@ -88,7 +85,7 @@ bool PoseDetector::IsInCameraRange(const ArmorPosi& posi) const
 
     // 计算偏航角、俯仰角和滚转角
     //pitch:
-    double pitch = std::asin(posi.face.y);
+    double pitch = std::asin(std::clamp(posi.face.y, -1.0, 1.0));
     if(pitch > this->camera_range.pitch_max || pitch < this->camera_range.pitch_min) return false;
 
     //yaw:
@@ -97,12 +94,14 @@ bool PoseDetector::IsInCameraRange(const ArmorPosi& posi) const
     if(yaw > this->camera_range.yaw_max) return false;
 
     //roll:
-    double roll = std::asin(posi.toward.y);
+    double roll = std::asin(std::clamp(posi.toward.y, -1.0, 1.0));
     roll = std::abs(roll);
     if(roll > this->camera_range.roll_max) return false;
 
     return true; // 满足所有条件，认为在范围内
 }
+
+
 
 bool PoseDetector::IsInWorldRange(const ArmorPosi& posi, Eigen::Matrix<double, 3, 1> Gun, Type type) const
 {
@@ -135,17 +134,22 @@ bool PoseDetector::IsInWorldRange(const ArmorPosi& posi, Eigen::Matrix<double, 3
 
     // 计算偏航角、俯仰角和滚转角
     //pitch:
-    double pitch = std::asin(-posi.face.z);
+    double pitch = std::asin(std::clamp(-posi.face.z, -1.0, 1.0));
     if(pitch > current_range.pitch_max || pitch < current_range.pitch_min) return false;
 
     //yaw:
-    auto Gun_xy = Eigen::Matrix<double, 3, 1>(Gun[0], Gun[1], 0).normalized(); // 枪管方向向量  
-    auto face_xy = Eigen::Matrix<double, 3, 1>(posi.face.x, posi.face.y, 0).normalized();
-    double yaw = std::acos(Gun_xy.dot(face_xy));
+    auto Gun_xy = Eigen::Matrix<double, 3, 1>(Gun[0], Gun[1], 0); // 枪管方向向量  
+    auto face_xy = Eigen::Matrix<double, 3, 1>(posi.face.x, posi.face.y, 0);
+    if (Gun_xy.norm() < 1e-6 || face_xy.norm() < 1e-6) return false; // 姿态奇异，丢弃
+    Gun_xy.normalize();
+    face_xy.normalize();
+
+
+    double yaw = std::acos(std::clamp(Gun_xy.dot(face_xy), -1.0, 1.0)); 
     if(yaw > current_range.yaw_max) return false;
 
     //roll:
-    double roll = std::asin(posi.toward.z);
+    double roll = std::asin(std::clamp(posi.toward.z, -1.0, 1.0));
     roll = std::abs(roll);
     if(roll > current_range.roll_max) return false;
 
@@ -153,8 +157,34 @@ bool PoseDetector::IsInWorldRange(const ArmorPosi& posi, Eigen::Matrix<double, 3
 }
 
 
-void PoseDetector::operator()(std::vector<ArmorPosi>& armors_posis, const cv::Quatd& gripper_to_world) const
+void PoseDetector::operator()(std::vector<ArmorPosi>& armors_posis) const
 {
 
+    for (auto& armor_posi : armors_posis) {
+
+        if(armor_posi.type == ArmorPosi::Type::Unknow) continue; // 如果类型未知，不进行范围检查
+        //检查高度
+        switch (armor_posi.type) {
+            case ArmorPosi::Type::base:
+                if (armor_posi.posi.z > this->base_range.high_max || armor_posi.posi.z < this->base_range.high_min) {
+                    armor_posi.type = ArmorPosi::Type::Unknow; // 不满足高度条件，类型设为未知
+                    continue; // 不满足高度条件，置信度设为0
+                }
+                break;
+            case ArmorPosi::Type::outpost:
+                if (armor_posi.posi.z > this->outpost_range.high_max || armor_posi.posi.z < this->outpost_range.high_min) {
+                    armor_posi.type = ArmorPosi::Type::Unknow; // 不满足高度条件，类型设为未知
+                    continue; // 不满足高度条件，置信度设为0
+                }
+                break;
+            default:
+                if (armor_posi.posi.z > this->robot_range.high_max || armor_posi.posi.z < this->robot_range.high_min) {
+                    armor_posi.type = ArmorPosi::Type::Unknow; // 不满足高度条件，类型设为未知
+                    continue; // 不满足高度条件，置信度设为0
+                }
+                break; 
+        }
+        
+    }
 }
 
