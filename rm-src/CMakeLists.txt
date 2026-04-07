@@ -11,6 +11,8 @@ find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(OpenVINO REQUIRED)
+find_package(fmt REQUIRED)
+find_package(spdlog REQUIRED)
 
 # 添加子模块
 add_subdirectory(communicate)
@@ -19,13 +21,16 @@ add_subdirectory(identify)
 add_subdirectory(aim)
 
 # 可选：编译示例程序
-option(BUILD_EXAMPLE "Build example program" OFF)
-if(BUILD_EXAMPLE)
+# option(BUILD_EXAMPLE "Build example program" ON)
+# if(BUILD_EXAMPLE)
     add_executable(rm_example example_main.cpp)
     target_link_libraries(rm_example
         rm_aim
         rm_identify
         rm_communicate
         rm_hikcamera
+        yaml-cpp
+        fmt::fmt
+        spdlog::spdlog
     )
-endif()
+# endif()

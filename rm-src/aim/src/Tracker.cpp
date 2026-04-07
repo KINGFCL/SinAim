@@ -74,6 +74,10 @@ void Tracker::handleSearching(std::vector<ArmorPosi>& armors_posi,
     std::array<std::vector<ArmorPosi>, 7> oneframe_data_buffers;
     for (const auto& armor : armors_posi)
     {
+        if(armor.type == ArmorPosi::Type::Unknow)
+        {
+            continue; // 跳过未知类型
+        }
         int type_idx = static_cast<int>(armor.type);
         if (type_idx >= 0 && type_idx < static_cast<int>(Num.size()))
         {

@@ -36,7 +36,7 @@ public:
     };
 
     explicit ResNetNumClassifier(std::string model_path, float confidence_threshold = 0.5f);
-    std::vector<ArmorPosi> operator()(std::vector<std::array<ArmorPosi, 2>>& armors, const std::vector<cv::Mat>& armors_pattern);
+    std::vector<ArmorPosi> operator()(std::vector<std::array<ArmorPosi, 2>>& armors, const std::vector<cv::Mat>& armors_pattern,const std::vector< std::array<bool, 2> >& PosePassHax);
     std::vector<Ans> Classify(const std::vector<cv::Mat>& armors_pattern);
 
 private:

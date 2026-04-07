@@ -13,6 +13,8 @@ target_include_directories(rm_planner PUBLIC
 
 target_link_libraries(rm_planner PUBLIC
     tinympcstatic
+    rm_aim
+    rm_communicate
     ${OpenCV_LIBS}
     yaml-cpp
     Eigen3::Eigen

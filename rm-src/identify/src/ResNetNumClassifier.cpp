@@ -185,7 +185,7 @@ std::vector<ResNetNumClassifier::Ans> ResNetNumClassifier::Classify(const std::v
     return ans;
 }
 
-std::vector<ArmorPosi> ResNetNumClassifier::operator()(std::vector<std::array<ArmorPosi, 2>>& armors, const std::vector<cv::Mat>& armors_pattern)
+std::vector<ArmorPosi> ResNetNumClassifier::operator()(std::vector<std::array<ArmorPosi, 2>>& armors, const std::vector<cv::Mat>& armors_pattern, const std::vector< std::array<bool, 2> >& PosePassHax)
 {
     std::vector<ArmorPosi> result;
 
@@ -260,7 +260,7 @@ std::vector<ArmorPosi> ResNetNumClassifier::operator()(std::vector<std::array<Ar
             }
 
             // 3. 过滤掉无效目标
-            if (final_type == ArmorPosi::Type::Unknow) continue;
+            if (final_type == ArmorPosi::Type::Unknow || !PosePassHax[i][target_idx]) continue;
 
             // 4. 压入结果
             result.emplace_back(armors[i][target_idx]);
