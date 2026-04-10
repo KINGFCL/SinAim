@@ -14,7 +14,7 @@ class Solver
 {
 public:
 
-    Solver(std::string config_path);
+    explicit Solver(std::string config_path);
     
     //解算传入的所有装甲板并返回
     std::vector< std::array<ArmorPosi,2> > operator () (const std::deque<CVArmor>& armors);
