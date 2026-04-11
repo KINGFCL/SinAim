@@ -1,5 +1,8 @@
 #include "Solver.hpp"
 // #include <array>
+#include <Eigen/src/Core/Matrix.h>
+#include <Eigen/src/Geometry/Quaternion.h>
+#include <cstdlib>
 #include <deque>
 #include <iostream>
 #include <opencv2/core.hpp>
@@ -17,52 +20,51 @@
 extern RerunVisualizer viz;
 #endif
 
-Solver::Solver(std::string config_path)
+namespace SASize {
+    constexpr double LIGHTBAR_LENGTH = 5.50; // 灯条长度，单位：厘米
+    constexpr double SMALL_ARMOR_WIDTH = 13.50; // 小装甲板宽度，单位：厘米
+    constexpr double BIG_ARMOR_WIDTH = 23.0;   // 大装甲板宽度，单位：厘米
+}
+
+Solver::Solver( const SolverConfig& config ):
+    cameraMatrix(config.camera_matrix),
+    distCoeffs(config.distortion_coeffs),
+    R_Cam_to_gripper(config.R_Cam_to_gripper),
+    T_Cam_to_gripper(config.T_Cam_to_gripper),
+    err_threshold(config.err_threshold)
 {
-    // this->cameraMatrix(3,3);
-    // this->distCoeffs(5,1);
-    cv::FileStorage fs;
-    if (!fs.open(config_path, cv::FileStorage::READ)) 
-        std::cerr << "Error: Failed to open YAML file: " << config_path << std::endl;
+
+    using namespace SASize;
+    this->objectBigArmorP = {
+        {-BIG_ARMOR_WIDTH / 2.0,  -LIGHTBAR_LENGTH / 2.0, 0},
+        {BIG_ARMOR_WIDTH / 2.0,  -LIGHTBAR_LENGTH / 2.0, 0},
+        {BIG_ARMOR_WIDTH / 2.0, LIGHTBAR_LENGTH / 2.0, 0},
+        {-BIG_ARMOR_WIDTH / 2.0, LIGHTBAR_LENGTH / 2.0, 0}
+    };
+
+    this->objectSmallArmorP = {
+        {-SMALL_ARMOR_WIDTH / 2.0,  -LIGHTBAR_LENGTH / 2.0, 0},
+        {SMALL_ARMOR_WIDTH / 2.0,  -LIGHTBAR_LENGTH / 2.0, 0},
+        {SMALL_ARMOR_WIDTH / 2.0, LIGHTBAR_LENGTH / 2.0, 0},
+        {-SMALL_ARMOR_WIDTH / 2.0, LIGHTBAR_LENGTH / 2.0, 0}
+    };
     
-    std::cout << "Successfully opened " << config_path << std::endl;
-    std::cout << "------------------------------------------" << std::endl;
-
-    cameraMatrix = cv::Mat_<double>(3,3);
-    distCoeffs = cv::Mat_<double>(5,1);
-
-    fs["camera_matrix"] >> this->cameraMatrix;
-    fs["distortion_coeffs"] >> this->distCoeffs;
-    // std::cout<<cameraMatrix.size<<std::endl;
-
-    this->R_Cam_to_gripper = cv::Mat_<double>(3,3);
-    this->T_Cam_to_gripper = cv::Mat_<double>(3,1);
-
-    // 相机到云台的旋转矩阵 (Rotation Matrix from Camera to Gripper)
-    fs["R_Cam_to_gripper"] >> this->R_Cam_to_gripper;
-
-    // 相机到云台的平移矩阵 (Translation Matrix from Camera to Gripper)
-    fs["T_Cam_to_gripper"] >> this->T_Cam_to_gripper;
-
-
-    this->BigArmorCenter = cv::Mat_<double>(3, 1);
-    this->SmallArmorCenter = cv::Mat_<double>(3, 1);
-
-
-    this->BigArmorCenter<< 11.50, 2.75, 0.0;
-    this->SmallArmorCenter<< 6.75, 2.75, 0.0;
 }
 
 //解算单个装甲板的位置
 std::array<ArmorPosi,2> Solver::operator () (const CVArmor& armor)
 {
     //ArmorPosi(posi, face, toward, std::atan2(toward.z,toward.x), error);
-    cv::Point3d posi0, face0, toward0, posi1, face1, toward1;
-    double error0,error1;
+    Eigen::Matrix<double, 3, 1> center_small, center_big;
+    Eigen::Matrix<double, 3, 1> left_bottom_corner_small, left_bottom_corner_big;
+    double error_small,error_big;
+    double theta_small, theta_big;
+
+    bool small_isInRange = true, big_isInRange = true;
 
     std::vector<cv::Mat> rvecs,tvecs;
     std::vector<double> reprojectionError;
-    
+    Eigen::Matrix<double, 1, 3> Z_inCamera(0,0,1);//沿着z轴的方向
     //当做小装甲板解算
     {
         int solutions = cv::solvePnPGeneric(
@@ -82,32 +84,56 @@ std::array<ArmorPosi,2> Solver::operator () (const CVArmor& armor)
         // if(reprojectionError[0]>10||reprojectionError[1]) continue;
         // std::cerr<<reprojectionError.front()<<" "<<reprojectionError.back()<<std::endl;
         //筛选歧义解
-        double Z_data[3]{0,0,10};
-        cv::Mat Z_vector(cv::Size(1,3),CV_64FC1,Z_data);
+        size_t valid_solution_idx = reprojectionError.front() < reprojectionError.back() ? 0 : reprojectionError.size()-1;
 
-        cv::Mat r_0,r_1;
-        cv::Rodrigues(rvecs.front(), r_0);
-        cv::Rodrigues(rvecs.back(), r_1);
+        center_small = Eigen::Map<Eigen::Vector3d>(tvecs[valid_solution_idx].ptr<double>());
 
-        cv::Mat Z_camera_0 = r_0 * Z_vector;
-        cv::Mat Z_camera_1 = r_1 * Z_vector;
-        cv::Mat R,T;
-        #ifdef SolverDebug
-        viz.show("SmallSolvePnP0", Z_camera_0.at<double>(2,0));
-        viz.show("SmallSolvePnP1", Z_camera_1.at<double>(2,0));
-        #endif
-        if(Z_camera_0.at<double>(2,0) > 0) {R = r_0; T = tvecs.front(); error0 = reprojectionError.front();}
-        else {R = r_1; T = tvecs.back(); error0 = reprojectionError.back();}
+        // 直接映射指针！
+        Eigen::Map<Eigen::Vector3d> eigen_rvec(rvecs[valid_solution_idx].ptr<double>());
+        
+        // 将旋转向量转换为旋转矩阵
+        // 提取旋转角度（模长）
+        double angle = eigen_rvec.norm();
+        Eigen::Matrix3d R;
 
-        cv::Mat P = R * this->SmallArmorCenter + T;
-        posi0 = cv::Point3d(P.at<double>(0,0),P.at<double>(1,0),P.at<double>(2,0));
+        // (加一个极小值判断，防止目标完全没旋转时归一化除以 0)
+        if (angle < 1e-6) {
+            R = Eigen::Matrix3d::Identity();
+        } else {
+            Eigen::Vector3d axis = eigen_rvec.normalized(); // 提取归一化的旋转轴
+            R = Eigen::AngleAxisd(angle, axis).toRotationMatrix();
+        }
+        Eigen::Matrix<double, 3, 1> left_bottom_corner_inArmor = 
+            Eigen::Matrix<double, 3, 1>(-SASize::SMALL_ARMOR_WIDTH / 2.0, -SASize::LIGHTBAR_LENGTH / 2.0, 0);
 
-        //计算朝向向量
-        P = R * (cv::Mat_<double>(3,1) << 0.0, 0.0, 1.0);
-        face0 = cv::Point3d(P.at<double>(0,0),P.at<double>(1,0),P.at<double>(2,0));
+        left_bottom_corner_small = R * left_bottom_corner_inArmor + center_small;
 
-        P = R * (cv::Mat_<double>(3,1) << 1.0, 0.0, 0.0);
-        toward0 = cv::Point3d(P.at<double>(0,0),P.at<double>(1,0),P.at<double>(2,0));
+        //求解theta_small
+        double cos_theta = std::abs(Z_inCamera * R.block<3,1>(0,0));
+        theta_small = std::acos(std::clamp(cos_theta, 0.0, 1.0));
+
+        //判断是否在有效范围内
+
+        //检查重投影
+        if (reprojectionError[valid_solution_idx] > this->err_threshold) small_isInRange = false;
+
+        // 检查距离
+        if (center_small.norm() > this->camera_range.distance_max) small_isInRange = false;
+
+        // 计算偏航角、俯仰角和滚转角
+        //pitch:
+        double pitch = std::asin(std::clamp(R(1,2), -1.0, 1.0));
+        if(pitch > this->camera_range.pitch_max || pitch < this->camera_range.pitch_min) return false;
+
+        //yaw:
+        double yaw = std::atan2( R(0,2), R(2,2) );//posi.face.x, posi.face.z;
+        yaw = std::abs(yaw);
+        if(yaw > this->camera_range.yaw_max) small_isInRange = false;
+
+        //roll:
+        double roll = std::asin(std::clamp(R(1,0), -1.0, 1.0));
+        roll = std::abs(roll);
+        if(roll > this->camera_range.roll_max) small_isInRange = false;
     }
 
     //当做大装甲板计算
@@ -129,35 +155,63 @@ std::array<ArmorPosi,2> Solver::operator () (const CVArmor& armor)
         // if(reprojectionError[0]>10||reprojectionError[1]) continue;
         // std::cerr<<reprojectionError.front()<<" "<<reprojectionError.back()<<std::endl;
         //筛选歧义解
-        double Z_data[3]{0,0,10};
-        cv::Mat Z_vector(cv::Size(1,3),CV_64FC1,Z_data);
+        size_t valid_solution_idx = reprojectionError.front() < reprojectionError.back() ? 0 : reprojectionError.size()-1;
 
-        cv::Mat r_0,r_1;
-        cv::Rodrigues(rvecs.front(), r_0);
-        cv::Rodrigues(rvecs.back(), r_1);
+        center_big = Eigen::Map<Eigen::Vector3d>(tvecs[valid_solution_idx].ptr<double>());
 
-        cv::Mat Z_camera_0 = r_0 * Z_vector;
-        cv::Mat Z_camera_1 = r_1 * Z_vector;
+        // 直接映射指针！
+        Eigen::Map<Eigen::Vector3d> eigen_rvec(rvecs[valid_solution_idx].ptr<double>());
+        
+        // 将旋转向量转换为旋转矩阵
+        // 提取旋转角度（模长）
+        double angle = eigen_rvec.norm();
+        Eigen::Matrix3d R;
 
-        cv::Mat R,T;
-        // std::cerr<<Z_camera_0.at<double>(2,0)<<" "<<Z_camera_1.at<double>(2,0)<<std::endl;
-        if(Z_camera_0.at<double>(2,0) > 0) {R = r_0; T = tvecs.front(); error1 = reprojectionError.front();}
-        else {R = r_1; T = tvecs.back(); error1 = reprojectionError.back();}
+        // (加一个极小值判断，防止目标完全没旋转时归一化除以 0)
+        if (angle < 1e-6) {
+            R = Eigen::Matrix3d::Identity();
+        } else {
+            Eigen::Vector3d axis = eigen_rvec.normalized(); // 提取归一化的旋转轴
+            R = Eigen::AngleAxisd(angle, axis).toRotationMatrix();
+        }
+        Eigen::Matrix<double, 3, 1> left_bottom_corner_inArmor = 
+            Eigen::Matrix<double, 3, 1>(-SASize::BIG_ARMOR_WIDTH / 2.0, -SASize::LIGHTBAR_LENGTH / 2.0, 0);
 
-        cv::Mat P = R * this->BigArmorCenter + T;
-        posi1 = cv::Point3d(P.at<double>(0,0),P.at<double>(1,0),P.at<double>(2,0));
+        left_bottom_corner_big = R * left_bottom_corner_inArmor + center_big;
 
-        //计算朝向向量
-        P = R * (cv::Mat_<double>(3,1) << 0.0, 0.0, 1.0);
-        face1 = cv::Point3d(P.at<double>(0,0),P.at<double>(1,0),P.at<double>(2,0));
+        //求解theta_big
+        double cos_theta = std::abs(Z_inCamera * R.block<3,1>(0,0));
+        theta_big = std::acos(std::clamp(cos_theta, 0.0, 1.0));
 
-        P = R * (cv::Mat_<double>(3,1) << 1.0, 0.0, 0.0);
-        toward1 = cv::Point3d(P.at<double>(0,0),P.at<double>(1,0),P.at<double>(2,0));
+        //判断是否在有效范围内
+
+        //检查重投影
+        if (reprojectionError[valid_solution_idx] > this->err_threshold) big_isInRange = false;
+
+        // 检查距离
+        if (center_big.norm() > this->camera_range.distance_max) big_isInRange = false;
+
+        // 计算偏航角、俯仰角和滚转角
+        //pitch:
+        double pitch = std::asin(std::clamp(R(1,2), -1.0, 1.0));
+        if(pitch > this->camera_range.pitch_max || pitch < this->camera_range.pitch_min) return false;
+
+        //yaw:
+        double yaw = std::atan2( R(0,2), R(2,2) );//posi.face.x, posi.face.z;
+        yaw = std::abs(yaw);
+        if(yaw > this->camera_range.yaw_max) big_isInRange = false;
+
+        //roll:
+        double roll = std::asin(std::clamp(R(1,0), -1.0, 1.0));
+        roll = std::abs(roll);
+        if(roll > this->camera_range.roll_max) big_isInRange = false;
+
     }
     
-    return std::array< ArmorPosi, 2>{ArmorPosi{posi0, face0, toward0, std::atan2(toward0.z,toward0.x), error0},
-                                     ArmorPosi{posi1, face1, toward1, std::atan2(toward1.z,toward1.x), error1}};
-    
+    return std::array<ArmorPosi, 2> { 
+        ArmorPosi{center_small, left_bottom_corner_small, theta_small, error_small, small_isInRange}, 
+        ArmorPosi{center_big, left_bottom_corner_big, theta_big, error_big, big_isInRange}
+    };
 }
 
 std::vector<ArmorPosi> Solver::operator()(const std::vector<YoloArmor>& armors)
@@ -165,6 +219,7 @@ std::vector<ArmorPosi> Solver::operator()(const std::vector<YoloArmor>& armors)
     std::vector<ArmorPosi> results;
     if (armors.empty()) return results;
     results.reserve(armors.size());
+    Eigen::Matrix<double, 1, 3> Z_inCamera(0,0,1);//沿着z轴的方向
 
     for (const auto& yolo_armor : armors) {
         // 1. 根据 class_id 确定类型和 3D 模型
@@ -229,7 +284,6 @@ std::vector<ArmorPosi> Solver::operator()(const std::vector<YoloArmor>& armors)
 
         // 选择对应的 3D 物体坐标系参考点
         const auto& objectPoints = is_big ? this->objectBigArmorP : this->objectSmallArmorP;
-        const auto& centerPoint = is_big ? this->BigArmorCenter : this->SmallArmorCenter;
 
         // 2. 直接进行 PnP 解算 (参考第一个函数的解算逻辑)
         std::vector<cv::Mat> rvecs, tvecs;
@@ -251,56 +305,67 @@ std::vector<ArmorPosi> Solver::operator()(const std::vector<YoloArmor>& armors)
 
         if (rvecs.empty()) continue;
 
-        // 3. 筛选歧义解 (取 Z > 0 且在相机前方的解)
-        cv::Mat R, T;
-        double final_error;
+        size_t valid_solution_idx = reprojectionError.front() < reprojectionError.back() ? 0 : reprojectionError.size()-1;
 
-        // 与参考代码保持一致的歧义解筛选逻辑
-        double Z_data[3]{0, 0, 10};
-        cv::Mat Z_vector(cv::Size(1, 3), CV_64FC1, Z_data);
+        Eigen::Matrix<double, 3, 1> center = Eigen::Map<Eigen::Vector3d>(tvecs[valid_solution_idx].ptr<double>());
 
-        cv::Mat r_0, r_1;
-        cv::Rodrigues(rvecs.front(), r_0);
-        cv::Mat Z_camera_0 = r_0 * Z_vector;
+        // 直接映射指针！
+        Eigen::Map<Eigen::Vector3d> eigen_rvec(rvecs[valid_solution_idx].ptr<double>());
+        
+        // 将旋转向量转换为旋转矩阵
+        // 提取旋转角度（模长）
+        double angle = eigen_rvec.norm();
+        Eigen::Matrix3d R;
 
-        // 如果有两个解，同时检查两个解
-        if (rvecs.size() > 1) {
-            cv::Rodrigues(rvecs.back(), r_1);
-            cv::Mat Z_camera_1 = r_1 * Z_vector;
-
-            // 选择 Z > 0 的解
-            if (Z_camera_0.at<double>(2, 0) > 0) {
-                R = r_0;
-                T = tvecs.front();
-                final_error = reprojectionError.front();
-            } else {
-                R = r_1;
-                T = tvecs.back();
-                final_error = reprojectionError.back();
-            }
+        // (加一个极小值判断，防止目标完全没旋转时归一化除以 0)
+        if (angle < 1e-6) {
+            R = Eigen::Matrix3d::Identity();
         } else {
-            // 只有一个解，直接使用
-            R = r_0;
-            T = tvecs.front();
-            final_error = reprojectionError.front();
+            Eigen::Vector3d axis = eigen_rvec.normalized(); // 提取归一化的旋转轴
+            R = Eigen::AngleAxisd(angle, axis).toRotationMatrix();
         }
 
+
         // 4. 计算结果并填充 ArmorPosi
-        cv::Mat P_posi = R * centerPoint + T;
-        cv::Point3d posi(P_posi.at<double>(0, 0), P_posi.at<double>(1, 0), P_posi.at<double>(2, 0));
+        Eigen::Matrix<double, 3, 1> left_bottom_corner_inArmor = is_big ?
+            Eigen::Matrix<double, 3, 1>(-SASize::BIG_ARMOR_WIDTH / 2.0, -SASize::LIGHTBAR_LENGTH / 2.0, 0):
+            Eigen::Matrix<double, 3, 1>(-SASize::SMALL_ARMOR_WIDTH / 2.0, -SASize::LIGHTBAR_LENGTH / 2.0, 0);
 
-        cv::Mat P_face = R * (cv::Mat_<double>(3, 1) << 0.0, 0.0, 1.0);
-        cv::Point3d face(P_face.at<double>(0, 0), P_face.at<double>(1, 0), P_face.at<double>(2, 0));
+        Eigen::Matrix<double, 3, 1> left_bottom_corner = R * left_bottom_corner_inArmor + center;
 
-        cv::Mat P_toward = R * (cv::Mat_<double>(3, 1) << 1.0, 0.0, 0.0);
-        cv::Point3d toward(P_toward.at<double>(0, 0), P_toward.at<double>(1, 0), P_toward.at<double>(2, 0));
+        //求解theta_big
+        double cos_theta = std::abs(Z_inCamera * R.block<3,1>(0,0));
+        double theta = std::acos(std::clamp(cos_theta, 0.0, 1.0));
 
+        //判断是否在有效范围内
+        bool isInRange = true;
+
+        //检查重投影
+        if (reprojectionError[valid_solution_idx] > this->err_threshold) isInRange = false;
+
+        // 检查距离
+        if (center.norm() > this->camera_range.distance_max) isInRange = false;
+
+        // 计算偏航角、俯仰角和滚转角
+        //pitch:
+        double pitch = std::asin(std::clamp(R(1,2), -1.0, 1.0));
+        if(pitch > this->camera_range.pitch_max || pitch < this->camera_range.pitch_min) return false;
+
+        //yaw:
+        double yaw = std::atan2( R(0,2), R(2,2) );//posi.face.x, posi.face.z;
+        yaw = std::abs(yaw);
+        if(yaw > this->camera_range.yaw_max) isInRange = false;
+
+        //roll:
+        double roll = std::asin(std::clamp(R(1,0), -1.0, 1.0));
+        roll = std::abs(roll);
+        if(roll > this->camera_range.roll_max) isInRange = false;
+
+        if(!isInRange) continue;
         // 5. 构造并存入结果
-        ArmorPosi result(posi, face, toward, std::atan2(toward.z, toward.x), final_error);
-        result.type = target_type;
-        result.confidence = yolo_armor.conf;
-
-        results.emplace_back(result);
+        results.emplace_back(center, left_bottom_corner, theta, reprojectionError[valid_solution_idx], isInRange);
+        results.back().type = target_type;
+        results.back().confidence = yolo_armor.conf;
     }
 
     return results;
@@ -335,96 +400,55 @@ std::vector< std::array< ArmorPosi, 2> > Solver::operator()(const std::vector<CV
 
 
 
-void Solver::ConverToWorld(std::array<ArmorPosi,2>& armor_posis, const cv::Quatd& gripper_to_world)
+void Solver::ConverToWorld(std::array<ArmorPosi,2>& armor_posis, const Eigen::Quaterniond& gripper_to_world)
 {
-    for(auto& armor_posi:armor_posis)
-    {
-        cv::Mat R(gripper_to_world.toRotMat3x3());// 手坐标系到世界坐标系的旋转矩阵
-        
-        // 将装甲板位置从相机坐标系转换到手坐标系
-        cv::Mat posi = this->R_Cam_to_gripper * cv::Mat(3,1,CV_64F, &armor_posi.posi) + this->T_Cam_to_gripper;
-        cv::Mat face = this->R_Cam_to_gripper * cv::Mat(3,1,CV_64F, &armor_posi.face);
-        cv::Mat toward = this->R_Cam_to_gripper * cv::Mat(3,1,CV_64F, &armor_posi.toward);
-        
-        // 将装甲板位置从手坐标系转换到世界坐标系
-        posi = R * posi;
-        face = R * face;
-        toward = R * toward;
+    Eigen::Matrix<double, 3, 3> RGtoW = gripper_to_world.toRotationMatrix();//手坐标系到世界坐标系的旋转矩阵
+    Eigen::Matrix3d R = RGtoW * this->R_Cam_to_gripper;// 相机坐标系到世界坐标系的旋转矩阵
+    Eigen::Matrix<double, 3, 1> T = RGtoW * this->T_Cam_to_gripper;// 相机坐标系到世界坐标系的平移向量
 
-        // 更新装甲板位置
-        armor_posi.posi = cv::Point3d(posi.at<double>(0, 0), posi.at<double>(1, 0), posi.at<double>(2, 0));
-        armor_posi.face = cv::Point3d(face.at<double>(0, 0), face.at<double>(1, 0), face.at<double>(2, 0));
-        armor_posi.toward = cv::Point3d(toward.at<double>(0, 0), toward.at<double>(1, 0), toward.at<double>(2, 0));
-    }
+    armor_posis[0].center = R * armor_posis[0].center + T;
+    armor_posis[0].left_bottom_corner_vec = R * armor_posis[0].left_bottom_corner_vec;
+
+    armor_posis[1].center = R * armor_posis[1].center + T;
+    armor_posis[1].left_bottom_corner_vec = R * armor_posis[1].left_bottom_corner_vec;
 }
 
-void Solver::ConverToWorld(std::vector< std::array<ArmorPosi,2> >& armors_posis, const cv::Quatd& gripper_to_world)
+void Solver::ConverToWorld(std::vector< std::array<ArmorPosi,2> >& armors_posis, const Eigen::Quaterniond& gripper_to_world)
 {
-    cv::Mat R (gripper_to_world.toRotMat3x3());// 手坐标系到世界坐标系的旋转矩阵
+    Eigen::Matrix<double, 3, 3> RGtoW = gripper_to_world.toRotationMatrix();
+    Eigen::Matrix3d R = RGtoW * this->R_Cam_to_gripper;// 手坐标系到世界坐标系的旋转矩阵
+    Eigen::Matrix<double, 3, 1> T = RGtoW * this->T_Cam_to_gripper;// 手坐标系到世界坐标系的平移向量
 
     for(auto& armor_posis:armors_posis)
     {
-        for(auto& armor_posi:armor_posis)
-        {
-            // 将装甲板位置从相机坐标系转换到手坐标系
-            cv::Mat posi = this->R_Cam_to_gripper * cv::Mat(3,1,CV_64F, &armor_posi.posi) + this->T_Cam_to_gripper;
-            cv::Mat face = this->R_Cam_to_gripper * cv::Mat(3,1,CV_64F, &armor_posi.face);
-            cv::Mat toward = this->R_Cam_to_gripper * cv::Mat(3,1,CV_64F, &armor_posi.toward);
-            
-            // 将装甲板位置从手坐标系转换到世界坐标系
-            posi = R * posi;
-            face = R * face;
-            toward = R * toward;
-
-            // 更新装甲板位置
-            armor_posi.posi = cv::Point3d(posi.at<double>(0, 0), posi.at<double>(1, 0), posi.at<double>(2, 0));
-            armor_posi.face = cv::Point3d(face.at<double>(0, 0), face.at<double>(1, 0), face.at<double>(2, 0));
-            armor_posi.toward = cv::Point3d(toward.at<double>(0, 0), toward.at<double>(1, 0), toward.at<double>(2, 0));
-        }
+        armor_posis[0].center = R * armor_posis[0].center + T;
+        armor_posis[0].left_bottom_corner_vec = R * armor_posis[0].left_bottom_corner_vec;
+        armor_posis[1].center = R * armor_posis[1].center + T;
+        armor_posis[1].left_bottom_corner_vec = R * armor_posis[1].left_bottom_corner_vec;
     }
 }
 
 
-void Solver::ConverToWorld(ArmorPosi& armor_posi, const cv::Quatd& gripper_to_world)
+void Solver::ConverToWorld(ArmorPosi& armor_posi, const Eigen::Quaterniond& gripper_to_world)
 {
-    cv::Mat R(gripper_to_world.toRotMat3x3());// 手坐标系到世界坐标系的旋转矩阵
-    
-    // 将装甲板位置从相机坐标系转换到手坐标系
-    cv::Mat posi = this->R_Cam_to_gripper * cv::Mat(3,1,CV_64F, &armor_posi.posi) + this->T_Cam_to_gripper;
-    cv::Mat face = this->R_Cam_to_gripper * cv::Mat(3,1,CV_64F, &armor_posi.face);
-    cv::Mat toward = this->R_Cam_to_gripper * cv::Mat(3,1,CV_64F, &armor_posi.toward);
-    
-    // 将装甲板位置从手坐标系转换到世界坐标系
-    posi = R * posi;
-    face = R * face;
-    toward = R * toward;
+    Eigen::Matrix<double, 3, 3> RGtoW = gripper_to_world.toRotationMatrix();//手坐标系到世界坐标系的旋转矩阵
+    Eigen::Matrix3d R = RGtoW * this->R_Cam_to_gripper;// 相机坐标系到世界坐标系的旋转矩阵
+    Eigen::Matrix<double, 3, 1> T = RGtoW * this->T_Cam_to_gripper;// 相机坐标系到世界坐标系的平移向量
 
-    // 更新装甲板位置
-    armor_posi.posi = cv::Point3d(posi.at<double>(0, 0), posi.at<double>(1, 0), posi.at<double>(2, 0));
-    armor_posi.face = cv::Point3d(face.at<double>(0, 0), face.at<double>(1, 0), face.at<double>(2, 0));
-    armor_posi.toward = cv::Point3d(toward.at<double>(0, 0), toward.at<double>(1, 0), toward.at<double>(2, 0));
+    armor_posi.center = R * armor_posi.center + T;
+    armor_posi.left_bottom_corner_vec = R * armor_posi.left_bottom_corner_vec;
 }
 
-void Solver::ConverToWorld(std::vector<ArmorPosi>& armors_posi, const cv::Quatd& gripper_to_world)
+void Solver::ConverToWorld(std::vector<ArmorPosi>& armors_posi, const Eigen::Quaterniond& gripper_to_world)
 {
-    cv::Mat R (gripper_to_world.toRotMat3x3());// 手坐标系到世界坐标系的旋转矩阵
+    Eigen::Matrix<double, 3, 3> RGtoW = gripper_to_world.toRotationMatrix();// 手坐标系到世界坐标系的旋转矩阵
+    Eigen::Matrix3d R = RGtoW * this->R_Cam_to_gripper;// 相机坐标系到世界坐标系的旋转矩阵
+    Eigen::Matrix<double, 3, 1> T = RGtoW * this->T_Cam_to_gripper;// 相机坐标系到世界坐标系的平移向量
 
     for(auto& armor_posi:armors_posi)
     {
-        // 将装甲板位置从相机坐标系转换到手坐标系
-        cv::Mat posi = this->R_Cam_to_gripper * cv::Mat(3,1,CV_64F, &armor_posi.posi) + this->T_Cam_to_gripper;
-        cv::Mat face = this->R_Cam_to_gripper * cv::Mat(3,1,CV_64F, &armor_posi.face);
-        cv::Mat toward = this->R_Cam_to_gripper * cv::Mat(3,1,CV_64F, &armor_posi.toward);
-        
-        // 将装甲板位置从手坐标系转换到世界坐标系
-        posi = R * posi;
-        face = R * face;
-        toward = R * toward;
-
-        // 更新装甲板位置
-        armor_posi.posi = cv::Point3d(posi.at<double>(0, 0), posi.at<double>(1, 0), posi.at<double>(2, 0));
-        armor_posi.face = cv::Point3d(face.at<double>(0, 0), face.at<double>(1, 0), face.at<double>(2, 0));
-        armor_posi.toward = cv::Point3d(toward.at<double>(0, 0), toward.at<double>(1, 0), toward.at<double>(2, 0));
+        armor_posi.center = R * armor_posi.center + T;
+        armor_posi.left_bottom_corner_vec = R * armor_posi.left_bottom_corner_vec;
     }
 }
 

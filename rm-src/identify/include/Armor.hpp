@@ -1,5 +1,6 @@
 #ifndef LIGHT_AND_ARMOR_STRUCT
 #define LIGHT_AND_ARMOR_STRUCT
+#include <Eigen/Core>
 #include <algorithm>
 #include <cmath>
 #include <opencv2/core.hpp>
@@ -47,32 +48,33 @@ struct CVArmor{
 };
 
 struct ArmorPosi{
-    cv::Point3d posi;
-    cv::Point3d face;
-    cv::Point3d toward;
+    Eigen::Matrix<double, 3, 1> center;
+    Eigen::Matrix<double, 3, 1> left_bottom_corner_vec;
+
     /*
     SCS 是装甲板在相机坐标系下的球坐标,
     包含三个分量：r（距离）、theta（仰角）和phi（方位角）
     */
-    cv::Point3d SCS; 
+    Eigen::Matrix<double, 3, 1> SCS; 
 
     double theta;//装甲板在相机坐标系下的偏航角(rad)
     double error;
-    enum  class Radius : int {Short = 0, Long = 1, Unknow = 2 } radius{Radius::Unknow};
+
+    bool IsInRange; // 是否在有效范围内的标志位
 
     enum class Type : int {base    = 0, hero     = 1, two   = 2,
                            three   = 3, four     = 4, guard = 5,
                            outpost = 6, Unknow = 7} type = Type::Unknow;
     float confidence = 0; 
 
-    ArmorPosi(cv::Point3d posi, cv::Point3d face, cv::Point3d toward, double theta, double error):
-              posi(posi), face(face), toward(toward), theta(theta), error(error)
+    ArmorPosi(const Eigen::Matrix<double, 3, 1>& center, const Eigen::Matrix<double, 3, 1>& left_bottom_corner_vec, double theta, double error, bool isInRange):
+              center(center), left_bottom_corner_vec(left_bottom_corner_vec), theta(theta), error(error), IsInRange(isInRange)
               {
-                double& x = this->posi.x, & y = this->posi.y, & z = this->posi.z;
+                double& x = this->center.x(), & y = this->center.y(), & z = this->center.z();
                 double xx = x*x, yy = y*y, zz = z*z;
-                this->SCS = cv::Point3d(std::sqrt(xx + yy + zz),
-                                        std::atan2(std::sqrt(xx + yy), z),
-                                        std::atan2(y, x));
+                this->SCS = Eigen::Matrix<double, 3, 1>(std::sqrt(xx + yy + zz),
+                                                       std::atan2(std::sqrt(xx + yy), z),
+                                                       std::atan2(y, x));
               }
     };
 struct YoloArmor{ 
