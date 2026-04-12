@@ -213,6 +213,221 @@ std::array<ArmorPosi,2> Solver::operator () (const CVArmor& armor)
     };
 }
 
+std::array<ArmorPosi,2> Solver::operator () (const CVArmor& armor, const Eigen::Quaterniond& gripper_to_world)
+{
+    //ArmorPosi(posi, face, toward, std::atan2(toward.z,toward.x), error);
+    Eigen::Matrix<double, 3, 1> center_small, center_big;
+    Eigen::Matrix<double, 3, 1> left_bottom_corner_small, left_bottom_corner_big;
+    double error_small,error_big;
+    double theta_small, theta_big;
+
+    bool small_isInRange = true, big_isInRange = true;
+
+    std::vector<cv::Mat> rvecs,tvecs;
+    std::vector<double> reprojectionError;
+    Eigen::Matrix<double, 1, 3> Z_inCamera(0,0,1);//沿着z轴的方向
+    //当做小装甲板解算
+    {
+        int solutions = cv::solvePnPGeneric(
+            this->objectSmallArmorP,
+            armor.Lightcorners,
+            cameraMatrix,
+            distCoeffs,
+            rvecs,
+            tvecs,
+            false,
+            cv::SOLVEPNP_IPPE, // 使用 IPPE 算法获取多个解
+            cv::noArray(),
+            cv::noArray(),
+            reprojectionError
+        );
+
+        // if(reprojectionError[0]>10||reprojectionError[1]) continue;
+        // std::cerr<<reprojectionError.front()<<" "<<reprojectionError.back()<<std::endl;
+        //筛选歧义解
+        size_t valid_solution_idx = reprojectionError.front() < reprojectionError.back() ? 0 : reprojectionError.size()-1;
+
+        center_small = Eigen::Map<Eigen::Vector3d>(tvecs[valid_solution_idx].ptr<double>());
+
+        // 直接映射指针！
+        Eigen::Map<Eigen::Vector3d> eigen_rvec(rvecs[valid_solution_idx].ptr<double>());
+        
+        // 将旋转向量转换为旋转矩阵
+        // 提取旋转角度（模长）
+        double angle = eigen_rvec.norm();
+        Eigen::Matrix3d R;
+
+        // (加一个极小值判断，防止目标完全没旋转时归一化除以 0)
+        if (angle < 1e-6) {
+            R = Eigen::Matrix3d::Identity();
+        } else {
+            Eigen::Vector3d axis = eigen_rvec.normalized(); // 提取归一化的旋转轴
+            R = Eigen::AngleAxisd(angle, axis).toRotationMatrix();
+        }
+        Eigen::Matrix<double, 3, 1> left_bottom_corner_inArmor = 
+            Eigen::Matrix<double, 3, 1>(-SASize::SMALL_ARMOR_WIDTH / 2.0, -SASize::LIGHTBAR_LENGTH / 2.0, 0);
+
+        left_bottom_corner_small = R * left_bottom_corner_inArmor + center_small;
+
+        //求解theta_small
+        double cos_theta = std::abs(Z_inCamera * R.block<3,1>(0,0));
+        theta_small = std::acos(std::clamp(cos_theta, 0.0, 1.0));
+
+        //判断是否在有效范围内(相机坐标系下)
+
+        {
+            //检查重投影
+            if (reprojectionError[valid_solution_idx] > this->err_threshold) small_isInRange = false;
+
+            // 检查距离
+            if (center_small.norm() > this->camera_range.distance_max) small_isInRange = false;
+
+            // 计算偏航角、俯仰角和滚转角
+            //pitch:
+            double pitch = std::asin(std::clamp(R(1,2), -1.0, 1.0));
+            if(pitch > this->camera_range.pitch_max || pitch < this->camera_range.pitch_min) small_isInRange = false;
+
+            //yaw:
+            double yaw = std::atan2( R(0,2), R(2,2) );
+            yaw = std::abs(yaw);
+            if(yaw > this->camera_range.yaw_max) small_isInRange = false;
+
+            //roll:
+            double roll = std::asin(std::clamp(R(1,0), -1.0, 1.0));
+            roll = std::abs(roll);
+            if(roll > this->camera_range.roll_max) small_isInRange = false;
+        }
+        
+        //转换到世界坐标系
+        Eigen::Matrix3d RGtoW = gripper_to_world.toRotationMatrix();
+        Eigen::Matrix3d R_Cam_to_World = RGtoW * this->R_Cam_to_gripper;
+        Eigen::Matrix<double, 3, 1> T_Cam_to_World = RGtoW * this->T_Cam_to_gripper;
+
+        //将装甲板坐标系转换到世界坐标系
+        center_small = R_Cam_to_World * center_small + T_Cam_to_World;
+        left_bottom_corner_small = R_Cam_to_World * left_bottom_corner_small + T_Cam_to_World;
+
+        {
+            Eigen::Matrix3d R_Armor_inWorld = R_Cam_to_World * R;
+            
+            //检查高度
+            if (center_small(2) > this->world_range.high_max || center_small(2) < this->world_range.high_min) small_isInRange = false;
+
+            //检查俯仰角
+            double pitch = std::asin(std::clamp(R_Armor_inWorld(2,2), -1.0, 1.0));
+            if (pitch > this->world_range.pitch_max || pitch < this->world_range.pitch_min) small_isInRange = false;
+
+            //roll:
+            double roll = std::abs(std::asin(std::clamp(R_Armor_inWorld(2,0), -1.0, 1.0)));
+            if(roll > this->world_range.roll_max) small_isInRange = false;
+        }
+    }
+
+    //当做大装甲板计算
+    {
+        int solutions = cv::solvePnPGeneric(
+            this->objectBigArmorP,
+            armor.Lightcorners,
+            cameraMatrix,
+            distCoeffs,
+            rvecs,
+            tvecs,
+            false,
+            cv::SOLVEPNP_IPPE, // 使用 IPPE 算法获取多个解
+            cv::noArray(),
+            cv::noArray(),
+            reprojectionError
+        );
+
+        // if(reprojectionError[0]>10||reprojectionError[1]) continue;
+        // std::cerr<<reprojectionError.front()<<" "<<reprojectionError.back()<<std::endl;
+        //筛选歧义解
+        size_t valid_solution_idx = reprojectionError.front() < reprojectionError.back() ? 0 : reprojectionError.size()-1;
+
+        center_big = Eigen::Map<Eigen::Vector3d>(tvecs[valid_solution_idx].ptr<double>());
+
+        // 直接映射指针！
+        Eigen::Map<Eigen::Vector3d> eigen_rvec(rvecs[valid_solution_idx].ptr<double>());
+        
+        // 将旋转向量转换为旋转矩阵
+        // 提取旋转角度（模长）
+        double angle = eigen_rvec.norm();
+        Eigen::Matrix3d R;
+
+        // (加一个极小值判断，防止目标完全没旋转时归一化除以 0)
+        if (angle < 1e-6) {
+            R = Eigen::Matrix3d::Identity();
+        } else {
+            Eigen::Vector3d axis = eigen_rvec.normalized(); // 提取归一化的旋转轴
+            R = Eigen::AngleAxisd(angle, axis).toRotationMatrix();
+        }
+        Eigen::Matrix<double, 3, 1> left_bottom_corner_inArmor = 
+            Eigen::Matrix<double, 3, 1>(-SASize::BIG_ARMOR_WIDTH / 2.0, -SASize::LIGHTBAR_LENGTH / 2.0, 0);
+
+        left_bottom_corner_big = R * left_bottom_corner_inArmor + center_big;
+
+        //求解theta_big
+        double cos_theta = std::abs(Z_inCamera * R.block<3,1>(0,0));
+        theta_big = std::acos(std::clamp(cos_theta, 0.0, 1.0));
+
+        //判断是否在有效范围内(相机坐标系下)
+        {
+            //检查重投影
+            if (reprojectionError[valid_solution_idx] > this->err_threshold) big_isInRange = false;
+
+            // 检查距离
+            if (center_big.norm() > this->camera_range.distance_max) big_isInRange = false;
+
+            // 计算偏航角、俯仰角和滚转角
+            //pitch:
+            double pitch = std::asin(std::clamp(R(1,2), -1.0, 1.0));
+            if(pitch > this->camera_range.pitch_max || pitch < this->camera_range.pitch_min) big_isInRange = false;
+
+            //yaw:
+            double yaw = std::atan2( R(0,2), R(2,2) );
+            yaw = std::abs(yaw);
+            if(yaw > this->camera_range.yaw_max) big_isInRange = false;
+
+            //roll:
+            double roll = std::asin(std::clamp(R(1,0), -1.0, 1.0));
+            roll = std::abs(roll);
+            if(roll > this->camera_range.roll_max) big_isInRange = false;
+        }
+        
+        //转换到世界坐标系
+        Eigen::Matrix3d RGtoW = gripper_to_world.toRotationMatrix();
+        Eigen::Matrix3d R_Cam_to_World = RGtoW * this->R_Cam_to_gripper;
+        Eigen::Matrix<double, 3, 1> T_Cam_to_World = RGtoW * this->T_Cam_to_gripper;
+
+        //将装甲板坐标系转换到世界坐标系
+        center_big = R_Cam_to_World * center_big + T_Cam_to_World;
+        left_bottom_corner_big = R_Cam_to_World * left_bottom_corner_big + T_Cam_to_World;
+
+        {
+            Eigen::Matrix3d R_Armor_inWorld = R_Cam_to_World * R;
+            
+            //检查高度
+            if (center_big(2) > this->world_range.high_max || center_big(2) < this->world_range.high_min) big_isInRange = false;
+
+            //检查俯仰角
+            double pitch = std::asin(std::clamp(R_Armor_inWorld(2,2), -1.0, 1.0));
+            if (pitch > this->world_range.pitch_max || pitch < this->world_range.pitch_min) big_isInRange = false;
+
+            //roll:
+            double roll = std::abs(std::asin(std::clamp(R_Armor_inWorld(2,0), -1.0, 1.0)));
+            if(roll > this->world_range.roll_max) big_isInRange = false;
+        }
+
+    }
+    
+    return std::array<ArmorPosi, 2> { 
+        ArmorPosi{center_small, left_bottom_corner_small, theta_small, error_small, small_isInRange}, 
+        ArmorPosi{center_big, left_bottom_corner_big, theta_big, error_big, big_isInRange}
+    };
+
+}
+
+
 std::vector<ArmorPosi> Solver::operator()(const std::vector<YoloArmor>& armors)
 {
     std::vector<ArmorPosi> results;

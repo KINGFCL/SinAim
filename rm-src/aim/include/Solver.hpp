@@ -24,9 +24,14 @@ public:
 
     explicit Solver( const SolverConfig& config );
     
-    //解算传入的所有装甲板并返回
+    //解算传入的所有装甲板并返回相机坐标系下的结果
     std::vector< std::array<ArmorPosi,2> > operator () (const std::deque<CVArmor>& armors);
+    
+    //解算传入的所有装甲板并返回相机坐标系下的结果
     std::vector< std::array<ArmorPosi,2> > operator () (const std::vector<CVArmor>& armors);
+
+    //解算传入的所有装甲板并返回世界坐标系下的结果
+    std::vector< std::array<ArmorPosi,2> > operator () (const std::vector<CVArmor>& armors, const Eigen::Quaterniond& gripper_to_world);
 
     //解算传入的所有装甲板并返回相机坐标系下的结果
     std::vector< ArmorPosi > operator () (const std::vector<YoloArmor>& armors);
@@ -34,8 +39,11 @@ public:
     //解算传入的所有装甲板并返回世界坐标系下的结果
     std::vector< ArmorPosi > operator () (const std::vector<YoloArmor>& armors, const Eigen::Quaterniond& gripper_to_world);
     
-    //解算单个装甲板的位置
+    //解算单个装甲板的位置返回相机坐标系下的结果
     std::array<ArmorPosi,2> operator () (const CVArmor& armor);
+
+    //解算单个装甲板的位置返回世界坐标系下的结果
+    std::array<ArmorPosi,2> operator () (const CVArmor& armor, const Eigen::Quaterniond& gripper_to_world);
 
     //坐标系变换
     void ConverToWorld(std::array<ArmorPosi,2>& armor_posis, const Eigen::Quaterniond& gripper_to_world);
