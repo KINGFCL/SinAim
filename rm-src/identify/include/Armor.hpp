@@ -49,7 +49,7 @@ struct CVArmor{
 
 struct ArmorPosi{
     Eigen::Matrix<double, 3, 1> center;
-    Eigen::Matrix<double, 3, 1> left_bottom_corner_vec;
+    Eigen::Matrix<double, 3, 1> left_bottom_corner;
 
     /*
     SCS 是装甲板在相机坐标系下的球坐标,
@@ -68,7 +68,7 @@ struct ArmorPosi{
     float confidence = 0; 
 
     ArmorPosi(const Eigen::Matrix<double, 3, 1>& center, const Eigen::Matrix<double, 3, 1>& left_bottom_corner_vec, double theta, double error, bool isInRange):
-              center(center), left_bottom_corner_vec(left_bottom_corner_vec), theta(theta), error(error), IsInRange(isInRange)
+              center(center), left_bottom_corner(left_bottom_corner_vec), theta(theta), error(error), IsInRange(isInRange)
               {
                 double& x = this->center.x(), & y = this->center.y(), & z = this->center.z();
                 double xx = x*x, yy = y*y, zz = z*z;

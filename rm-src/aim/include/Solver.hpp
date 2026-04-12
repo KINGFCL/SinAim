@@ -28,8 +28,11 @@ public:
     std::vector< std::array<ArmorPosi,2> > operator () (const std::deque<CVArmor>& armors);
     std::vector< std::array<ArmorPosi,2> > operator () (const std::vector<CVArmor>& armors);
 
-
+    //解算传入的所有装甲板并返回相机坐标系下的结果
     std::vector< ArmorPosi > operator () (const std::vector<YoloArmor>& armors);
+
+    //解算传入的所有装甲板并返回世界坐标系下的结果
+    std::vector< ArmorPosi > operator () (const std::vector<YoloArmor>& armors, const Eigen::Quaterniond& gripper_to_world);
     
     //解算单个装甲板的位置
     std::array<ArmorPosi,2> operator () (const CVArmor& armor);
@@ -41,20 +44,18 @@ public:
     void ConverToWorld(ArmorPosi& armor_posi, const Eigen::Quaterniond& gripper_to_world);
     void ConverToWorld(std::vector<ArmorPosi>& armors_posi, const Eigen::Quaterniond& gripper_to_world);    
 
-    //筛选（去掉位置不正确的装甲板）
-    void Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis,
-                std::vector<cv::Mat>& armors_pattern,
-                const Eigen::Quaterniond& gripper_to_world,
-                const Eigen::Matrix<double, 3, 1>& Gun,
-                const size_t num = 1);
+    //选择在世界系下距离枪管最近的num个装甲板
+    // void Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis,
+    //             const Eigen::Matrix<double, 3, 1>& Gun,
+    //             const size_t num = 1);
                 
-    void FilterAndConverToWorld(std::vector<ArmorPosi>& armors_posi,
-                const Eigen::Quaterniond& gripper_to_world,
-                const Eigen::Matrix<double, 3, 1>& Gun,
-                const size_t num = 1);
+    // void FilterAndConverToWorld(std::vector<ArmorPosi>& armors_posi,
+    //             const Eigen::Quaterniond& gripper_to_world,
+    //             const Eigen::Matrix<double, 3, 1>& Gun,
+    //             const size_t num = 1);
 
-    void ansShow(const cv::Point3d& posi,cv::Mat& image);
-    void ansShow(const ArmorPosi& armor,cv::Mat& image);
+    void ansShow(const Eigen::Matrix<double, 3, 1>& posi,cv::Mat& image);
+    //void ansShow(const ArmorPosi& armor,cv::Mat& image);
 
 private:
     cv::Mat_<double> cameraMatrix;
@@ -90,7 +91,7 @@ private:
         .distance_max = 800.0,  // 最大可见距离，单位：厘米
         .high_max = 200.0,  // 最大可见高度，单位：厘米,1e10表示无限
         .high_min = -50.0, // 最小可见高度，单位：厘米, -1e10表示无限
-        .yaw_max = 80.0/180*M_PI,       // 最大可见偏航角，单位：rad
+        .yaw_max = 2*M_PI,       // 最大可见偏航角，单位：rad, 2*M_PI表示无限
         .pitch_max = 35.0/180*M_PI,     // 最大可见俯仰角，单位：rad
         .pitch_min = -10.0/180*M_PI,     // 最大可见俯仰角，单位：rad
         .roll_max = 45.0/180*M_PI       // 最大可见滚转角，单位：rad
