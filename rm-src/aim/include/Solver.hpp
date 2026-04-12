@@ -52,6 +52,10 @@ public:
     void ConverToWorld(ArmorPosi& armor_posi, const Eigen::Quaterniond& gripper_to_world);
     void ConverToWorld(std::vector<ArmorPosi>& armors_posi, const Eigen::Quaterniond& gripper_to_world);    
 
+
+    bool IsInCameraRange(const Eigen::Matrix<double, 3, 1>& center,const Eigen::Matrix3d& R,const double error) const;
+    bool IsInWorldRange(const ArmorPosi& armor) const;
+    bool IsInWorldRange(const Eigen::Matrix<double, 3, 1>& center,const Eigen::Matrix3d& R) const;
     //选择在世界系下距离枪管最近的num个装甲板
     // void Filter(std::vector< std::array<ArmorPosi,2> >& armors_posis,
     //             const Eigen::Matrix<double, 3, 1>& Gun,
@@ -104,6 +108,27 @@ private:
         .pitch_min = -10.0/180*M_PI,     // 最大可见俯仰角，单位：rad
         .roll_max = 45.0/180*M_PI       // 最大可见滚转角，单位：rad
     };
+
+    const Range outpost_range{
+        .distance_max = 800.0,  // 最大可见距离，单位：厘米
+        .high_max = 200.0,  // 最大可见高度，单位：厘米,1e10表示无限
+        .high_min = -50.0, // 最小可见高度，单位：厘米, -1e10表示无限
+        .yaw_max = 2*M_PI,       // 最大可见偏航角，单位：rad, 2*M_PI表示无限
+        .pitch_max = 35.0/180*M_PI,     // 最大可见俯仰角，单位：rad
+        .pitch_min = -10.0/180*M_PI,     // 最大可见俯仰角，单位：rad
+        .roll_max = 45.0/180*M_PI       // 最大可见滚转角，单位：rad
+    };
+
+    const Range robot_range{
+        .distance_max = 800.0,  // 最大可见距离，单位：厘米
+        .high_max = 200.0,  // 最大可见高度，单位：厘米,1e10表示无限
+        .high_min = -50.0, // 最小可见高度，单位：厘米, -1e10表示无限
+        .yaw_max = 2*M_PI,       // 最大可见偏航角，单位：rad, 2*M_PI表示无限
+        .pitch_max = 35.0/180*M_PI,     // 最大可见俯仰角，单位：rad
+        .pitch_min = -10.0/180*M_PI,     // 最大可见俯仰角，单位：rad
+        .roll_max = 45.0/180*M_PI       // 最大可见滚转角，单位：rad
+    };
+
 };
 
 #endif
