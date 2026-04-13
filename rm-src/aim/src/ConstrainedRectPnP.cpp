@@ -768,17 +768,14 @@ int solve(const std::vector<cv::Vec3d>& dirVecsInA,
         // 深度检查：B 的原点在 A 的 x 正方向（即 t_BA[0] > 0）
         // 与 OpenCV solvePnP 中"物体在相机前方"约束等价
         // ============================================================
-        if (t_BA[0] < 0)
-        {
-            // 翻转（IPPE 的两个解通常都满足正深度，
-            // 但以防万一进行处理）
-            t_BA = -t_BA;
-            // 注意：如果需要翻转 t，通常意味着该解不太物理，
-            // 但仍然作为候选返回
-        }
-
-        // 归一化方向向量
-        cv::Vec3d centerDir = t_BA / cv::norm(t_BA);
+        // if (t_BA[0] < 0)
+        // {
+        //     // 翻转（IPPE 的两个解通常都满足正深度，
+        //     // 但以防万一进行处理）
+        //     t_BA = -t_BA;
+        //     // 注意：如果需要翻转 t，通常意味着该解不太物理，
+        //     // 但仍然作为候选返回
+        // }
 
         // 分解内旋 Z-X-Y 欧拉角
         // R_AB = R_BA^T
@@ -786,15 +783,7 @@ int solve(const std::vector<cv::Vec3d>& dirVecsInA,
         double alpha_z, beta_x, gamma_y;
         decomposeIntrinsicZXY(R_AB, alpha_z, beta_x, gamma_y);
 
-        PoseResult res;
-        res.R_B2A = R_BA;
-        res.centerDirInA = centerDir;
-        res.reprojError = errs[k];
-        res.alpha_z = alpha_z;
-        res.beta_x = beta_x;
-        res.gamma_y = gamma_y;
-
-        results.push_back(res);
+        results.emplace_back(R_BA, t_BA, errs[k], alpha_z, beta_x, gamma_y);
     }
 
     // 按重投影误差从小到大排序

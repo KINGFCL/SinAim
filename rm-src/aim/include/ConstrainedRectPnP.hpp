@@ -22,6 +22,8 @@
 #define CONSTRAINED_RECT_PNP_HPP
 
 #include <opencv2/core.hpp>
+#include <eigen3/Eigen/Core>
+#include <opencv2/core/mat.hpp>
 #include <vector>
 
 namespace ConstrainedRectPnP {
@@ -30,14 +32,20 @@ namespace ConstrainedRectPnP {
  * @brief 单个位姿解的结果
  */
 struct PoseResult {
-    cv::Matx33d R_B2A;         ///< B→A 的旋转矩阵
-    cv::Vec3d   centerDirInA;  ///< 矩形中心在 A 中的单位方向向量
+    Eigen::Matrix3d R;         ///< B→A 的旋转矩阵
+    Eigen::Matrix<double, 3, 1>   T;  ///< 矩形中心在 A 中的平移向量
     double      reprojError;   ///< 重投影误差（归一化图像平面上的 RMSE）
 
     // 以下是从旋转矩阵中分解出的内旋 Z-X-Y 欧拉角（供参考/筛选用）
     double alpha_z;  ///< 第一步内旋绕 Z 轴角度 (rad)
     double beta_x;   ///< 第二步内旋绕 X 轴角度 (rad)
     double gamma_y;  ///< 第三步内旋绕 Y 轴角度 (rad)（应接近输入的 knownYAngle）
+
+    PoseResult(const cv::Matx33d& R_cv, const cv::Vec3d& T_cv, double reprojError, double alpha_z, double beta_x, double gamma_y)
+    : R(Eigen::Matrix3d(Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(R_cv.val))),
+      T(Eigen::Vector3d(Eigen::Map<const Eigen::Vector3d>(T_cv.val))),
+      reprojError(reprojError), alpha_z(alpha_z), beta_x(beta_x), gamma_y(gamma_y) 
+    {}
 };
 
 /**
