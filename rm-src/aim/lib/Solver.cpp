@@ -1,6 +1,7 @@
 #include "Solver.hpp"
 #include "Armor.hpp"
 // #include <array>
+#include <Eigen/src/Core/Matrix.h>
 #include <cmath>
 #include <cstdlib>
 #include <deque>
