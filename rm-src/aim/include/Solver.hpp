@@ -26,8 +26,6 @@ public:
     
     //解算传入的所有装甲板并返回相机坐标系下的结果
     std::vector< std::array<ArmorPosi,2> > operator () (const std::deque<CVArmor>& armors);
-    
-    //解算传入的所有装甲板并返回相机坐标系下的结果
     std::vector< std::array<ArmorPosi,2> > operator () (const std::vector<CVArmor>& armors);
 
     //解算传入的所有装甲板并返回世界坐标系下的结果
