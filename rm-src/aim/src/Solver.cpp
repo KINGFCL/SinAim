@@ -346,6 +346,13 @@ std::vector< std::array< ArmorPosi, 2> > Solver::operator()(const std::vector<CV
     return armors_posi;
 }
 
+std::vector< std::array< ArmorPosi, 2> > Solver::operator()(const std::vector<CVArmor>& armors, const Eigen::Quaterniond& gripper_to_world)
+{
+    std::vector< std::array< ArmorPosi, 2> > armors_posi = this->operator()(armors);
+    this->ConverToWorld(armors_posi, gripper_to_world);
+    return armors_posi;
+}
+
 
 
 
@@ -374,15 +381,18 @@ void Solver::ConverToWorld(std::vector< std::array<ArmorPosi,2> >& armors_posis,
 
     for(auto& armor_posis:armors_posis)
     {
-        armor_posis[0].center = R * armor_posis[0].center + T;
-        armor_posis[0].face = R * armor_posis[0].face;
-        armor_posis[0].toward = R * armor_posis[0].toward;
-        armor_posis[0].IsInRange = this->IsInWorldRange(armor_posis[0]);
-
-        armor_posis[1].center = R * armor_posis[1].center + T;
-        armor_posis[1].face = R * armor_posis[1].face;
-        armor_posis[1].toward = R * armor_posis[1].toward;
-        armor_posis[1].IsInRange = this->IsInWorldRange(armor_posis[1]);
+        if(armor_posis[0].IsInRange){
+            armor_posis[0].center = R * armor_posis[0].center + T;
+            armor_posis[0].face = R * armor_posis[0].face;
+            armor_posis[0].toward = R * armor_posis[0].toward;
+            armor_posis[0].IsInRange = this->IsInWorldRange(armor_posis[0]);
+        }
+        if(armor_posis[1].IsInRange){
+            armor_posis[1].center = R * armor_posis[1].center + T;
+            armor_posis[1].face = R * armor_posis[1].face;
+            armor_posis[1].toward = R * armor_posis[1].toward;
+            armor_posis[1].IsInRange = this->IsInWorldRange(armor_posis[1]);
+        }
     }
 }
 
