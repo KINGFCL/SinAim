@@ -1,8 +1,10 @@
 #ifndef LIGHT_AND_ARMOR_STRUCT
 #define LIGHT_AND_ARMOR_STRUCT
+#include <array>
 #include <eigen3/Eigen/Core>
 #include <algorithm>
 #include <cmath>
+#include <eigen3/Eigen/src/Core/Matrix.h>
 #include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
 #include <vector>
@@ -48,18 +50,11 @@ struct CVArmor{
 };
 
 struct ArmorPosi{
-    Eigen::Matrix<double, 3, 1> center;
-    Eigen::Matrix<double, 3, 1> face;
-    Eigen::Matrix<double, 3, 2> toward;
-
-    /*
-    SCS 是装甲板在相机坐标系下的球坐标,
-    包含三个分量：r（距离）、theta（仰角）和phi（方位角）
-    */
-    Eigen::Matrix<double, 3, 1> SCS; 
-
-    double theta;//装甲板在相机坐标系下的偏航角(rad)
-    double error;
+    //顺时针yaw和逆时针yaw
+    Eigen::Matrix<double, 3, 2> center;
+    Eigen::Matrix3d photocenter;
+    std::array<double, 2> yaw;
+    std::array<double, 2> reproj;
 
     bool IsInRange; // 是否在有效范围内的标志位
 
@@ -68,15 +63,10 @@ struct ArmorPosi{
                            outpost = 6, Unknow = 7} type = Type::Unknow;
     float confidence = 0; 
 
-    ArmorPosi(const Eigen::Matrix<double, 3, 1>& center, const Eigen::Matrix<double, 3, 1>& face, const Eigen::Matrix<double, 3, 2>& toward, double theta, double error, bool isInRange):
-              center(center), face(face), toward(toward), theta(theta), error(error), IsInRange(isInRange)
-              {
-                double& x = this->center.x(), & y = this->center.y(), & z = this->center.z();
-                double xx = x*x, yy = y*y, zz = z*z;
-                this->SCS = Eigen::Matrix<double, 3, 1>(std::sqrt(xx + yy + zz),
-                                                       std::atan2(std::sqrt(xx + yy), z),
-                                                       std::atan2(y, x));
-              }
+    ArmorPosi(const Eigen::Matrix<double, 3, 2>& center, std::array<double, 2> yaw, std::array<double, 2> reproj, bool isInRange):
+              center(center), yaw(yaw), reproj(reproj), IsInRange(isInRange){}
+    ArmorPosi():IsInRange(false){}
+    ArmorPosi(const ArmorPosi& armor):center(armor.center), yaw(armor.yaw), reproj(armor.reproj), IsInRange(armor.IsInRange){}
     };
 struct YoloArmor{ 
     cv::Rect box;
