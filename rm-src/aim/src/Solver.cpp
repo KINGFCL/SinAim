@@ -22,11 +22,6 @@
 extern RerunVisualizer viz;
 #endif
 
-namespace SASize {
-    constexpr double LIGHTBAR_LENGTH = 5.50; // 灯条长度，单位：厘米
-    constexpr double SMALL_ARMOR_WIDTH = 13.50; // 小装甲板宽度，单位：厘米
-    constexpr double BIG_ARMOR_WIDTH = 23.0;   // 大装甲板宽度，单位：厘米
-}
 
 Solver::Solver( const SolverConfig& config ):
     cameraMatrix(config.camera_matrix),
