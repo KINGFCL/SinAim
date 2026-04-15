@@ -4,7 +4,6 @@
 #include <eigen3/Eigen/Core>
 #include <algorithm>
 #include <cmath>
-#include <eigen3/Eigen/src/Core/Matrix.h>
 #include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
 #include <vector>
@@ -52,7 +51,7 @@ struct CVArmor{
 struct ArmorPosi{
     //顺时针yaw和逆时针yaw
     Eigen::Matrix<double, 3, 2> center;
-    Eigen::Matrix3d photocenter;
+    Eigen::Vector3d photocenter;
     std::array<double, 2> yaw;
     std::array<double, 2> reproj;
 

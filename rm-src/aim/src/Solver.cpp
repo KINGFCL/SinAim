@@ -76,20 +76,55 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
 
         switch (solution_small.size()) {
             case 1:
-                center_small.block<3,1>(0,0) = solution_small[0].t_B2A;
-                center_small.block<3,1>(0,1) = solution_small[0].t_B2A;
+                center_small.block<3,1>(0,0) = solution_small[0].t_B2A + photocenter_world;
+                center_small.block<3,1>(0,1) = solution_small[0].t_B2A + photocenter_world;
                 yaw_small[0] = solution_small[0].yaw;
                 yaw_small[1] = solution_small[0].yaw;
                 reproj_small[0] = solution_small[0].reproj;
                 reproj_small[1] = solution_small[0].reproj;
+
+                //范围判断：
+                if(reproj_small[0] > this->reproj_threshold)
+                {
+                    isInRange_small = false;
+                    break;
+                }
+                if(center_small.col(0).z() > this->range.max_high || center_small.col(0).z() < this->range.min_high)
+                {
+                    isInRange_small = false;
+                    break;
+                }
+                if(center_small.col(0).norm() > this->range.max_distence)
+                {
+                    isInRange_small = false;
+                    break;
+                }
                 break;
             case 2:
-                center_small.block<3,1>(0,0) = solution_small[0].t_B2A;
-                center_small.block<3,1>(0,1) = solution_small[1].t_B2A;
+                center_small.block<3,1>(0,0) = solution_small[0].t_B2A + photocenter_world;
+                center_small.block<3,1>(0,1) = solution_small[1].t_B2A + photocenter_world;
                 yaw_small[0] = solution_small[0].yaw;
                 yaw_small[1] = solution_small[1].yaw;
                 reproj_small[0] = solution_small[0].reproj;
                 reproj_small[1] = solution_small[1].reproj;
+
+                //范围判断：
+                if(reproj_small[0] > this->reproj_threshold || reproj_small[1] > this->reproj_threshold)
+                {                    
+                    isInRange_small = false;
+                    break;
+                }
+                if(center_small.col(0).z() > this->range.max_high || center_small.col(0).z() < this->range.min_high ||
+                   center_small.col(1).z() > this->range.max_high || center_small.col(1).z() < this->range.min_high)
+                {
+                    isInRange_small = false;
+                    break;
+                }
+                if(center_small.col(0).norm() > this->range.max_distence || center_small.col(1).norm() > this->range.max_distence)
+                {
+                    isInRange_small = false;
+                    break;
+                }
                 break;
 
             default:
@@ -99,20 +134,53 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
 
         switch (solution_small.size()) {
             case 1:
-                center_big.block<3,1>(0,0) = solution_big[0].t_B2A;
-                center_big.block<3,1>(0,1) = solution_big[0].t_B2A;
+                center_big.block<3,1>(0,0) = solution_big[0].t_B2A + photocenter_world;
+                center_big.block<3,1>(0,1) = solution_big[0].t_B2A + photocenter_world;
                 yaw_big[0] = solution_big[0].yaw;
                 yaw_big[1] = solution_big[0].yaw;
                 reproj_big[0] = solution_big[0].reproj;
                 reproj_big[1] = solution_big[0].reproj;
+                //范围判断：
+                if(reproj_big[0] > this->reproj_threshold)
+                {                    
+                    isInRange_big = false;
+                    break;
+                }
+                if(center_big.col(0).z() > this->range.max_high || center_big.col(0).z() < this->range.min_high)
+                {                    
+                    isInRange_big = false;
+                    break;
+                }
+                if(center_big.col(0).norm() > this->range.max_distence)
+                {                    
+                    isInRange_big = false;    
+                    break;
+                }
                 break;
             case 2:
-                center_big.block<3,1>(0,0) = solution_big[0].t_B2A;
-                center_big.block<3,1>(0,1) = solution_big[1].t_B2A;
+                center_big.block<3,1>(0,0) = solution_big[0].t_B2A + photocenter_world;
+                center_big.block<3,1>(0,1) = solution_big[1].t_B2A + photocenter_world;
                 yaw_big[0] = solution_big[0].yaw;
                 yaw_big[1] = solution_big[1].yaw;
                 reproj_big[0] = solution_big[0].reproj;
                 reproj_big[1] = solution_big[1].reproj;
+                //范围判断：
+                if(reproj_big[0] > this->reproj_threshold || reproj_big[1] > this->reproj_threshold)
+                {                    
+                    isInRange_big = false;
+                    break;
+                }
+                if(center_big.col(0).z() > this->range.max_high || center_big.col(0).z() < this->range.min_high ||
+                   center_big.col(1).z() > this->range.max_high || center_big.col(1).z() < this->range.min_high)
+                {                    
+                    isInRange_big = false;   
+                    break;
+                }                
+                if(center_big.col(0).norm() > this->range.max_distence || center_big.col(1).norm() > this->range.max_distence)
+                {                    
+                    isInRange_big = false;
+                    break;
+                }
                 break;
 
             default:
@@ -134,3 +202,4 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
 
     return results;
 }
+

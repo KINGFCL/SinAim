@@ -171,9 +171,9 @@ inline double reprojCostFast(double alpha,
 }
 
 // ---------- 黄金分割法最小化 ----------
-template<class Func>
+template<typename Func>
 inline std::pair<double,double>
-trisectionMin(double left, double right, Func&& f, int iters = 80)
+trisectionMin(double left, double right, Func&& f, int iters = 16)
 {
     const double phi = (std::sqrt(5.0) - 1.0) / 2.0;
     double ml_cost = 0.0, mr_cost = 0.0;
@@ -229,8 +229,8 @@ solveRectanglePose(const std::array<Eigen::Vector3d,4>& v_in,
     };
 
     // 在正/负两个半区间内分别最小化
-    auto [a_pos, w_pos] = trisectionMin(0.0,    limit, cost_fn, 80);
-    auto [a_neg, w_neg] = trisectionMin(-limit, 0.0,   cost_fn, 80);
+    auto [a_pos, w_pos] = trisectionMin(0.0,    limit, cost_fn, 16);
+    auto [a_neg, w_neg] = trisectionMin(-limit, 0.0,   cost_fn, 16);
 
     // 收尾时一并取出 R, t, 避免再算一次
     Eigen::Matrix3d R_pos, R_neg;

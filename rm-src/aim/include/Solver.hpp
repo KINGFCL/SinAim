@@ -27,9 +27,6 @@ public:
     //解算传入的所有装甲板并返回世界坐标系下的结果
     std::vector< std::array<ArmorPosi,2> > operator () (const std::vector<CVArmor>& armors, const Eigen::Quaterniond& gripper_to_world);
 
-    void ansShow(const Eigen::Matrix<double, 3, 1>& posi,cv::Mat& image);
-    //void ansShow(const ArmorPosi& armor,cv::Mat& image);
-
 private:
     cv::Mat_<double> cameraMatrix;
     cv::Mat_<double> distCoeffs;
@@ -37,11 +34,19 @@ private:
     Eigen::Matrix<double, 3, 3> R_Cam_to_gripper;
     Eigen::Matrix<double, 3, 1> T_Cam_to_gripper;
 
+    struct Range{
+        double max_high = 50.0; // 最大高度，单位：厘米
+        double min_high = -20.0; // 最小高度，单位：厘米
+        double max_distence = 800.0; // 最大距离，单位：厘米
+    } const range;
+
     const double reproj_threshold;// 从投影阈值，需根据实际情况调整
     
-    const double w_big = 23.0;
-    const double w_small = 13.5;
-    const double h = 5.5;
+    const double w_big = 23.0;// 大装甲板宽度，单位：厘米
+
+    const double w_small = 13.5; // 小装甲板宽度，单位：厘米
+
+    const double h = 5.5;// 灯条长度，单位：厘米
 
     const double beta = 0.0;
     const double gamma = 15.0 * M_PI / 180.0;
