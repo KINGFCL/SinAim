@@ -207,11 +207,12 @@ trisectionMin(double left, double right, Func&& f, int iters = 16)
     @param gamma: 目标的 gamma 单位：弧度
     @param W: 目标的 W
     @param H: 目标的 H
+    @return: 按照逆时针，顺时针顺序输出
 */
 inline std::vector<PoseSolution>
 solveRectanglePose(const std::array<Eigen::Vector3d,4>& v_in,
                    double beta, double gamma,
-                   double W, double H) 
+                   double W, double H,double accepted_reproj_cost = 5e-4) 
 {
     std::array<Eigen::Vector3d,4> v;
     for (int i = 0; i < 4; ++i) v[i] = v_in[i].normalized();
@@ -229,8 +230,9 @@ solveRectanglePose(const std::array<Eigen::Vector3d,4>& v_in,
     };
 
     // 在正/负两个半区间内分别最小化
-    auto [a_pos, w_pos] = trisectionMin(0.0,    limit, cost_fn, 16);
-    auto [a_neg, w_neg] = trisectionMin(-limit, 0.0,   cost_fn, 16);
+    double yaw_standard = std::atan2(ON(1), ON(0));
+    auto [a_pos, w_pos] = trisectionMin(yaw_standard,    yaw_standard+limit, cost_fn, 16);
+    auto [a_neg, w_neg] = trisectionMin(yaw_standard-limit, yaw_standard,   cost_fn, 16);
 
     // 收尾时一并取出 R, t, 避免再算一次
     Eigen::Matrix3d R_pos, R_neg;
@@ -238,41 +240,36 @@ solveRectanglePose(const std::array<Eigen::Vector3d,4>& v_in,
     double c_pos = reprojCostFast(a_pos, Ryx_T, ON, v, W, H, &R_pos, &t_pos);
     double c_neg = reprojCostFast(a_neg, Ryx_T, ON, v, W, H, &R_neg, &t_neg);
 
-    const double accept = 5e-4;     // 累积代价阈值 (~每边 ≤ 1°)
-
     auto valid = [&](double a, double c, double w_end) {
-        return std::isfinite(c) && c < accept
-            && std::abs(a - w_end) > 0.5 * deg;   // 远离区间端点
+        return std::isfinite(c) && c < accepted_reproj_cost
+            && std::abs(std::remainder(a - w_end, 2.0 * M_PI) ) > 0.5 * deg;   // 远离区间端点
     };
 
     std::vector<PoseSolution> out;
     auto push = [&](double a, double c,
                     const Eigen::Matrix3d& R, const Eigen::Vector3d& t) {
         PoseSolution s;
-        s.R_B2A = R; s.t_B2A = t; s.yaw = a; s.reproj = c;
+        s.R_B2A = R; s.t_B2A = t; s.yaw = std::remainder(a, 2.0 * M_PI); s.reproj = c;
         out.push_back(s);
     };
 
-    bool ok_neg = valid(a_neg, c_neg, -limit);
-    bool ok_pos = valid(a_pos, c_pos,  limit);
+    bool ok_neg = valid(a_neg, c_neg, yaw_standard-limit);
+    bool ok_pos = valid(a_pos, c_pos,  yaw_standard+limit);
 
-    if (ok_neg) push(a_neg, c_neg, R_neg, t_neg);
-    if (ok_pos) push(a_pos, c_pos, R_pos, t_pos);
+    //按照逆时针，顺时针顺序输出
+    if (ok_neg&&ok_pos)
+    {
+        push(a_neg, c_neg, R_neg, t_neg);
+        push(a_pos, c_pos, R_pos, t_pos);
+    } 
 
     // 排重: 两半区间收敛到同一根 (典型: yaw ≈ 0 的正对情形)
     if (out.size() == 2 &&
-        std::abs(out[0].yaw - out[1].yaw) < 0.5 * deg) {
+        std::abs(std::remainder(out[0].yaw - out[1].yaw, 2.0 * M_PI)) < 0.5 * deg) {
         // 留下重投影误差更小的那个
         if (out[1].reproj < out[0].reproj) out[0] = out[1];
         out.pop_back();
     }
-
-    // 排序: 顺时针 (yaw < 0) 在前, 逆时针 (yaw >= 0) 在后
-    std::sort(out.begin(), out.end(),
-              [](const PoseSolution& a, const PoseSolution& b) {
-                  return a.yaw < b.yaw;
-              });
-
     return out;
 }
 

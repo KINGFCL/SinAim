@@ -61,10 +61,10 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
         v_in[3] = R_cam2world * Eigen::Vector3d(undistorted[3].x,undistorted[3].y,1.0);
 
         std::vector<pose::PoseSolution> solution_small =
-            pose::solveRectanglePose(v_in, beta, gamma, this->w_small, this->h);
+            pose::solveRectanglePose(v_in, beta, gamma, this->w_small, this->h, this->reproj_threshold);
 
         std::vector<pose::PoseSolution> solution_big =
-            pose::solveRectanglePose(v_in, beta, gamma, this->w_big, this->h);
+            pose::solveRectanglePose(v_in, beta, gamma, this->w_big, this->h, this->reproj_threshold);
 
         Eigen::Matrix<double, 3, 2> center_small;
         Eigen::Matrix<double, 3, 2> center_big;
@@ -84,11 +84,6 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 reproj_small[1] = solution_small[0].reproj;
 
                 //范围判断：
-                if(reproj_small[0] > this->reproj_threshold)
-                {
-                    isInRange_small = false;
-                    break;
-                }
                 if(center_small.col(0).z() > this->range.max_high || center_small.col(0).z() < this->range.min_high)
                 {
                     isInRange_small = false;
@@ -109,11 +104,6 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 reproj_small[1] = solution_small[1].reproj;
 
                 //范围判断：
-                if(reproj_small[0] > this->reproj_threshold || reproj_small[1] > this->reproj_threshold)
-                {                    
-                    isInRange_small = false;
-                    break;
-                }
                 if(center_small.col(0).z() > this->range.max_high || center_small.col(0).z() < this->range.min_high ||
                    center_small.col(1).z() > this->range.max_high || center_small.col(1).z() < this->range.min_high)
                 {
@@ -140,12 +130,8 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 yaw_big[1] = solution_big[0].yaw;
                 reproj_big[0] = solution_big[0].reproj;
                 reproj_big[1] = solution_big[0].reproj;
+                
                 //范围判断：
-                if(reproj_big[0] > this->reproj_threshold)
-                {                    
-                    isInRange_big = false;
-                    break;
-                }
                 if(center_big.col(0).z() > this->range.max_high || center_big.col(0).z() < this->range.min_high)
                 {                    
                     isInRange_big = false;
@@ -164,12 +150,8 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 yaw_big[1] = solution_big[1].yaw;
                 reproj_big[0] = solution_big[0].reproj;
                 reproj_big[1] = solution_big[1].reproj;
+                
                 //范围判断：
-                if(reproj_big[0] > this->reproj_threshold || reproj_big[1] > this->reproj_threshold)
-                {                    
-                    isInRange_big = false;
-                    break;
-                }
                 if(center_big.col(0).z() > this->range.max_high || center_big.col(0).z() < this->range.min_high ||
                    center_big.col(1).z() > this->range.max_high || center_big.col(1).z() < this->range.min_high)
                 {                    
