@@ -149,6 +149,14 @@ std::vector< std::pair< size_t, Eigen::Vector4d> > PoseDetector::operator ()(con
 
 std::pair< size_t, Eigen::Vector4d> PoseDetector::operator ()(const ArmorPosi& armor, std::chrono::steady_clock::time_point now)
 {   
+
+    switch (this->tracking_armors) {
+        case this->tracking_armors[0].state == TrackingArmor::State::Lost && this->tracking_armors[1].state == TrackingArmor::State::Lost :
+            
+    
+    }
+
+
     Eigen::Vector3d center = armor.center.block<3,1>(0,0)+armor.center.block<3,1>(0,1);
 
     double distence = center.norm();
