@@ -13,10 +13,10 @@ private:
     // 2. 指向这块内存的 T 类型指针，方便我们进行偏移计算
     T* data;
 
-    int capacity;
-    int head;
-    int tail;
-    int count; // 引入 count 让判断空/满以及最终清理变得非常简单
+    size_t capacity;
+    size_t head;
+    size_t tail;
+    size_t count; // 引入 count 让判断空/满以及最终清理变得非常简单
 
 public:
     /**
@@ -38,13 +38,42 @@ public:
     CircularQueue(const CircularQueue&) = delete;
     CircularQueue& operator=(const CircularQueue&) = delete;
 
+    CircularQueue& operator=(CircularQueue&& other) noexcept {
+        if (this != &other) {
+            // 1. 先清理自身现有的元素（调用析构）
+            while (!isEmpty()) {
+                deQueue();
+            }
+            
+            // 2. 接管 other 的资源
+            raw_memory = std::move(other.raw_memory);
+            data = other.data;
+            capacity = other.capacity;
+            head = other.head;
+            tail = other.tail;
+            count = other.count;
+
+            // 3. 将 other 掏空
+            other.data = nullptr;
+            other.capacity = 0;
+            other.count = 0;
+            other.head = 0;
+            other.tail = 0;
+        }
+        return *this;
+    }
+
     // 显式实现移动构造函数
     CircularQueue(CircularQueue&& other) noexcept 
         : raw_memory(std::move(other.raw_memory)), data(other.data),
         capacity(other.capacity), head(other.head), tail(other.tail), count(other.count) {
         // 关键：将 moved-from 对象的状态置空，防止它的析构函数作妖
+        // 3. 将 other 掏空
         other.data = nullptr;
-        other.count = 0; 
+        other.capacity = 0;
+        other.count = 0;
+        other.head = 0;
+        other.tail = 0;
     }
 
     /**
@@ -62,16 +91,25 @@ public:
     /**
      * 入队：使用 Placement new
      */
-    bool enQueue(const T& value) {
-        if (isFull()) return false;
+    void enQueue(const T& value) {
+        if (isFull()) this->deQueue();
         
-        // 黑魔法核心：在 data[tail] 这个预先分配好的内存地址上，
-        // 原地拷贝构造一个 T 对象！
-        new (&data[tail]) T(value);
+        T* target = reinterpret_cast<T*>(&raw_memory[tail * sizeof(T)]);
+        new (target) T(value);
         
         tail = (tail + 1) % capacity;
         count++;
-        return true;
+    }
+
+    void enQueue(T&& value) {
+        if (isFull()) this->deQueue();
+        
+        // 统一使用严谨的生内存偏移计算
+        T* target = reinterpret_cast<T*>(&raw_memory[tail * sizeof(T)]);
+        new (target) T(std::move(value));
+        
+        tail = (tail + 1) % capacity;
+        count++;
     }
 
     /**
@@ -88,7 +126,13 @@ public:
         return true;
     }
 
-    const T& operator[](int index) const { return data[(tail + index)%capacity]; } // operator
+    const T& operator[](size_t index) const { 
+    // 队列为空或索引越界时，明确抛出异常
+        if (index >= static_cast<size_t>(count)) {
+            throw std::out_of_range("Index out of bounds or queue is empty");
+        }
+        return data[(head + index) % capacity]; 
+    }
 
     const T* Front() const {
         if (isEmpty()) return nullptr;
@@ -98,7 +142,7 @@ public:
     const T* Rear() const {
         if (isEmpty()) return nullptr;
         // tail 总是指向下一个要插入的位置，所以队尾元素在 tail 的前一个位置
-        int rear_index = (tail - 1 + capacity) % capacity;
+        size_t rear_index = ( (tail + capacity) -1 ) % capacity;
         return &data[rear_index];
     }
 
