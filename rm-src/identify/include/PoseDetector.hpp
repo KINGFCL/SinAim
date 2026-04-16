@@ -1,6 +1,8 @@
 #ifndef POSEDETECTOR_HPP
 #define POSEDETECTOR_HPP
 #include "Armor.hpp"
+#include "CircularQueue.hpp"
+
 #include <array>
 #include <chrono>
 #include <eigen3/Eigen/Core>
@@ -15,12 +17,25 @@ public:
 
     struct TrackingArmor
     {
-        enum class State : bool { Tracking = true, Lost=false } state = State::Lost;
-        enum class Around : int { Left = 0, Right = 1, Unknow = 3} around = Around::Unknow;
         std::pair<Eigen::Vector3d, double> pose;//存储装甲板的中心坐标和yaw
-        size_t ID = 0;
-        double  yaw_min = -M_PI;
+        size_t ID;
         std::chrono::steady_clock::time_point time;
+
+        enum class State : bool { Tracking = true, Lost=false } state;
+        enum class Around : int { Left = 0, Right = 1, Unknow = 3} around;
+
+        TrackingArmor():ID(0),time(std::chrono::steady_clock::now()),state(State::Lost),around(Around::Unknow){};
+        void Init(size_t ID, std::chrono::steady_clock::time_point time, State state, Around around)
+        {
+            this->ID = ID;
+            this->time = time;
+            this->state = state;
+            this->around = around;
+        }
+        void Clear(){ this->state = State::Lost; }
+
+        void operator()(Eigen::Vector3d center, double yaw)
+        
     };
 
 

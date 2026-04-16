@@ -134,6 +134,17 @@ public:
         return data[(head + index) % capacity]; 
     }
 
+    void clear() {
+        while (count > 0) {
+            data[head].~T();
+            head = (head + 1) % capacity;
+            count--;
+        }
+        this->head = 0;
+        this->tail = 0;
+        this->count = 0;
+    }
+
     const T* Front() const {
         if (isEmpty()) return nullptr;
         return &data[head];

@@ -7,6 +7,7 @@ add_library(rm_identify STATIC
 
 target_include_directories(rm_identify PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../communicate/include
 )
 
 target_link_libraries(rm_identify PUBLIC
