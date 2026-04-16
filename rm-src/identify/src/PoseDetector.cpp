@@ -1,6 +1,7 @@
 #include "PoseDetector.hpp"
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdlib>
 #include <utility>
 #include <vector>
@@ -133,12 +134,13 @@ bool PoseDetector::TrackingArmor::leastSquaresFit(double& slope, double& interce
 
 std::vector< std::pair< size_t, Eigen::Vector4d> > PoseDetector::operator ()(const std::vector<ArmorPosi>& armors, std::chrono::steady_clock::time_point now)
 {
+    if(armors.empty()) return std::vector< std::pair< size_t, Eigen::Vector4d> >();
     if(armors.size() == 1){
         auto ans = this->operator()(armors[0], now);
         return std::vector< std::pair< size_t, Eigen::Vector4d> >{ans};
     }
     //两个板的情况
-
+    this->state = State::ViewTwo;
     //先和tracking_armors匹配
 
 
@@ -146,6 +148,85 @@ std::vector< std::pair< size_t, Eigen::Vector4d> > PoseDetector::operator ()(con
 }
 
 std::pair< size_t, Eigen::Vector4d> PoseDetector::operator ()(const ArmorPosi& armor, std::chrono::steady_clock::time_point now)
-{
+{   
+    Eigen::Vector3d center = armor.center.block<3,1>(0,0)+armor.center.block<3,1>(0,1);
 
+    double distence = center.norm();
+
+    double diff = 1e5;
+
+    size_t index = 0;
+    
+    for(size_t i = 0; i < this->tracking_armors.size(); i++)
+    {
+        if(tracking_armors[i].state == TrackingArmor::State::Lost) { continue; }
+
+        double tracking_distence = tracking_armors[i].pose.first.norm();
+
+        double dot = center.dot(tracking_armors[i].pose.first);
+
+        double theta_diff =  std::acos(dot/(distence*tracking_distence));
+
+        double r = (distence+tracking_distence)/2;
+
+        double now_diff = r*theta_diff;
+
+        if(now_diff < diff)
+        {
+            diff = now_diff;
+            index = i;
+        }
+    }
+
+    if(diff <= this->matchRadian)
+    {
+        this->tracking_armors[index](armor, now);
+        Eigen::Vector4d ans;
+        ans.block<3,1>(0,0) = this->tracking_armors[index].pose.first;
+        ans(3,0) = this->tracking_armors[index].pose.second;
+        return std::make_pair(this->tracking_armors[index].ID, ans);
+    }
+
+    //出现新板的情况
+    this->state = State::ViewUpAndDown;
+
+    double yaw_absmax = -1;
+    for(size_t i = 0; i < this->tracking_armors.size(); i++)
+    {
+        if(tracking_armors[i].state == TrackingArmor::State::Lost) { index = i; break; }
+
+        if(yaw_absmax < tracking_armors[i].yaw_abs)
+        {
+            yaw_absmax = tracking_armors[i].yaw_abs;
+            index = i;
+        }
+    }
+
+    double face_theta_other = 0;
+    double face_theta_now = 0; 
+    {
+        Eigen::Vector3d face_other = this->tracking_armors[1-index].pose.first;
+        face_theta_other = std::atan2(face_other(1,0), face_other(0,0));
+
+        face_theta_now = std::atan2(center(1,0), center(0,0));
+    }
+
+    double face_diff = std::remainder(face_theta_other - face_theta_now, 2*M_PI);
+
+    if(face_diff > 0)
+    {
+        this->tracking_armors[index].Init((this->tracking_armors[1-index].ID+3)%4, armor, now, TrackingArmor::State::Tracking, TrackingArmor::Around::Left);
+        Eigen::Vector4d ans;
+        ans.block<3,1>(0,0) = this->tracking_armors[index].pose.first;
+        ans(3,0) = this->tracking_armors[index].pose.second;
+
+        if(this->tracking_armors[1-index].Startaround == TrackingArmor::Around::Left) {this->finderr = FindErr::Yes; this->tracking_armors[1-index].isFlipped = true;}
+        return std::make_pair(this->tracking_armors[index].ID, ans);
+    }
+
+    this->tracking_armors[index].Init((this->tracking_armors[1-index].ID+3)%4, armor, now, TrackingArmor::State::Tracking, TrackingArmor::Around::Right);
+    Eigen::Vector4d ans;
+    ans.block<3,1>(0,0) = this->tracking_armors[index].pose.first;
+    ans(3,0) = this->tracking_armors[index].pose.second;
+    return std::make_pair(this->tracking_armors[index].ID, ans);
 }
