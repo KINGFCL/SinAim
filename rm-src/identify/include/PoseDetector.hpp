@@ -20,21 +20,21 @@ public:
         CircularQueue< std::pair<double, double> > yawAndTime{30};
         std::pair<Eigen::Vector3d, double> pose;//存储装甲板的中心坐标和yaw
         size_t ID;
-        std::chrono::steady_clock::time_point time;
+        std::chrono::steady_clock::time_point StartTime;
 
         enum class State : bool { Tracking = true, Lost=false } state;
         enum class Around : int { Left = 0, Right = 1, Unknow = 3} around;
         bool isFlipped = false;
 
-        TrackingArmor():ID(0),time(std::chrono::steady_clock::now()),state(State::Lost),around(Around::Unknow){};
+        TrackingArmor():ID(0),StartTime(std::chrono::steady_clock::now()),state(State::Lost),around(Around::Unknow){};
         void Init(size_t ID, std::chrono::steady_clock::time_point time, State state, Around around)
         {
             this->ID = ID;
-            this->time = time;
+            this->StartTime = time;
             this->state = state;
             this->around = around;
         }
-        void Clear(){ this->state = State::Lost; }
+        void Clear(){ this->state = State::Lost; this->yawAndTime.clear(); }
 
         void operator()(const ArmorPosi& armor, std::chrono::steady_clock::time_point now);
 
