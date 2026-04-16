@@ -92,7 +92,12 @@ public:
      * 入队：使用 Placement new
      */
     void enQueue(const T& value) {
-        if (isFull()) this->deQueue();
+        if(count == capacity)
+        {
+            data[head].~T();
+            head = (head + 1) % capacity;
+            count--;
+        }
         
         T* target = reinterpret_cast<T*>(&raw_memory[tail * sizeof(T)]);
         new (target) T(value);
@@ -102,7 +107,12 @@ public:
     }
 
     void enQueue(T&& value) {
-        if (isFull()) this->deQueue();
+        if(count == capacity)
+        {
+            data[head].~T();
+            head = (head + 1) % capacity;
+            count--;
+        }
         
         // 统一使用严谨的生内存偏移计算
         T* target = reinterpret_cast<T*>(&raw_memory[tail * sizeof(T)]);
@@ -132,6 +142,10 @@ public:
             throw std::out_of_range("Index out of bounds or queue is empty");
         }
         return data[(head + index) % capacity]; 
+    }
+
+    size_t size() const {
+        return count;
     }
 
     void clear() {

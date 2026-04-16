@@ -14,6 +14,7 @@ class PoseDetector
 {
 public:
     enum class State : int {ViewOne = 0, ViewUpAndDown = 1, ViewTwo = 2} state = State::ViewOne;
+    enum class FindErr : bool {Yes = true, No = false} finderr = FindErr::No;
 
     struct TrackingArmor
     {
@@ -23,16 +24,17 @@ public:
         std::chrono::steady_clock::time_point StartTime;
 
         enum class State : bool { Tracking = true, Lost=false } state;
-        enum class Around : int { Left = 0, Right = 1, Unknow = 3} around;
+        enum class Around : int { Left = 0, Right = 1, Unknow = 3} Startaround;
         bool isFlipped = false;
 
-        TrackingArmor():ID(0),StartTime(std::chrono::steady_clock::now()),state(State::Lost),around(Around::Unknow){};
-        void Init(size_t ID, std::chrono::steady_clock::time_point time, State state, Around around)
+        TrackingArmor():ID(0),StartTime(std::chrono::steady_clock::now()),state(State::Lost),Startaround(Around::Unknow){};
+        void Init(size_t ID, std::chrono::steady_clock::time_point time, State state, Around start_around)
         {
+            this->Clear();
             this->ID = ID;
             this->StartTime = time;
             this->state = state;
-            this->around = around;
+            this->Startaround = start_around;
         }
         void Clear(){ this->state = State::Lost; this->yawAndTime.clear(); }
 
@@ -42,14 +44,11 @@ public:
     };
 
 
-    explicit PoseDetector(const Eigen::Matrix<double, 3, 4>& Armors): Armors(Armors) {};
+    explicit PoseDetector(){};
     std::pair< size_t, Eigen::Vector4d> operator ()(const ArmorPosi& armor,std::chrono::steady_clock::time_point now);
     std::vector< std::pair< size_t, Eigen::Vector4d> > operator ()(const std::vector<ArmorPosi>& armors, std::chrono::steady_clock::time_point now);
     
 private:
-    const Eigen::Matrix<double, 3, 4>& Armors;
     std::array< TrackingArmor, 2 > tracking_armors;
-
-    double armor_lost_yawcos = std::cos(80.0 /180 * M_PI); 
 };
 #endif

@@ -1,10 +1,13 @@
 #include "PoseDetector.hpp"
 #include <chrono>
+#include <cmath>
+#include <cstdlib>
 #include <utility>
+#include <vector>
 
 void PoseDetector::TrackingArmor::operator()(const ArmorPosi& armor, std::chrono::steady_clock::time_point now)
 {
-    if(this->around == PoseDetector::TrackingArmor::Around::Unknow)
+    if(this->Startaround == PoseDetector::TrackingArmor::Around::Unknow)
     {
         this->pose.first = armor.center.block<3,1>(0,0);
         this->pose.second = armor.yaw[0];
@@ -12,7 +15,7 @@ void PoseDetector::TrackingArmor::operator()(const ArmorPosi& armor, std::chrono
     }
     if(isFlipped)
     {
-        switch (this->around) {
+        switch (this->Startaround) {
             case PoseDetector::TrackingArmor::Around::Left:
                 this->pose.first = armor.center.block<3,1>(0,1);
                 this->pose.second = armor.yaw[1];
@@ -30,15 +33,119 @@ void PoseDetector::TrackingArmor::operator()(const ArmorPosi& armor, std::chrono
     //没有翻转过去，去判断翻转了没有
     double t_seconds = std::chrono::duration<double>(now - this->StartTime).count();
 
-    int yaw_index = static_cast<int>(this->around);
+    int yaw_index = static_cast<int>(this->Startaround);
     double yaw_may = armor.yaw[yaw_index];
 
     double center_theta = std::atan2(armor.center(1,yaw_index),armor.center(0,yaw_index));
 
+    double yaw_abs = std::abs(std::remainder(yaw_may-center_theta,2*M_PI));
 
-    std::pair<double, double> yawAndtime_pair = std::make_pair(armor.yaw[yaw_index], t_seconds);
+    //入队列
+    this->yawAndTime.enQueue(std::make_pair(yaw_abs, t_seconds));
+
+    double slope, intercept;
+    bool solveOK = this->leastSquaresFit(slope, intercept);
     
 
+    //如果求解不了说明数据太少。如果斜率接近0说明静止，如果斜率>0说明没有往中心旋转
+    if( (!solveOK) || slope < -1e-5)
+    {
+        this->pose.first = armor.center.block<3,1>(0,yaw_index);
+        this->pose.second = armor.yaw[yaw_index];
+        return;
+    }
 
+    double flip_time = (-intercept) / slope;
+
+
+    //当前时间已经发生翻转
+    if(flip_time <= t_seconds)
+    {
+        this->isFlipped = true;
+        this->pose.first = armor.center.block<3,1>(0,1-yaw_index);
+        this->pose.second = armor.yaw[1-yaw_index];
+        return;
+    }
+
+    //没有翻转过去
+    this->pose.first = armor.center.block<3,1>(0,yaw_index);
+    this->pose.second = armor.yaw[yaw_index];
+}
+
+bool PoseDetector::TrackingArmor::leastSquaresFit(double& slope, double& intercept)
+{
+    if(this->yawAndTime.isEmpty()) return false;
+
+    size_t index = 0;
+    double yaw_abs_min = this->yawAndTime[0].first;
+
+    for(size_t i = 1; i < yawAndTime.size(); i++)
+    {
+        if(yawAndTime[i].first < yaw_abs_min)
+        {
+            yaw_abs_min = yawAndTime[i].first;
+            index = i;
+        }
+    }
+
+    // 至少需要两个点才能拟合直线
+    size_t n = index+1;
+    if (n < 2) {
+        return false; 
+    }
+
+    double sumX = 0.0;
+    double sumY = 0.0;
+    double sumXY = 0.0;
+    double sumX2 = 0.0;
+
+    // 遍历所有数据点，计算需要的各项和
+    for (size_t i = 0; i < n; i++) {
+
+        const std::pair<double, double>& point = this->yawAndTime[i];
+
+        double x = point.first;
+        double y = point.second;
+        
+        sumX += x;
+        sumY += y;
+        sumXY += x * y;
+        sumX2 += x * x;
+    }
+
+    // 根据公式计算分母: n * Σ(x^2) - (Σx)^2
+    double denominator = ((double)n) * sumX2 - sumX * sumX;
+
+    // 检查分母是否趋近于 0（即所有点的 x 坐标几乎相同，是一条垂直于 x 轴的线）
+    // 浮点数比较不建议直接用 == 0，使用极小值 1e-9 作为容差
+    if (std::abs(denominator) < 1e-9) {
+        return false; 
+    }
+
+    // 计算斜率 a = (n * Σ(xy) - Σx * Σy) / 分母
+    slope = (n * sumXY - sumX * sumY) / denominator;
+    
+    // 计算截距 b = (Σy - a * Σx) / n
+    intercept = (sumY - slope * sumX) / n;
+
+    return true;
+}
+
+std::vector< std::pair< size_t, Eigen::Vector4d> > PoseDetector::operator ()(const std::vector<ArmorPosi>& armors, std::chrono::steady_clock::time_point now)
+{
+    if(armors.size() == 1){
+        auto ans = this->operator()(armors[0], now);
+        return std::vector< std::pair< size_t, Eigen::Vector4d> >{ans};
+    }
+    //两个板的情况
+
+    //先和tracking_armors匹配
+
+
+
+}
+
+std::pair< size_t, Eigen::Vector4d> PoseDetector::operator ()(const ArmorPosi& armor, std::chrono::steady_clock::time_point now)
+{
 
 }
