@@ -150,10 +150,14 @@ std::vector< std::pair< size_t, Eigen::Vector4d> > PoseDetector::operator ()(con
 std::pair< size_t, Eigen::Vector4d> PoseDetector::operator ()(const ArmorPosi& armor, std::chrono::steady_clock::time_point now)
 {   
 
-    switch (this->tracking_armors) {
-        case this->tracking_armors[0].state == TrackingArmor::State::Lost && this->tracking_armors[1].state == TrackingArmor::State::Lost :
-            
-    
+    if(this->tracking_armors[0].state == TrackingArmor::State::Lost && this->tracking_armors[1].state == TrackingArmor::State::Lost) 
+    {
+        this->tracking_armors[0].Init(0, armor, now, TrackingArmor::State::Tracking, TrackingArmor::Around::Right);
+        Eigen::Vector4d ans;
+        ans.block<3,1>(0,0) = this->tracking_armors[index].pose.first;
+        ans(3,0) = this->tracking_armors[index].pose.second;
+        return std::make_pair(this->tracking_armors[index].ID, ans);
+
     }
 
 
