@@ -101,10 +101,16 @@ int main() {
     //3.0创建数据配对线程，并将数据发布到Frames环形队列
     std::thread match_thread = std::thread(IMUAndImageMatchThread, std::ref(Hik), std::ref(ser), std::ref(Frames));
     
-    cv::namedWindow("frame");
+    cv::namedWindow("hhh");
 
     auto start = std::chrono::steady_clock::now();
-    auto last_point = std::chrono::steady_clock::now();
+    
+    // 1. 申请一块巨大的连续内存作为 RAM 缓冲区
+    // 预先分配空间可以防止 vector 运行中途扩容导致的卡顿
+    std::vector<FrameData> ram_buffer;
+    ram_buffer.reserve(2000); // 预留 2000 帧的空间 (约 9.2 GB 内存，视你需要调整)
+
+    std::cout << "\n>>> 正在录制至内存... 按 ESC 结束并写入磁盘 <<<" << std::endl;
 
     while(true)
     {
@@ -113,18 +119,59 @@ int main() {
         
         if(!haveData) continue;
         
-        //如果不是最新照片直接跳过直到拿到最新照片
+        // 激进的丢帧逻辑可以保留，确保你拿到的是最新帧
         if(!Frames.empty()) continue;
 
-        auto quat = frame.quat;
-        saver.save(frame.image, Eigen::Quaterniond(quat.w, quat.x, quat.y, quat.z), SolveDt(last_point,frame.time,0.01));
-        last_point = frame.time;
+        // 2. 将数据推入 RAM 缓冲区 (必须 clone 图像！)
+        FrameData buffered_frame;
+        buffered_frame.image = frame.image.clone(); // 极其重要：深拷贝图像内存！
+        buffered_frame.quat = frame.quat;
+        buffered_frame.time = frame.time;
+        
+        ram_buffer.push_back(buffered_frame);
 
+        // 性能统计
         test.count(std::chrono::steady_clock::now() - start);
         start = std::chrono::steady_clock::now();
 
-        if(test.num%200 == 0 && test.num != 0) {test.show();test.clear();}
+        if(test.num % 200 == 0 && test.num != 0) {
+            test.show();
+            test.clear();
+        }
+
+        // 显示图像与退出检测
+        cv::imshow("hhh", frame.image);
+        int key = cv::waitKey(1);
+        if (key == 27) {
+            break; // 收到 ESC 信号，跳出高频采集循环
+        }
     }
+
+    // ==========================================
+    // 后处理：将 RAM 缓冲区的数据集中写入 SSD
+    // ==========================================
+    std::cout << "\n[系统] 停止录像，开始将 RAM 中的 " << ram_buffer.size() << " 帧数据进行无损编码并写入磁盘..." << std::endl;
+    std::cout << "[系统] 这个过程可能需要一些时间，请勿关闭程序！" << std::endl;
+
+    if (!ram_buffer.empty()) {
+        auto last_point = ram_buffer[0].time;
+        
+        for (size_t i = 0; i < ram_buffer.size(); ++i) {
+            auto quat = ram_buffer[i].quat;
+            double dt = SolveDt(last_point, ram_buffer[i].time, 0.01);
+            
+            // 写入视频 (这一步此时会霸占 CPU 进行 FFV1 压缩)
+            saver.save(ram_buffer[i].image, Eigen::Quaterniond(quat.w, quat.x, quat.y, quat.z), dt);
+            last_point = ram_buffer[i].time;
+
+            // 打印进度条
+            if (i % 20 == 0) {
+                std::cout << "编码写入进度: " << i << " / " << ram_buffer.size() << " 帧\r" << std::flush;
+            }
+        }
+    }
+
+    std::cout << "\n[系统] 视频保存完毕！安全退出。" << std::endl;
 
     match_thread.detach();
     return 0;
