@@ -5,6 +5,7 @@
 #include "EKFKalman.hpp"
 #include "LKFKalman.hpp"
 
+#include <Eigen/src/Core/Matrix.h>
 #include <chrono>
 #include <deque>
 #include <eigen3/Eigen/Core>
@@ -59,6 +60,8 @@ public:
     @param armors 输入的装甲板位置，必须包含一个或者两个装甲板
     */
     void Init(const std::vector<ArmorPosi>& armors);
+    void InitEKF(const std::vector<ArmorPosi>& armors);
+    void InitLKF(const Eigen::Vector3d& center, const Eigen::Vector3d& SCS);
 
     /*!
     完全丢失Robot，清空。

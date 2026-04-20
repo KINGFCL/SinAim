@@ -36,17 +36,18 @@ Eigen::Matrix<double, 6, 1> LKFKalman::operator()(const Eigen::Matrix<double, 6,
     Q(2,5) = Q(5,2) = b * this->Var_a_z;  
 
     //先验状态协方差矩阵
-    Eigen::Matrix<double, 6, 6> P_pred = this->F * this->CovState * this->F.transpose() + Q;
+    this->CovState = this->F * this->CovState * this->F.transpose() + Q;
 
     // 计算卡尔曼增益矩阵
-    Eigen::Matrix<double, 6, 3> K = P_pred * this->H.transpose() * (this->H * P_pred * this->H.transpose() + this->CovView).inverse();
+    Eigen::Matrix<double, 6, 3> K = this->CovState * this->H.transpose() * (this->H * this->CovState * this->H.transpose() + this->CovView).inverse();
 
     // 更新后验状态协方差矩阵
     Eigen::Matrix<double, 6, 6> I_KH = Eigen::Matrix<double, 6, 6>::Identity() - K * H;
     this->CovState = I_KH * this->CovState * I_KH.transpose() + K * this->CovView * K.transpose();
 
     // 更新后验状态估计量
-    return this->F * State + K * (View - this->H * this->F * State);
+    Eigen::Matrix<double, 6, 1> State_pred = this->F * State;
+    return State_pred + K * (View - this->H * State_pred);
 
 }
 
@@ -55,7 +56,6 @@ Eigen::Matrix<double, 6, 1> LKFKalman::operator()(const Eigen::Matrix<double, 6,
 /**
  * @brief 计算从相机球坐标系到笛卡尔坐标系的雅可比矩阵
  * * @param SCS 球坐标点 (x: 半径 r, y: 极角 theta, z: 方位角 phi)
- * 基于 OpenCV 相机系约定：Z向前，X向右，Y向下
  * @return Eigen::Matrix3d 返回 3x3 的雅可比矩阵 J
  */
 Eigen::Matrix<double, 3, 3> LKFKalman::getJacobianSphericalToCartesian(const Eigen::Vector3d& SCS) {

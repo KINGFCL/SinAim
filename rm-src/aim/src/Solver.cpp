@@ -118,7 +118,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 break;
         }
 
-        switch (solution_small.size()) {
+        switch (solution_big.size()) {
             case 1:
                 center_big.block<3,1>(0,0) = solution_big[0].t_B2A + photocenter_world;
                 center_big.block<3,1>(0,1) = solution_big[0].t_B2A + photocenter_world;
