@@ -123,6 +123,12 @@ public:
 
 private:
 
+    enum class kalmanMode : int
+    {
+        LKF = 0,
+        EKF = 1
+    }kalmanMode;
+
     //记录是否初始化
     bool is_init = false;
     
