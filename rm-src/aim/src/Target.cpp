@@ -1,4 +1,5 @@
 #include "Target.hpp"
+#include "EKFKalman.hpp"
 
 #include <array>
 #include <cmath>
@@ -22,7 +23,71 @@
 
 // std::array<RobotSize, 5> Robot::Size;
 
-void Robot::Update(const std::vector<ArmorPosi>& armors, const cv::Quatd& gripper_to_world, double dt)
+
+void Robot::InitEKF(const Eigen::Vector3d& center, const Eigen::Vector3d& SCS, double yaw)
+{
+    // 初始化 EKF
+    this->is_init = true;
+    this->Mode = KalmanMode::EKF;
+    this->ekfkalman.Init();
+
+    // 初始化底盘中心点 (基于 0 号板和三角函数逆推)
+
+    this->center(0) = center(0) + this->r * std::cos(yaw);
+    this->center(1) = center(1) + this->r * std::sin(yaw);
+    this->center(2) = center(2);
+
+    // 初始化速度为 0
+    this->Speed.setZero();
+    
+    // 半径
+    this->Armors.block<1,4>(1,0) = Eigen::Matrix<double,1,4>{this->r,this->r,this->r,this->r};
+    this->l_diff = 0.0;
+    this->h_diff = 0.0;
+    // 初始化 4 块装甲板的内部状态矩阵 [theta, radius, z]^T
+    // 角度
+    this->Armors(0,0) = yaw;
+    this->Armors(0,1) = std::remainder(yaw + CV_PI/2.0,   CV_PI*2.0);
+    this->Armors(0,2) = std::remainder(yaw + CV_PI,       CV_PI*2.0);
+    this->Armors(0,3) = std::remainder(yaw + CV_PI*3.0/2.0, CV_PI*2.0);
+
+    this->d_theta_1 = CV_PI/2.0;
+    this->d_theta_2 = CV_PI;
+    this->d_theta_3 = -CV_PI/2.0;
+
+    // 高度 Z 坐标
+    this->Armors(2,0) = this->Armors(2,2) = this->center(2);
+    this->Armors(2,1) = this->Armors(2,3) = this->center(2);
+
+    // 8. 重置所有视角状态
+    this->View[0] = ArmorView::Visual;
+    this->View[1] = ArmorView::Invisual;
+    this->View[2] = ArmorView::Invisual;
+    this->View[3] = ArmorView::Invisual;
+
+}
+
+
+void Robot::InitLKF(const Eigen::Vector3d& center, const Eigen::Vector3d& SCS)
+{
+    this->is_init = true;
+    this->Mode = KalmanMode::LKF;
+    this->lkfkalman.Init();
+    
+    this->center = center;
+    this->Speed.setZero();
+}
+
+void Robot::LKFToEKF(const Eigen::Vector3d& center, const Eigen::Vector3d& SCS, double yaw)
+{
+    this->lkfkalman.Init();
+    this->InitEKF(center, SCS, yaw);
+}
+
+
+
+
+void Robot::Update(const std::vector<ArmorPosi>& armors, double dt)
 {
     if(armors.empty()) return;
 
@@ -34,13 +99,13 @@ void Robot::Update(const std::vector<ArmorPosi>& armors, const cv::Quatd& grippe
 
     if(armors.size() == 1)
     {
-        this->OneArmor(armors[0], gripper_to_world, dt);
+        this->OneArmor(armors[0], dt);
         return;
     }
     else 
     {
         std::vector<ArmorPosi> armors_ = {armors[0],armors[1]};
-        this->TwoArmor(armors_, gripper_to_world, dt);
+        this->TwoArmor(armors_, dt);
         return;
     }
 
@@ -63,7 +128,7 @@ void Robot::Update(double dt)
     State(12,0) = this->d_theta_2;
     State(13,0) = this->d_theta_3;
 
-    Eigen::Matrix<double, 14, 1> ans = this->Kalman( State, dt );
+    Eigen::Matrix<double, 14, 1> ans = this->ekfkalman( State, dt );
 
     //更新中心点
     this->center = ans.block<3,1>(0,0);
@@ -77,10 +142,10 @@ void Robot::Update(double dt)
 
 
 
-void Robot::OneArmor(const ArmorPosi& armor, const cv::Quatd& gripper_to_world, double dt)
+void Robot::OneArmor(const ArmorPosi& armor, double dt)
 {
     // 计算装甲板状态
-    Eigen::Matrix<double, 4, 1> ArmorState{armor.posi.x, armor.posi.y, armor.posi.z, this->SolveTheta(armor)};
+    Eigen::Matrix<double, 4, 1> ArmorState{armor.center(0), armor.center(1), armor.center(2), this->SolveTheta(armor)};
     //装甲板匹配
     int ID = 0; 
     

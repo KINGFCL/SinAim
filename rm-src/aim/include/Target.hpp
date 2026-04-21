@@ -34,6 +34,11 @@ struct RobotSize
 class Robot
 {
 public:
+    enum class KalmanMode : int
+    {
+        LKF = 0,
+        EKF = 1
+    };
     Robot() = default;
 
     enum class ArmorView : bool
@@ -60,8 +65,10 @@ public:
     @param armors 输入的装甲板位置，必须包含一个或者两个装甲板
     */
     void Init(const std::vector<ArmorPosi>& armors);
-    void InitEKF(const std::vector<ArmorPosi>& armors);
+    void InitEKF(const Eigen::Vector3d& center, const Eigen::Vector3d& SCS, double yaw);
     void InitLKF(const Eigen::Vector3d& center, const Eigen::Vector3d& SCS);
+
+    KalmanMode GetMode() const { return this->Mode; }
 
     /*!
     完全丢失Robot，清空。
@@ -127,12 +134,12 @@ public:
     LKFKalman lkfkalman;
 
 private:
+    double MatchError(const ArmorPosi& armor);
+    void LKFToEKF(const Eigen::Vector3d& center, const Eigen::Vector3d& SCS, double yaw);
 
-    enum class kalmanMode : int
-    {
-        LKF = 0,
-        EKF = 1
-    }kalmanMode;
+    KalmanMode Mode = KalmanMode::LKF;
+
+    const double matcherrthresh = 0.5; 
 
     //记录是否初始化
     bool is_init = false;

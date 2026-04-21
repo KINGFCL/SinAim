@@ -1,10 +1,41 @@
 #include "LKFKalman.hpp"
+#include <Eigen/src/Core/Matrix.h>
 
 
 void LKFKalman::Init() {
     this->CovState = this->CovStateInit;
 }
 
+
+Eigen::Matrix<double, 6, 1> LKFKalman::operator()(const Eigen::Matrix<double, 6, 1>& State, double dt) {
+    
+    // 计算预测矩阵
+    this->F(0, 3) = dt; // X轴：位置 += 速度_x * dt
+    this->F(1, 4) = dt; // Y轴：位置 += 速度_y * dt
+    this->F(2, 5) = dt; // Z轴：位置 += 速度_z * dt
+
+
+    // 计算过程噪声矩阵
+    Eigen::Matrix<double, 6, 6> Q = Eigen::Matrix<double, 6, 6>::Zero();
+    double c = dt * dt;                
+    double a = c * c * 0.25;  
+    double b = c * dt * 0.5;       
+    
+    // 严格区分 XY 轴和 Z 轴
+    Q(0,0) = Q(1,1) = a * this->Var_a_xy; // X, Y 位置
+    Q(2,2) = a * this->Var_a_z;           // Z 位置 (极小)
+    
+    Q(3,3) = Q(4,4) = c * this->Var_a_xy; // X, Y 速度
+    Q(5,5) = c * this->Var_a_z;           // Z 速度 (极小)
+    
+    Q(0,3) = Q(3,0) = Q(1,4) = Q(4,1) = b * this->Var_a_xy; // X,Y 协方差
+    Q(2,5) = Q(5,2) = b * this->Var_a_z;  
+
+    //先验状态协方差矩阵
+    this->CovState = this->F * this->CovState * this->F.transpose() + Q;
+    
+    return this->F * State;
+}
 
 
 Eigen::Matrix<double, 6, 1> LKFKalman::operator()(const Eigen::Matrix<double, 6, 1>& State, const Eigen::Vector3d View, const Eigen::Vector3d& SCS, double dt) {

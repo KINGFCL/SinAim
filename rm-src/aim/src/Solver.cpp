@@ -169,11 +169,11 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
         std::array< ArmorPosi, 2>armor_result_small_and_big;
         if(isInRange_small)
         {
-            armor_result_small_and_big[0] = ArmorPosi(center_small, yaw_small, reproj_small, isInRange_small);
+            armor_result_small_and_big[0] = ArmorPosi(center_small,photocenter_world, yaw_small, reproj_small, isInRange_small);
         }
         if(isInRange_big)
         {
-            armor_result_small_and_big[1] = ArmorPosi(center_big, yaw_big, reproj_big, isInRange_big);
+            armor_result_small_and_big[1] = ArmorPosi(center_big, photocenter_world, yaw_big, reproj_big, isInRange_big);
         }
         results.push_back(armor_result_small_and_big);
     }

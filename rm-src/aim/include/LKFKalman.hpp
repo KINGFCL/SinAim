@@ -58,6 +58,9 @@ public:
                                            const Eigen::Vector3d& SCS, 
                                            double dt);
 
+    Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 6, 1>& State,double dt);
+
+
 private:
     /**
      * @brief 计算从球坐标系到笛卡尔坐标系的雅可比矩阵 (Jacobian)

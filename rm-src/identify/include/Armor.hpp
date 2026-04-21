@@ -1,6 +1,7 @@
 #ifndef LIGHT_AND_ARMOR_STRUCT
 #define LIGHT_AND_ARMOR_STRUCT
 #include <array>
+#include <cstdlib>
 #include <eigen3/Eigen/Core>
 #include <algorithm>
 #include <cmath>
@@ -64,10 +65,23 @@ struct ArmorPosi{
                            outpost = 6, Unknow = 7} type = Type::Unknow;
     float confidence = 0; 
 
-    ArmorPosi(const Eigen::Matrix<double, 3, 2>& center, std::array<double, 2> yaw, std::array<double, 2> reproj, bool isInRange):
-              center(center), yaw(yaw), reproj(reproj), IsInRange(isInRange){}
+    ArmorPosi(const Eigen::Matrix<double, 3, 2>& center, 
+              const Eigen::Vector3d& photocenter,
+              std::array<double, 2> yaw, 
+              std::array<double, 2> reproj,
+              bool isInRange):
+              center(center),photocenter(photocenter), yaw(yaw), reproj(reproj), IsInRange(isInRange){
+                double theta = std::atan2(center(0, 1), center(0, 0));
+                this->yaw_abs[0] = std::abs(std::remainder(theta-this->yaw[0], 2 * M_PI));
+                this->yaw_abs[1] = std::abs(std::remainder(theta-this->yaw[1], 2 * M_PI));
+
+                this->SCS(0,0) = this->photocenter.norm();
+                double distance = this->photocenter.block<2,1>(0,0).norm();
+                this->SCS(1,0) = std::asin(distance / this->SCS(0,0));
+                this->SCS(2,0) = std::atan2(this->photocenter(1), this->photocenter(0));
+              }
+
     ArmorPosi():IsInRange(false){}
-    ArmorPosi(const ArmorPosi& armor):center(armor.center), yaw(armor.yaw), reproj(armor.reproj), IsInRange(armor.IsInRange){}
     };
 struct YoloArmor{ 
     cv::Rect box;
