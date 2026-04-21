@@ -5,7 +5,6 @@
 #include "EKFKalman.hpp"
 #include "LKFKalman.hpp"
 
-#include <Eigen/src/Core/Matrix.h>
 #include <chrono>
 #include <cstddef>
 #include <deque>

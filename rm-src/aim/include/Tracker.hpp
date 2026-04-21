@@ -60,7 +60,6 @@ private:
     // 辅助函数
     int MaxCloseCenterTarget(const std::vector<ArmorPosi>& armors_posi,const Eigen::Matrix<double, 3, 1>& Gun);
 
-    bool isTargetInCenter(const ArmorPosi& armor, double threshold = 0.3);
 
     ArmorPosi::Type findMostFrequentType(const std::vector<ArmorPosi>& armors);
 

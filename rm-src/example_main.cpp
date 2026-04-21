@@ -10,7 +10,7 @@
 #include "planner.hpp"
 #include "RTSerial.hpp"
 #include "Data.hpp"
-#include "PoseDetector.hpp"
+
 #include "Shooter.hpp"
 #include "FastQueue.hpp"
 
@@ -21,10 +21,9 @@ int main() {
     io::HikCamera Hik(1,16);
     io::RTSerial<Packet> serial;
     CVDetector detector(Light::Color::Red, cv::Size(32, 32));
-    PoseDetector pose_detector;
     YOLODetector yolo("model.xml", YOLODetector::Camp::Red);
     ResNetNumClassifier resnet("model.onnx", 0.5f);
-    Solver solver("config.yaml");
+    //Solver solver("config.yaml");
     Tracker tracker;
     MPC::Planner planner("config.yaml");
     Shooter shoot(0.005,0.050);
@@ -34,30 +33,30 @@ int main() {
     std::vector<cv::Mat> armors_pattern;
     std::deque<CVArmor> armors = detector(frame.image, armors_pattern);
 
-    std::vector<std::array<ArmorPosi, 2>> armors_posis = solver(armors);
+    //std::vector<std::array<ArmorPosi, 2>> armors_posis = solver(armors);
 
-    auto hax = pose_detector.InCamera(armors_posis, armors_pattern);
 
-    solver.ConverToWorld(armors_posis, cv::Quatd{frame.quat.w, frame.quat.x, frame.quat.y, frame.quat.z});
 
-    hax = pose_detector.InWorld(armors_posis, armors_pattern, hax, frame.quat);
+    //solver.ConverToWorld(armors_posis, cv::Quatd{frame.quat.w, frame.quat.x, frame.quat.y, frame.quat.z});
 
-    std::vector<ArmorPosi> classified_armors = resnet(armors_posis, armors_pattern, hax);
+    // hax = pose_detector.InWorld(armors_posis, armors_pattern, hax, frame.quat);
+
+    // std::vector<ArmorPosi> classified_armors = resnet(armors_posis, armors_pattern, hax);
 
     auto Gun = shoot.GunDirection(Eigen::Quaterniond(frame.quat.w, frame.quat.x, frame.quat.y, frame.quat.z));
 
-    tracker(classified_armors, frame.quat, Gun, 0.01);
+    // tracker(classified_armors, frame.quat, Gun, 0.01);
 
-        const auto& current_robot = tracker.getCurrentRobot();
+    //     const auto& current_robot = tracker.getCurrentRobot();
 
-        if (current_robot == nullptr)
-        {
-            // 没有追踪到目标，跳过
-            robotStates.push(nullptr);
-            //continue;
-        }
+    //     if (current_robot == nullptr)
+    //     {
+    //         // 没有追踪到目标，跳过
+    //         robotStates.push(nullptr);
+    //         //continue;
+    //     }
 
-        robotStates.push(std::make_unique<RobotState>(*current_robot,frame.time));
+    //     robotStates.push(std::make_unique<RobotState>(*current_robot,frame.time));
 
     std::cout << "RoboMaster AutoAim System" << std::endl;
     return 0;

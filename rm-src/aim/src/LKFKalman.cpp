@@ -1,5 +1,4 @@
 #include "LKFKalman.hpp"
-#include <Eigen/src/Core/Matrix.h>
 
 
 void LKFKalman::Init() {

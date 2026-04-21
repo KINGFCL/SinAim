@@ -6,7 +6,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
-#include <eigen3/Eigen/src/Core/Matrix.h>
 #include <eigen3/Eigen/Geometry>
 #include <iostream>
 #include <memory_resource>
@@ -36,8 +35,12 @@ void Robot::Init(const std::vector<ArmorPosi>& armors)
     
     switch (armors.size()) {
         case 1:
-            this->InitLKF(armors[0].center, armors[0].SCS);
+        {
+            Eigen::Vector3d center = 0.5*(armors[0].center.block<3,1>(0,0) + armors[0].center.block<3,1>(0,1));
+            Eigen::Vector3d SCS = 0.5*(armors[0].SCS.block<3,1>(0,0) + armors[0].SCS.block<3,1>(0,1));
+            this->InitLKF(center, SCS);
             break;
+        }
         default:
             this->LKFToEKF(armors);
             break;
@@ -232,7 +235,7 @@ void Robot::UpdateLKF(const Eigen::Vector3d& armorcenter, const Eigen::Vector3d&
     Eigen::Matrix<double, 6, 1> ans = this->lkfkalman( State, armorcenter, SCS, dt );
 
     this->center = ans.block<3,1>(0,0);
-    this->Speed = ans.block<3,1>(3,0);
+    this->Speed.block<3,1>(0,0) = ans.block<3,1>(3,0);
 
     return;
 }
@@ -246,7 +249,7 @@ void Robot::UpdateLKF(double dt)
     Eigen::Matrix<double, 6, 1> ans = this->lkfkalman( State, dt );
 
     this->center = ans.block<3,1>(0,0);
-    this->Speed = ans.block<3,1>(3,0);
+    this->Speed.block<3,1>(0,0) = ans.block<3,1>(3,0);
 
     return;
 }
@@ -264,8 +267,11 @@ Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
 {
     Eigen::Vector3d robot_center;
     Eigen::Matrix4d ans = this->Predict(dt, robot_center);
+    Eigen::Vector3d armorcenter = 0.5 * ( armor.center.block<3,1>(0,0) + armor.center.block<3,1>(0,1) );
+    double yaw_abs_view = 0.5*(armor.yaw_abs[0]+armor.yaw_abs[1]);
     std::array<size_t, 3> IDS;
     size_t ErrId;
+    size_t CorrId;
     double distance = -1;
 
     for(size_t i = 0; i < 4; i++)
@@ -282,33 +288,55 @@ Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
     IDS[1] = (ErrId+2)%4;
     IDS[2] = (ErrId+3)%4;
 
-    std::array<size_t, 3> side;
-    const Eigen::Vector3d& photocenter = armor.photocenter;
-    double robot_center_theta = std::atan2(robot_center(1), robot_center(0));
+    double Err = 1e5;
+    double norm = robot_center.norm();
+    
+    //匹配
     for(auto i : IDS)
     {
-        Eigen::Vector3d armorcenter = ans.block<3,1>(0,i) - photocenter;
-        double thetaArmor = std::atan2(armorcenter(1), armorcenter(0));
-        
-        if( std::remainder( robot_center_theta - thetaArmor, CV_PI*2.0) < 0.0 )
+        double dot = ans.block<3,1>(0,i).dot(armorcenter)/(norm*armorcenter.norm());
+
+        double yaw_abs = std::abs(std::remainder(ans(3,i) - std::atan2( ans(1,i), ans(0,i) ), CV_PI*2.0) ); 
+
+        double theta_err = std::acos(dot);
+
+        double yaw_err = std::abs( yaw_abs_view - yaw_abs);
+
+        double err = (theta_err + yaw_err)*norm;
+        if(err < Err)
         {
-            side[i] = 0;
+            Err = err;
+            CorrId = i;
         }
-        else
-        {
-            side[i] = 1;
-        }
+
     }
     
+    size_t side;
+    const Eigen::Vector3d& photocenter = armor.photocenter;
+    const Eigen::Vector3d robot_center_cam = robot_center - photocenter;
+    double robot_center_theta = std::atan2(robot_center_cam(1), robot_center_cam(0));
 
+    Eigen::Vector3d armorcenter_cam = ans.block<3,1>(0,CorrId) - photocenter;
 
-
-
-
+    double thetaArmor = std::atan2(armorcenter_cam(1), armorcenter_cam(0));
+        
+    if( std::remainder( robot_center_theta - thetaArmor, CV_PI*2.0) < 0.0 )
+    {
+        side = 0;
+    }
+    else
+    {
+        side = 1;
+    }
+    
+    return MatchAns{CorrId, side, Err};
 }
 std::pair< Robot::MatchAns, Robot::MatchAns> Robot::MatchErrorInEKF(const std::vector<ArmorPosi>& armors, double dt)
 {
-    Eigen::Matrix4d ans = this->Predict(dt);
+    std::pair< Robot::MatchAns, Robot::MatchAns> ans;
+    ans.first = this->MatchErrorInEKF(armors[0], dt);
+    ans.second = this->MatchErrorInEKF(armors[1], dt);
+    return ans;
 }
 
 

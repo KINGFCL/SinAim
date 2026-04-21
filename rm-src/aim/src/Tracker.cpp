@@ -120,7 +120,7 @@ void Tracker::handleSearching(std::vector<ArmorPosi>& armors_posi,
             for (size_t j = 1; j < this->search_data_buffers[i].size(); ++j)
             {
                 // i 是外部循环已经确定的目标类型索引，j 是帧序列号
-                current_robot->Update(this->search_data_buffers[i][j], gripper_to_world, this->search_time_buffers[i][j]);
+                current_robot->Update(this->search_data_buffers[i][j], this->search_time_buffers[i][j]);
             }
 
             // 进入追踪模式，只有可能因为丢失而进入丢失状态
@@ -165,7 +165,7 @@ void Tracker::handleTracking(std::vector<ArmorPosi>& armors_posi,
         // 更新机器人状态
         if (current_robot)
         {
-            current_robot->Update(target_armors, gripper_to_world, dt);
+            current_robot->Update(target_armors, dt);
         }
 
         // 检查是否有新目标持续出现在中心
@@ -261,7 +261,7 @@ void Tracker::handleTempLost(std::vector<ArmorPosi>& armors_posi,
         // 更新机器人状态
         if (current_robot)
         {
-            current_robot->Update(target_armors, gripper_to_world, dt);
+            current_robot->Update(target_armors, dt);
         }
     }
 }
@@ -284,9 +284,9 @@ int Tracker::MaxCloseCenterTarget(const std::vector<ArmorPosi>& armors_posi, con
     {
         // 构建装甲板位置向量
         Eigen::Matrix<double, 3, 1> armor_vec;
-        armor_vec << armors_posi[i].posi.x,
-                     armors_posi[i].posi.y,
-                     armors_posi[i].posi.z;
+        armor_vec << armors_posi[i].center(0),
+                     armors_posi[i].center(1),
+                     armors_posi[i].center(2);
 
         // 归一化装甲板方向向量
         Eigen::Matrix<double, 3, 1> armor_normalized = armor_vec.normalized();
@@ -305,15 +305,6 @@ int Tracker::MaxCloseCenterTarget(const std::vector<ArmorPosi>& armors_posi, con
     return best_idx;
 }
 
-bool Tracker::isTargetInCenter(const ArmorPosi& armor, double threshold)
-{
-    // 使用球坐标系的 phi 和 theta 判断是否在中心
-    // phi 是方位角，theta 是仰角
-    double phi = std::abs(armor.SCS.z);   // 方位角偏差
-    double theta = std::abs(armor.SCS.y); // 仰角偏差
-
-    return (phi < threshold && theta < threshold);
-}
 
 ArmorPosi::Type Tracker::findMostFrequentType(const std::vector<ArmorPosi>& armors)
 {

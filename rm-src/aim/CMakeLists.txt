@@ -6,6 +6,7 @@ add_library(rm_aim STATIC
     src/Target.cpp
     src/TargetState.cpp
     src/Tracker.cpp
+    src/LKFKalman.cpp
 )
 
 target_include_directories(rm_aim PUBLIC

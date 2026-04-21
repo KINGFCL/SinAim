@@ -1,8 +1,8 @@
 #include "Solver.hpp"
 #include "Armor.hpp"
 #include "solveRectanglePose.hpp"
+#include "eigen3/Eigen/Dense"
 // #include <array>
-#include <Eigen/src/Core/Matrix.h>
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -27,8 +27,8 @@ extern RerunVisualizer viz;
 Solver::Solver( const SolverConfig& config ):
     cameraMatrix(config.camera_matrix),
     distCoeffs(config.distortion_coeffs),
-    R_Cam_to_gripper(config.R_Cam_to_gripper),
-    T_Cam_to_gripper(config.T_Cam_to_gripper),
+    R_Cam_to_gripper( Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> >(config.R_Cam_to_gripper.data()) ),
+    T_Cam_to_gripper(Eigen::Map<const Eigen::Matrix<double, 3, 1> >(config.T_Cam_to_gripper.data()) ),
     reproj_threshold(config.reproj_threshold)
 {}
 
