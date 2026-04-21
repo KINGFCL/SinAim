@@ -36,9 +36,7 @@ Eigen::Matrix<double, 6, 1> LKFKalman::operator()(const Eigen::Matrix<double, 6,
     Q(2,5) = Q(5,2) = b * this->Var_a_z;  
 
     //先验状态协方差矩阵
-
-    Eigen::Matrix<double, 6, 6> CovState_pred;
-    CovState_pred.noalias() = this->F * this->CovState * this->F.transpose() + Q;
+    this->CovState = this->F * this->CovState * this->F.transpose() + Q;
 
     // 计算卡尔曼增益矩阵
     Eigen::Matrix<double, 6, 3> K = this->CovState * this->H.transpose() * (this->H * this->CovState * this->H.transpose() + this->CovView).inverse();

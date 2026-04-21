@@ -53,7 +53,9 @@ struct ArmorPosi{
     Eigen::Matrix<double, 3, 2> center;
     Eigen::Vector3d photocenter;
     std::array<double, 2> yaw;
+    std::array<double, 2> yaw_abs;
     std::array<double, 2> reproj;
+    Eigen::Vector3d SCS;    //球坐标系坐标，以相机中心为坐标原点
 
     bool IsInRange; // 是否在有效范围内的标志位
 
