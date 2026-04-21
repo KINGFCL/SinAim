@@ -106,14 +106,14 @@ void Robot::LKFToEKF(const std::vector<ArmorPosi>& armors)
 
     if(armors[0].yaw_abs[0]+armors[0].yaw_abs[1] <= armors[1].yaw_abs[0]+armors[1].yaw_abs[1])
     {
-        if( std::remainder(armors[1].theta - armors[0].theta, 2*CV_PI) < 0 )
+        if( std::remainder(armors[1].theta - armors[0].theta, 2*CV_PI) < 0.0 )
             this->InitEKF(armors[0].center.block<3,1>(0,0), armors[0].SCS.block<3,1>(0,0), armors[0].yaw[0]);
         else
             this->InitEKF(armors[0].center.block<3,1>(0,1), armors[0].SCS.block<3,1>(0,1), armors[0].yaw[1]);
     } 
     else
     {
-        if( std::remainder(armors[1].theta - armors[0].theta, 2*CV_PI) < 0 )
+        if( std::remainder(armors[1].theta - armors[0].theta, 2*CV_PI) < 0.0 )
             this->InitEKF(armors[1].center.block<3,1>(0,0), armors[1].SCS.block<3,1>(0,0), armors[1].yaw[0]);
         else
             this->InitEKF(armors[1].center.block<3,1>(0,1), armors[1].SCS.block<3,1>(0,1), armors[1].yaw[1]);
@@ -262,7 +262,46 @@ double Robot::MatchErrorInLKF(const Eigen::Vector3d& armorcenter, const Eigen::V
 
 Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
 {
-    Eigen::Matrix4d ans = this->Predict(dt);
+    Eigen::Vector3d robot_center;
+    Eigen::Matrix4d ans = this->Predict(dt, robot_center);
+    std::array<size_t, 3> IDS;
+    size_t ErrId;
+    double distance = -1;
+
+    for(size_t i = 0; i < 4; i++)
+    {
+        double norm = ans.block<3,1>(0,i).norm();
+
+        if(norm > distance)
+        {
+            distance = norm;
+            ErrId = i;
+        }
+    }
+    IDS[0] = (ErrId+1)%4;
+    IDS[1] = (ErrId+2)%4;
+    IDS[2] = (ErrId+3)%4;
+
+    std::array<size_t, 3> side;
+    const Eigen::Vector3d& photocenter = armor.photocenter;
+    double robot_center_theta = std::atan2(robot_center(1), robot_center(0));
+    for(auto i : IDS)
+    {
+        Eigen::Vector3d armorcenter = ans.block<3,1>(0,i) - photocenter;
+        double thetaArmor = std::atan2(armorcenter(1), armorcenter(0));
+        
+        if( std::remainder( robot_center_theta - thetaArmor, CV_PI*2.0) < 0.0 )
+        {
+            side[i] = 0;
+        }
+        else
+        {
+            side[i] = 1;
+        }
+    }
+    
+
+
 
 
 
@@ -480,6 +519,36 @@ Eigen::Matrix<double, 4, 4> Robot::Predict(double dt)
     ans.block<3,1>(0,1) += move;
     ans.block<3,1>(0,2) += move;
     ans.block<3,1>(0,3) += move;
+
+    return ans;
+}
+
+Eigen::Matrix<double, 4, 4> Robot::Predict(double dt, Eigen::Vector3d& Center)
+{
+    double& w = this->Speed(3,0);
+
+    Eigen::Matrix<double, 4, 4> ans;
+
+    ans(3,0) = std::remainder(this->Armors(0,0) + w*dt, 2.0 * CV_PI);
+    ans(3,1) = std::remainder(this->Armors(0,1) + w*dt, 2.0 * CV_PI);
+    ans(3,2) = std::remainder(this->Armors(0,2) + w*dt, 2.0 * CV_PI);
+    ans(3,3) = std::remainder(this->Armors(0,3) + w*dt, 2.0 * CV_PI);
+
+    //旋转后的位置
+    ans.block<2,1>(0,0) = Eigen::Matrix<double,2,1>{this->center(0) + this->Armors(1,0)*std::cos(ans(3,0)), this->center(1) + this->Armors(1,0)*std::sin(ans(3,0))};
+    ans.block<2,1>(0,1) = Eigen::Matrix<double,2,1>{this->center(0) + this->Armors(1,1)*std::cos(ans(3,1)), this->center(1) + this->Armors(1,1)*std::sin(ans(3,1))};
+    ans.block<2,1>(0,2) = Eigen::Matrix<double,2,1>{this->center(0) + this->Armors(1,2)*std::cos(ans(3,2)), this->center(1) + this->Armors(1,2)*std::sin(ans(3,2))};
+    ans.block<2,1>(0,3) = Eigen::Matrix<double,2,1>{this->center(0) + this->Armors(1,3)*std::cos(ans(3,3)), this->center(1) + this->Armors(1,3)*std::sin(ans(3,3))};
+    
+    //加上平移
+    ans.block<1,4>(2,0) = this->Armors.block<1,4>(2,0);
+    Eigen::Matrix<double, 3, 1> move = this->Speed.block<3,1>(0,0)*dt;
+    ans.block<3,1>(0,0) += move;
+    ans.block<3,1>(0,1) += move;
+    ans.block<3,1>(0,2) += move;
+    ans.block<3,1>(0,3) += move;
+
+    Center = this->center + move;
 
     return ans;
 }

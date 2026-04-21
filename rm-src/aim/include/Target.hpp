@@ -102,6 +102,8 @@ public:
 
     Eigen::Matrix<double,4,4> Predict(double dt) ;//mm/s, rad/s
 
+    Eigen::Matrix<double,4,4> Predict(double dt, Eigen::Vector3d& center);
+
     /*!
     @return 旋转点Point绕轴axis旋转angle角度后的新坐标
     */
