@@ -7,11 +7,13 @@
 
 #include <Eigen/src/Core/Matrix.h>
 #include <chrono>
+#include <cstddef>
 #include <deque>
 #include <eigen3/Eigen/Core>
 #include <array>
 #include <opencv2/core/types.hpp>
 #include <queue>
+#include <utility>
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include <cmath>
@@ -84,6 +86,12 @@ public:
     void Update(const std::vector<ArmorPosi>& armors,double dt);
     void Update(double dt);
 
+    void UpdateLKF(const Eigen::Vector3d& armorcenter, const Eigen::Vector3d& SCS, double dt);
+    void UpdateLKF(double dt);
+
+    void UpdateEKF(const std::vector<ArmorPosi>& armors,double dt);
+    void UpdateEKF(double dt);
+
     void OneArmor(const ArmorPosi& armor, double dt);
     void TwoArmor(const std::vector<ArmorPosi>& armors, double dt);
 
@@ -134,12 +142,23 @@ public:
     LKFKalman lkfkalman;
 
 private:
-    double MatchError(const ArmorPosi& armor);
-    void LKFToEKF(const Eigen::Vector3d& center, const Eigen::Vector3d& SCS, double yaw);
+    struct MatchAns
+    {
+        size_t id;
+        size_t side;
+        double err;
+    };
+
+    double MatchErrorInLKF(const Eigen::Vector3d& armorcenter, const Eigen::Vector3d& ViewCenter);
+
+    MatchAns MatchErrorInEKF(const ArmorPosi& armor, double dt);
+    std::pair< MatchAns, MatchAns> MatchErrorInEKF(const std::vector<ArmorPosi>& armors,double dt);
+
+    void LKFToEKF(const std::vector<ArmorPosi>& armors);
 
     KalmanMode Mode = KalmanMode::LKF;
 
-    const double matcherrthresh = 0.5; 
+    const double matcherrthresh = 10.0;//单位：cm 
 
     //记录是否初始化
     bool is_init = false;

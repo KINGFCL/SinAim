@@ -1,5 +1,6 @@
 #ifndef EKFKALMAN_HPP_INCLUDE
 #define EKFKALMAN_HPP_INCLUDE
+#include <cstddef>
 #include <eigen3/Eigen/Core>
 #include <opencv2/core/quaternion.hpp>
 #include <eigen3/Eigen/Geometry>
@@ -59,10 +60,9 @@ public:
     Eigen::Matrix<double, 14, 1> operator()(
         const Eigen::Matrix<double, 14, 1>& State,
         const Eigen::Matrix<double, 4, 1>& View, 
-        const cv::Point3d& SCS,
+        const Eigen::Vector3d& SCS,
         double delta_angle,
-        int armor_id,
-        const cv::Quatd& quat,                            
+        size_t armor_id,                           
         double dt);
 
     /*
@@ -73,12 +73,11 @@ public:
     Eigen::Matrix<double, 14, 1> operator()(
         const Eigen::Matrix<double, 14, 1>& State,
         const Eigen::Matrix<double, 10, 1>& Views,
-        const cv::Point3d& SCS1,
-        const cv::Point3d& SCS2,
+        const Eigen::Vector3d& SCS1,
+        const Eigen::Vector3d& SCS2,
         double delta_angle1,
         double delta_angle2,
-        int armor_id,
-        const cv::Quatd& quat,                         
+        size_t armor_id,                        
         double dt);
 
     Eigen::Matrix<double, 14, 1> operator()(
@@ -90,7 +89,7 @@ public:
     double GetAngleDiffRobustScale(double angle_diff_error)const;
     
         
-    Eigen::Matrix<double, 3, 3> getJacobianSphericalToCartesian(const cv::Point3d& SCS);
+    Eigen::Matrix<double, 3, 3> getJacobianSphericalToCartesian(const Eigen::Vector3d& SCS);
 
     Eigen::Matrix<double, 4, 14> getStateToViewJacobian(const Eigen::Matrix<double, 14, 1>& X_predict,int armor_id);
     
