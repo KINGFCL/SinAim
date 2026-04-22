@@ -38,7 +38,7 @@ public:
     std::vector<ArmorPosi> operator()(std::vector<std::array<ArmorPosi, 2>>& armors,
                                       const std::vector<cv::Mat>& armors_pattern);
 
-    std::vector<Ans> Classify(const std::vector<cv::Mat>& armors_pattern);
+    std::vector<Ans> Classify(const std::vector<std::array<ArmorPosi, 2>>& armors, const std::vector<cv::Mat>& armors_pattern);
 
 private:
     float confidence_threshold;

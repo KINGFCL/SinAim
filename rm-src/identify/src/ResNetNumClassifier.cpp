@@ -1,4 +1,5 @@
 #include "ResNetNumClassifier.hpp"
+#include "Armor.hpp"
 #include <cmath>
 #include <cstring>
 #include <iostream>
@@ -33,7 +34,7 @@ ResNetNumClassifier::ResNetNumClassifier(std::string model_path, float confidenc
     std::cout << "[ResNetNumClassifier] GPU loaded\n";
 }
 
-std::vector<ResNetNumClassifier::Ans> ResNetNumClassifier::Classify(const std::vector<cv::Mat>& armors_pattern)
+std::vector<ResNetNumClassifier::Ans> ResNetNumClassifier::Classify(const std::vector<std::array<ArmorPosi, 2>>& armors,const std::vector<cv::Mat>& armors_pattern)
 {
     size_t N = armors_pattern.size();
     std::vector<Ans> ans(N);
@@ -99,7 +100,7 @@ std::vector<ArmorPosi> ResNetNumClassifier::operator()(
     std::vector<ArmorPosi> result;
     if (armors.empty() || armors.size() != armors_pattern.size()) return result;
 
-    std::vector<Ans> ans = Classify(armors_pattern);
+    std::vector<Ans> ans = Classify(armors,armors_pattern);
     result.reserve(ans.size());
 
     for (size_t i = 0; i < ans.size(); i++) {
