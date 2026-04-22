@@ -1,20 +1,7 @@
-#include "include/Armor.hpp"
-#include "include/HikCamera.hpp"
-#include "include/RTSerial.hpp"
-#include "include/MlpNumClassifier.hpp"
-#include "include/fastqueue.hpp"
-#include "include/Detector.hpp"
-#include "include/Solver.hpp"
-#include "include/Shooter.hpp"
-#include "include/Target.hpp"
-#include "include/Tracker.hpp"
-#include "include/Data.hpp"
 #include "Function.hpp"
-#include "include/RerunVisualizer.hpp"
-#include "include/TargetState.hpp"
+#include "aim/planner/planner.hpp"
 
-#include "planner/planner.hpp"
-
+#include <Eigen/src/Core/Matrix.h>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -22,11 +9,14 @@
 #include <iostream>
 #include <memory>
 #include <opencv2/highgui.hpp>
+#include <ratio>
 #include <thread>
 #include <vector>
 
-#define MainDebug
+// #define MainDebug
 #ifdef MainDebug
+#include "communicate/RerunVisualizer.hpp"
+RerunVisualizer viz("RoboMaster_AutoAim");
 double R_sum = 0.0;
 int R_count = 0;
 #endif
@@ -51,14 +41,29 @@ io::HikCamera Hik(1,16);
 io::RTSerial<Packet> ser(50);
 
 // 传统视觉检测器
-Detector detect(Light::Color::Blue, 0.4);
+CVDetector detect(Light::Color::Blue);
 
-// YOLO检测器
-MlpNumClassifier mlpnet("../model/mlp.onnx");
+// 数字分类器
+ResNetNumClassifier resnet("../../model/tiny_resnet.onnx");
 
-RerunVisualizer viz("RoboMaster_AutoAim");
 
-Solver Sov("../../config/Solver_config.yaml");
+
+Solver::SolverConfig solver_config{
+    {/* camera_matrix 3x3, 按行填写 */
+     1000.0, 0.0, 640.0,
+     0.0, 1000.0, 360.0,
+     0.0, 0.0, 1.0},
+    {/* distortion_coeffs k1,k2,p1,p2,k3 */
+     0.0, 0.0, 0.0, 0.0, 0.0},
+    {/* R_Cam_to_gripper 3x3, 按行填写 */
+     1.0, 0.0, 0.0,
+     0.0, 1.0, 0.0,
+     0.0, 0.0, 1.0},
+    {/* T_Cam_to_gripper x,y,z (cm) */
+     0.0, 0.0, 0.0},
+    1.0 /* reproj_threshold */
+};
+Solver Sov(solver_config);
 
 // 追踪器
 Tracker track;
@@ -68,7 +73,7 @@ Tracker track;
 //  -0.01163176761242803));
 Shooter shoot(0.005,0.050);
 
-MPC::Planner planner("../../config/MPC_config.yaml");
+MPC::Planner planner("../../config/planner.yaml");
 Test test;
 
 int main() {
@@ -109,7 +114,7 @@ int main() {
         {
             Frames.pop(frame);
         }
-        if(frame.image.empty()) continue;
+        if(frame.image.empty()) {std::this_thread::sleep_for(std::chrono::microseconds(100));continue;}
 
         // cv::imshow("frame", frame.image);
         // cv::waitKey(1);
@@ -130,17 +135,16 @@ int main() {
         // 1. 传统视觉检测
         std::vector<cv::Mat> armors_pattern;
         
-        auto opencv_armors = detect(frame.image, armors_pattern,true);
+        auto opencv_armors = detect(frame.image, armors_pattern);
 
         // std::cout<<"opencv_armors num:" << opencv_armors.size() << "\n";
-        std::vector< std::array<ArmorPosi,2> > armors_2 =  Sov(opencv_armors);
+        Eigen::Quaterniond gripper_to_world{frame.quat.w, frame.quat.x, frame.quat.y, frame.quat.z};
+        std::vector< std::array<ArmorPosi,2> > armors_2 = Sov(opencv_armors, gripper_to_world);
 
-        // 4. 解算装甲板位置 
-        Sov.Filter(armors_2, armors_pattern, frame.quat, Gun);
-  
-        // 2.
-        std::vector<ArmorPosi> armors = mlpnet(armors_2, armors_pattern);
-                            
+
+        // 2. 数字分类
+        std::vector<ArmorPosi> armors = resnet(armors_2, armors_pattern);
+
         //结果
         // for(auto& armor : armors)
         // {
@@ -158,9 +162,8 @@ int main() {
 
         // std::cout<<"time: " << (std::chrono::steady_clock::now()-t1_).count() <<"\n";
         // std::cout<<"FilterAndConverToWorld armors_posi num:" << armors_posi.size() << "\n";
-        
+
         // 7. 使用Tracker进行追踪
-        Sov.ConverToWorld(armors, frame.quat); 
         double dt = rm::SolveDt(next_point, frame.time, 0.005);
         track(armors, frame.quat, Gun, dt);
         next_point = frame.time;
@@ -175,7 +178,20 @@ int main() {
             continue;
         }
 
-        robotStates.push(std::make_unique<RobotState>(*current_robot,frame.time));
+        if(current_robot->GetMode() == Robot::KalmanMode::EKF)
+        {
+            robotStates.push(std::make_unique<RobotState>(*current_robot,frame.time));
+        }
+        else {
+            robotStates.push(nullptr);
+            double dt = shoot.FlyTime(current_robot->center);
+            Eigen::Vector3d aim = current_robot->center + current_robot->Speed.block<3,1>(0,0) * dt;
+             
+            std::array<double, 2> Pitch_and_Yaw = shoot(aim);
+            rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], true);
+        }
+
+        
 
         // 性能统计
         test.count(std::chrono::steady_clock::now() - start);

@@ -6,6 +6,7 @@
 #include <opencv2/core/quaternion.hpp>
 #include <ratio>
 #include <sys/types.h>
+#include <vector>
 
 void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::RTSerial<Packet> &ser, FastQueue<FrameData> &Frames)
 {
@@ -57,11 +58,10 @@ void rm::MPCPlanFunction(MPC::Planner& planner, FastQueue<std::unique_ptr<RobotS
             RobotStates.pop(); // 丢弃过时的状态，保持最新的状态进行MPC规划
         }
 
-        const std::unique_ptr<RobotState>& target = RobotStates.front();
+        const std::unique_ptr<RobotState>* target_ptr = RobotStates.peek();
+        if(target_ptr == nullptr || *target_ptr == nullptr) {RobotStates.pop(); continue;} //丢弃空指针
 
-        if(target == nullptr) {RobotStates.pop(); continue;} //丢弃空指针
-
-        MPC::Plan plan = planner.plan(target, 22.0);
+        MPC::Plan plan = planner.plan(*target_ptr, 22.0);
 
         rm::SendMessageToRobot(ser, plan.pitch, plan.yaw, plan.fire);
         
@@ -201,7 +201,7 @@ double rm::SolveDt(const std::chrono::steady_clock::time_point& start, const std
 }
 
 
-std::vector<YoloArmor> rm::MatchYoloAndOpenCV(const std::deque<Armor>& armors, const std::vector<YoloArmor>& yolo_armors)
+std::vector<YoloArmor> rm::MatchYoloAndOpenCV(const std::vector<CVArmor>& armors, const std::vector<YoloArmor>& yolo_armors)
 {
     std::vector<YoloArmor> matched_results;
     if (armors.empty() || yolo_armors.empty()) {
@@ -210,7 +210,7 @@ std::vector<YoloArmor> rm::MatchYoloAndOpenCV(const std::deque<Armor>& armors, c
     matched_results.reserve(std::min(armors.size(), yolo_armors.size()));
 
     // 计算装甲板中心点
-    auto getArmorCenter = [](const Armor& armor) -> cv::Point2f {
+    auto getArmorCenter = [](const CVArmor& armor) -> cv::Point2f {
         cv::Point2f center(0, 0);
         for (const auto& corner : armor.Lightcorners) {
             center += corner;

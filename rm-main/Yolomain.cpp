@@ -1,16 +1,5 @@
-#include "include/Armor.hpp"
-#include "include/HikCamera.hpp"
-#include "include/RTSerial.hpp"
-#include "include/fastqueue.hpp"
-#include "include/Yolo.hpp"
-#include "include/Solver.hpp"
-#include "include/Shooter.hpp"
-#include "include/Target.hpp"
-// #include "../../rm-main/include/Tracker.hpp"
-#include "include/ShootTable.hpp"
-#include "include/Data.hpp"
 #include "Function.hpp"
-#include "include/RerunVisualizer.hpp"
+#include "communicate/RerunVisualizer.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -45,17 +34,30 @@ io::HikCamera Hik(1.5,15);
 io::RTSerial<Packet> ser(20);
 
 
-YOLO11Detector yolo11detect("../model/yolo11.xml",YOLO11Detector::Camp::Blue);
+YOLODetector yolo11detect("../model/yolo11.xml", YOLODetector::Camp::Blue);
 
 RerunVisualizer viz("RoboMaster_AutoAim");
 
-Solver Sov("../../config/Solver_config.yaml");
+Solver::SolverConfig solver_config{
+    {/* camera_matrix 3x3, 按行填写 */
+     1000.0, 0.0, 640.0,
+     0.0, 1000.0, 360.0,
+     0.0, 0.0, 1.0},
+    {/* distortion_coeffs k1,k2,p1,p2,k3 */
+     0.0, 0.0, 0.0, 0.0, 0.0},
+    {/* R_Cam_to_gripper 3x3, 按行填写 */
+     1.0, 0.0, 0.0,
+     0.0, 1.0, 0.0,
+     0.0, 0.0, 1.0},
+    {/* T_Cam_to_gripper x,y,z (cm) */
+     0.0, 0.0, 0.0},
+    1.0 /* reproj_threshold */
+};
+Solver Sov(solver_config);
 Robot robot;
 // Tracker track;
 
-
-ShootTable::TableConfig tableconfig(10,0,2,-1,0.01,"../../config/infantry_10_table.bin");
-Shooter shoot(cv::Point3d(-0.9972026403208731,0.001749666619733665, -0.07472504803477144),tableconfig);
+Shooter shoot(Eigen::Matrix<double,3,1>(-0.9972026403208731, 0.001749666619733665, -0.07472504803477144));
 
 Test test;
 
@@ -98,24 +100,40 @@ int main() {
             Frames.pop(frame);
         }
         //计算枪管方向
-        const auto& Gun = shoot.GunDirection(frame.quat);
+        Eigen::Quaterniond gripper_to_world{frame.quat.w, frame.quat.x, frame.quat.y, frame.quat.z};
+        const Eigen::Matrix<double, 3, 1> Gun = shoot.GunDirection(gripper_to_world);
 
 
-        auto armors = yolo11detect(frame.image);
-        // yolo11detect.draw(frame.image,armors);
+        auto yolo_armors = yolo11detect(frame.image);
+        // yolo11detect.draw(frame.image, yolo_armors);
         // cv::imshow("frame",frame.image);
         // cv::waitKey(1);
 
         // std::cout<<"------------------------------------------------\n";
 
-        // std::cout<<"detect num: "<<armors.size()<<"\n";
+        // std::cout<<"detect num: "<<yolo_armors.size()<<"\n";
+
+        // 将 YoloArmor keypoints 转为 CVArmor 以复用 Solver
+        std::vector<CVArmor> cv_armors;
+        for (const auto& ya : yolo_armors) {
+            if (ya.keypoints.size() < 4) continue;
+            Light l_left(cv::RotatedRect(ya.keypoints[0], ya.keypoints[3], ya.keypoints[0]));
+            Light l_right(cv::RotatedRect(ya.keypoints[1], ya.keypoints[2], ya.keypoints[1]));
+            CVArmor ca(l_left, l_right);
+            ca.Lightcorners = ya.keypoints;
+            cv_armors.push_back(ca);
+        }
 
         //解算装甲板位置
-        auto armors_posi = Sov(armors);
+        auto armors_2 = Sov(cv_armors, gripper_to_world);
 
-        // std::cout<<"after filter num: "<<armors_posis.size()<<"\n";
+        // std::cout<<"after filter num: "<<armors_2.size()<<"\n";
 
-        // std::cout<<"after classify num: "<<armors_posi.size()<<"\n";
+        // 取每对中重投影误差更小的一侧作为 armors_posi
+        std::vector<ArmorPosi> armors_posi;
+        for (const auto& pair : armors_2) {
+            armors_posi.push_back(pair[0].reproj[0] < pair[1].reproj[0] ? pair[0] : pair[1]);
+        }
 
         // for(const auto& armor_posi : armors_posi)
         // {
@@ -123,14 +141,11 @@ int main() {
         // }
 
         // cv::imshow("frame", frame.image);
-        
+
         // cv::waitKey(1);
 
-        
-
-        Sov.ConverToWorld(armors_posi,frame.quat);
-        if(armors_posi.empty()) {robot.Update(rm::SolveDt(next_point, frame.time,0.005));}
-        else(robot.Update(armors_posi,rm::SolveDt(next_point, frame.time,0.005)));
+        if(armors_posi.empty()) {robot.Update(rm::SolveDt(next_point, frame.time, 0.005));}
+        else { robot.Update(armors_posi, rm::SolveDt(next_point, frame.time, 0.005)); }
         next_point = frame.time;
 
         // #ifdef MainDebug
@@ -139,8 +154,8 @@ int main() {
         // #endif
 
 
-        double dt = shoot.FlyTime(cv::Point3d(robot.center.x()/100.0, robot.center.y()/100.0, robot.center.z()/100.0));
-        auto aims = robot.Predic(dt);
+        double dt = shoot.FlyTime(robot.center);
+        auto aims = robot.Predict(dt);
 
         #ifdef MainDebug
         if(test.num%4 == 0 && test.num != 0)
@@ -164,10 +179,10 @@ int main() {
         //打弹
         
         // std::cout<< "aim: " << aim << "\n";
-        
-        auto predict_posi = cv::Point3d(aim(0,0)/100.0, aim(1,0)/100.0, aim(2,0)/100.0);//单位换算到m
-        // auto predict_posi =  armors_posi[0].posi/100.0;
-        // std::cout<< "Predict Position: " << predict_posi << "\n";
+
+        // Shooter::operator() 接受 Eigen::Matrix<double,3,1>，单位 cm
+        Eigen::Matrix<double, 3, 1> predict_posi = aim.block<3,1>(0,0);
+        // std::cout<< "Predict Position: " << predict_posi.transpose() << "\n";
 
         std::array<double, 2> Pitch_and_Yaw = shoot(predict_posi);
         // if(0.1 < std::abs(Pitch_and_Yaw[1])  || std::abs(Pitch_and_Yaw[1]) < 0.2 )

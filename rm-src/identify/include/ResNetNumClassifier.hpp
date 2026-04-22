@@ -1,10 +1,8 @@
 #ifndef ARMOR_DETECTOR__RESNET_NUMBER_CLASSIFIER_HPP_
 #define ARMOR_DETECTOR__RESNET_NUMBER_CLASSIFIER_HPP_
 
-// OpenCV
 #include "Armor.hpp"
 #include <array>
-
 #include <opencv2/opencv.hpp>
 #include <openvino/openvino.hpp>
 #include <string>
@@ -36,21 +34,18 @@ public:
     };
 
     explicit ResNetNumClassifier(std::string model_path, float confidence_threshold = 0.5f);
-    std::vector<ArmorPosi> operator()(std::vector<std::array<ArmorPosi, 2>>& armors, const std::vector<cv::Mat>& armors_pattern,const std::vector< std::array<bool, 2> >& PosePassHax);
+
+    std::vector<ArmorPosi> operator()(std::vector<std::array<ArmorPosi, 2>>& armors,
+                                      const std::vector<cv::Mat>& armors_pattern);
+
     std::vector<Ans> Classify(const std::vector<cv::Mat>& armors_pattern);
 
 private:
-    bool has_cpu = false;
-    bool has_gpu = false;
-
     float confidence_threshold;
-
     ov::Core core;
-    ov::CompiledModel compiled_model_GPU, compiled_model_CPU;
-    std::vector<ov::InferRequest> infer_request_GPU, infer_request_CPU;
+    ov::CompiledModel compiled_model;
+    ov::InferRequest infer_request;
+    static constexpr size_t MAX_BATCH = 4;
 };
-
-
-
 
 #endif

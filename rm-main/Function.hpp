@@ -6,7 +6,6 @@
 #include "Identify"
 #include "Communicate"
 
-
 #include <cmath>
 #include <deque>
 #include <eigen3/Eigen/Core>
@@ -24,11 +23,11 @@ namespace rm
     Eigen::Matrix<double, 4, 1> ChooseBestAimArmor(const Eigen::Matrix<double, 4, 4>& aims,
                                                    const Eigen::Matrix<double,4, 1>& Speed,
                                                    const Eigen::Matrix<double, 3, 1>& Gun);
-    std::deque<Armor> FilterCenterArmor(const std::deque<std::array<ArmorPosi,2>>& armors_posis, const cv::Point3d& Gun, int num = 1);
+    std::deque<CVArmor> FilterCenterArmor(const std::deque<std::array<ArmorPosi,2>>& armors_posis, const cv::Point3d& Gun, int num = 1);
     double SolveDt(const std::chrono::steady_clock::time_point& start, const std::chrono::steady_clock::time_point& end, double pic);
-    
-    std::vector<YoloArmor> MatchYoloAndOpenCV(const std::deque<Armor>& armors,const std::vector<YoloArmor>& yolo_armors);
-    bool CheckFireCondition(const cv::Quatd& gripper_to_world, 
+
+    std::vector<YoloArmor> MatchYoloAndOpenCV(const std::vector<CVArmor>& armors,const std::vector<YoloArmor>& yolo_armors);
+    bool CheckFireCondition(const cv::Quatd& gripper_to_world,
                             const std::array<double, 2>& Pitch_Yaw,
                             const Eigen::Matrix<double, 4,1>& aim,
                             const Eigen::Matrix<double, 3, 1>& Gun,

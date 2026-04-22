@@ -13,8 +13,8 @@ public:
     explicit CVDetector(Light::Color color, cv::Size ROISize = cv::Size(32, 32));
 
     
-    std::deque<CVArmor> operator () (cv::Mat& frame, std::vector<cv::Mat>& armors_pattern);
-    std::deque<CVArmor> operator () (cv::Mat& frame, std::vector<cv::Mat>& armors_pattern, ROIType Type);
+    std::vector<CVArmor> operator () (cv::Mat& frame, std::vector<cv::Mat>& armors_pattern);
+    std::vector<CVArmor> operator () (cv::Mat& frame, std::vector<cv::Mat>& armors_pattern, ROIType Type);
 
     void ArmorShow(cv::Mat & rgb_img, const std::deque<CVArmor> & armors);
     void ArmorShow(cv::Mat & rgb_img, const std::vector<CVArmor> & armors);
@@ -33,8 +33,8 @@ public:
 public:
     cv::Mat preprocessImage(cv::Mat& rgb_img); //图像预处理
     std::deque<Light> FindLight(const cv::Mat & binary_img); //寻找灯条
-    std::deque<CVArmor> FindArmor(const std::deque<Light> & lights); //寻找装甲板
-    std::vector<cv::Mat> ResNetROIPattern(const std::deque<CVArmor>& armors);
-    std::vector<cv::Mat> MlpROIPattern(const std::deque<CVArmor> & armors);
+    std::vector<CVArmor> FindArmor(const std::deque<Light> & lights); //寻找装甲板
+    std::vector<cv::Mat> ResNetROIPattern(const std::vector<CVArmor>& armors);
+    std::vector<cv::Mat> MlpROIPattern(const std::vector<CVArmor> & armors);
 };
 #endif
