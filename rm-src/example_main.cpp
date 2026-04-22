@@ -1,20 +1,18 @@
 // 示例主程序
 #include <iostream>
 #include <opencv2/opencv.hpp>
-#include "HikCamera.hpp"
-#include "CVDetector.hpp"
-#include "ResNetNumClassifier.hpp"
-#include "YoloDetector.hpp"
-#include "Solver.hpp"
-#include "Tracker.hpp"
-#include "planner.hpp"
-#include "RTSerial.hpp"
-#include "Data.hpp"
 
-#include "Shooter.hpp"
-#include "FastQueue.hpp"
+#include "Aim"
+#include "Camera"
+#include "Identify"
+#include "Communicate"
 
-    static FastQueue<std::unique_ptr<RobotState>> robotStates(10);
+
+
+
+
+
+static FastQueue<std::unique_ptr<RobotState>> robotStates(10);
 
 int main() {
     // 初始化各模块

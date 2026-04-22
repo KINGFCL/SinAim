@@ -57,8 +57,8 @@ void Robot::InitEKF(const Eigen::Vector3d& center, const Eigen::Vector3d& SCS, d
 
     // 初始化底盘中心点 (基于 0 号板和三角函数逆推)
 
-    this->center(0) = center(0) + this->r * std::cos(yaw);
-    this->center(1) = center(1) + this->r * std::sin(yaw);
+    this->center(0) = center(0) - this->r * std::cos(yaw);
+    this->center(1) = center(1) - this->r * std::sin(yaw);
     this->center(2) = center(2);
 
     // 初始化速度为 0

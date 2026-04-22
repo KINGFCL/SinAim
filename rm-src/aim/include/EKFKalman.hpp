@@ -2,7 +2,6 @@
 #define EKFKALMAN_HPP_INCLUDE
 #include <cstddef>
 #include <eigen3/Eigen/Core>
-#include <opencv2/core/quaternion.hpp>
 #include <eigen3/Eigen/Geometry>
 
 

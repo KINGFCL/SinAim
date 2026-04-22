@@ -87,6 +87,10 @@ struct ArmorPosi{
                 this->SCS(0,1) = center_1.norm();
                 this->SCS(1,1) = this->SCS(1,0);
                 this->SCS(2,1) = this->SCS(2,0);
+
+                //旋转yaw方向
+                this->yaw[0] = std::remainder(this->yaw[0] + M_PI, 2 * M_PI);
+                this->yaw[1] = std::remainder(this->yaw[1] + M_PI, 2 * M_PI);
               }
 
     ArmorPosi():IsInRange(false){}
