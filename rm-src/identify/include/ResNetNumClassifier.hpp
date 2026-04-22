@@ -29,7 +29,7 @@ public:
     struct Ans {
         int id;
         float confidence;
-        Ans() : id(0), confidence(0.0f) {}
+        Ans() : id(8), confidence(0.0f) {}
         Ans(int id, float con) : id(id), confidence(con) {}
     };
 

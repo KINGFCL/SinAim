@@ -40,52 +40,59 @@ std::vector<ResNetNumClassifier::Ans> ResNetNumClassifier::Classify(const std::v
     std::vector<Ans> ans(N);
     if (N == 0) return ans;
 
-    constexpr size_t img_bytes = 32 * 32 * sizeof(uint8_t); // 单张图片字节数
+    // 先验过滤：两个解算结果都不在有效范围内，直接判为非装甲板，跳过推理
+    std::vector<size_t> need_infer;
+    need_infer.reserve(N);
+    for (size_t i = 0; i < N; ++i) {
+        if (!armors[i][0].IsInRange && !armors[i][1].IsInRange) {
+            ans[i] = Ans(8, 1.0f);
+        } else {
+            need_infer.push_back(i);
+        }
+    }
+
+    size_t M = need_infer.size();
+    if (M == 0) return ans;
+
+    constexpr size_t img_bytes = 32 * 32 * sizeof(uint8_t);
     uint8_t* input_ptr = infer_request.get_input_tensor().data<uint8_t>();
 
     size_t processed = 0;
-    while (processed < N) {
-        size_t batch = std::min(MAX_BATCH, N - processed);
+    while (processed < M) {
+        size_t batch = std::min(MAX_BATCH, M - processed);
 
-        // 填充输入 tensor，不足 MAX_BATCH 的槽位用黑图 padding
         for (size_t j = 0; j < MAX_BATCH; ++j) {
             uint8_t* dst = input_ptr + j * img_bytes;
             if (j < batch) {
-                const cv::Mat& img = armors_pattern[processed + j];
+                const cv::Mat& img = armors_pattern[need_infer[processed + j]];
                 if (img.empty() || img.cols != 32 || img.rows != 32 || img.channels() != 1) {
-                    // 图像格式不符，填零避免脏数据
                     std::memset(dst, 0, img_bytes);
                 } else if (!img.isContinuous()) {
-                    // ROI 截取的图像内存不连续，clone 后再拷贝
                     cv::Mat cont = img.clone();
                     std::memcpy(dst, cont.data, img_bytes);
                 } else {
                     std::memcpy(dst, img.data, img_bytes);
                 }
             } else {
-                std::memset(dst, 0, img_bytes); // padding 槽位
+                std::memset(dst, 0, img_bytes);
             }
         }
 
-        // 同步推理（GPU 上单次 batch 延迟极低，无需异步）
         infer_request.infer();
 
-        // 后处理：对每张图的 9 类 logits 做 softmax，取最大类
         const float* output = infer_request.get_output_tensor().data<float>();
         for (size_t i = 0; i < batch; ++i) {
             const float* logits = output + i * 9;
 
-            // 找最大 logit（用于数值稳定的 softmax）
             float max_val = logits[0];
             int max_id = 0;
             for (int c = 1; c < 9; ++c) {
                 if (logits[c] > max_val) { max_val = logits[c]; max_id = c; }
             }
 
-            // softmax 分母；最大类的 exp 为 1，置信度 = 1 / sum
             float sum = 0.0f;
             for (int c = 0; c < 9; ++c) sum += std::exp(logits[c] - max_val);
-            ans[processed + i] = Ans(max_id, 1.0f / sum);
+            ans[need_infer[processed + i]] = Ans(max_id, 1.0f / sum);
         }
         processed += batch;
     }
