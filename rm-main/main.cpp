@@ -1,19 +1,8 @@
-#include "include/HikCamera.hpp"
-#include "include/RTSerial.hpp"
-#include "include/Yolo.hpp"
-#include "include/fastqueue.hpp"
-#include "include/Detector.hpp"
-#include "include/Solver.hpp"
-#include "include/Shooter.hpp"
-#include "include/Target.hpp"
-#include "include/Tracker.hpp"
-#include "include/Data.hpp"
 #include "Function.hpp"
-#include "include/RerunVisualizer.hpp"
+
 
 #include <chrono>
 #include <cstdio>
-#include <eigen3/Eigen/src/Core/MatrixBase.h>
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <thread>

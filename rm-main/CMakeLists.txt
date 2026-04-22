@@ -43,54 +43,7 @@ find_package(OpenVINO REQUIRED)
 
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-add_executable(main 
-    main.cpp
-    src/HikCamera.cpp
-    src/logger.cpp
-    src/Detecor.cpp
-    # src/NumClassifier.cpp
-    src/Solver.cpp
-    src/Target.cpp
-    src/Tracker.cpp
-    src/EKFKalman.cpp
-    ./Function.cpp
-)
 
-add_executable(smallmain 
-    smallmain.cpp
-    src/HikCamera.cpp
-    src/logger.cpp
-    src/Detecor.cpp
-    src/SmallNumClassifier.cpp
-    src/Solver.cpp
-    src/Target.cpp
-    src/Tracker.cpp
-    src/EKFKalman.cpp
-    ./Function.cpp
-)
-
-add_executable(mpcmain 
-    mpcmain.cpp
-    src/HikCamera.cpp
-    src/logger.cpp
-    src/Detecor.cpp
-    src/SmallNumClassifier.cpp
-    src/Solver.cpp
-    src/Target.cpp
-    src/Tracker.cpp
-    src/EKFKalman.cpp
-    ./Function.cpp
-)
-
-# add_executable(Yolomain 
-#     Yolomain.cpp
-#     src/HikCamera.cpp
-#     src/logger.cpp
-#     src/Solver.cpp
-#     src/Target.cpp
-#     src/EKFKalman.cpp
-#     ./Function.cpp
-# )
 target_include_directories(main PUBLIC ${MVS_INCLUDE_DIRS})
 target_link_libraries(main planner_lib ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} openvino::runtime rerun_sdk)
 

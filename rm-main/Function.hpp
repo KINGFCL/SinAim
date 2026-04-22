@@ -1,13 +1,11 @@
 #ifndef INCLUDE_FUNCTION_HPP
 #define INCLUDE_FUNCTION_HPP
 
-#include "include/Armor.hpp"
-#include "include/Data.hpp"
-#include "include/HikCamera.hpp"
-#include "include/RTSerial.hpp"
-#include "include/fastqueue.hpp"
-#include "include/TargetState.hpp"
-#include "planner/planner.hpp"
+#include "Aim"
+#include "Camera"
+#include "Identify"
+#include "Communicate"
+
 
 #include <cmath>
 #include <deque>
