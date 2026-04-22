@@ -1,7 +1,7 @@
 #include "Function.hpp"
 #include "aim/planner/planner.hpp"
+#include "Config.hpp"
 
-#include <Eigen/src/Core/Matrix.h>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -48,21 +48,7 @@ ResNetNumClassifier resnet("../../model/tiny_resnet.onnx");
 
 
 
-Solver::SolverConfig solver_config{
-    {/* camera_matrix 3x3, 按行填写 */
-     1000.0, 0.0, 640.0,
-     0.0, 1000.0, 360.0,
-     0.0, 0.0, 1.0},
-    {/* distortion_coeffs k1,k2,p1,p2,k3 */
-     0.0, 0.0, 0.0, 0.0, 0.0},
-    {/* R_Cam_to_gripper 3x3, 按行填写 */
-     1.0, 0.0, 0.0,
-     0.0, 1.0, 0.0,
-     0.0, 0.0, 1.0},
-    {/* T_Cam_to_gripper x,y,z (cm) */
-     0.0, 0.0, 0.0},
-    1.0 /* reproj_threshold */
-};
+Solver::SolverConfig solver_config = LoadSolverConfig("../../config/solver.yaml");
 Solver Sov(solver_config);
 
 // 追踪器
@@ -190,7 +176,6 @@ int main() {
             std::array<double, 2> Pitch_and_Yaw = shoot(aim);
             rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], true);
         }
-
         
 
         // 性能统计
