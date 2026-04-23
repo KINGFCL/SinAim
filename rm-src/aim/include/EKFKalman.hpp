@@ -4,6 +4,14 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
 
+#define EKFKalmanDebug
+#ifdef EKFKalmanDebug
+#include <functional>
+using EKFDebugFn = void(*)(const Eigen::Matrix<double,14,1>&,
+                            const Eigen::Matrix<double,4,1>&, double);
+inline EKFDebugFn g_ekf_debug_cb = nullptr;
+#endif
+
 
 class EKFKalman
 {

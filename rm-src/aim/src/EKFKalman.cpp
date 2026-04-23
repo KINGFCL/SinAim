@@ -1,5 +1,5 @@
+#define EKFKalmanDebug
 #include "EKFKalman.hpp"
-#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -7,16 +7,12 @@
 #include <eigen3/Eigen/Geometry>
 #include <eigen3/Eigen/src/Geometry/Quaternion.h>
 #include <opencv2/core/types.hpp>
-#include <vector>
 #include <algorithm>
 #include "opencv2/core/cvdef.h"
 
 
-#define EKFKalmanDebug
-
 #ifdef EKFKalmanDebug
-#include "RerunVisualizer.hpp"
-extern RerunVisualizer viz;
+// g_ekf_debug_cb 在 EKFKalman.hpp 中声明，由上层注册
 #endif
 void EKFKalman::Init()
 {
@@ -35,7 +31,7 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     double dt)
 {
     #ifdef EKFKalmanDebug
-        viz.EKFKalmanUpdate(State, View, dt);
+        if (g_ekf_debug_cb) g_ekf_debug_cb(State, View, dt);
     #endif
     //计算观测噪声矩阵
     this->CovViewCamera(0,0) = ( log(std::abs(delta_angle) + 1) + 1 )*this->Var_r;
@@ -155,8 +151,8 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     double dt)
 {
     #ifdef EKFKalmanDebug
-    viz.EKFKalmanUpdate(State, Views.block<4, 1>(0, 0), dt);
-    viz.EKFKalmanUpdate(State, Views.block<4, 1>(4, 0), dt);
+        if (g_ekf_debug_cb) g_ekf_debug_cb(State, Views.block<4, 1>(0, 0), dt);
+        if (g_ekf_debug_cb) g_ekf_debug_cb(State, Views.block<4, 1>(4, 0), dt);
     #endif
     //计算观测噪声矩阵
     Eigen::Matrix3d JacobianS2C1 = this->getJacobianSphericalToCartesian(SCS1);

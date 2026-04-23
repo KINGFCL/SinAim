@@ -68,6 +68,13 @@ Shooter shoot(0.005, 0.050);
 Test test;
 
 int main() {
+    #ifdef EKFKalmanDebug
+    g_ekf_debug_cb = [](const Eigen::Matrix<double,14,1>& s,
+                        const Eigen::Matrix<double,4,1>& v, double dt) {
+        viz.EKFKalmanUpdate(s, v, dt);
+    };
+    #endif
+
     if (!demo.isOpened()) {
         std::cerr << "Failed to open demo/damo.avi\n";
         return 1;
