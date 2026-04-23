@@ -3,7 +3,10 @@
 #include <chrono>
 #include <cmath>
 #include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Geometry>
+#include <opencv2/calib3d.hpp>
 #include <opencv2/core/quaternion.hpp>
+#include <opencv2/imgproc.hpp>
 #include <ratio>
 #include <sys/types.h>
 #include <vector>
@@ -297,11 +300,11 @@ std::vector<YoloArmor> rm::MatchYoloAndOpenCV(const std::vector<CVArmor>& armors
     return matched_results;
 }
 
-bool rm::CheckFireCondition(const cv::Quatd& gripper_to_world, 
+bool rm::CheckFireCondition(const cv::Quatd& gripper_to_world,
                             const std::array<double, 2>& Pitch_Yaw,
                             const Eigen::Matrix<double, 4,1>& aim,
                             const Eigen::Matrix<double, 3, 1>& Gun,
-                            double pitch_thresh, double yaw_thresh, double dist_thresh) 
+                            double pitch_thresh, double yaw_thresh, double dist_thresh)
 {
     // 1. OpenCV 四元数转 Eigen 四元数 (w, x, y, z 顺序正确)
     Eigen::Quaterniond grip_to_world_eig(gripper_to_world.w, gripper_to_world.x, 
@@ -335,5 +338,107 @@ bool rm::CheckFireCondition(const cv::Quatd& gripper_to_world,
     return face_ok && diff_ok;
 }
 
+static const char* typeName_(ArmorPosi::Type t) {
+    switch (t) {
+        case ArmorPosi::Type::hero:    return "hero";
+        case ArmorPosi::Type::two:     return "2";
+        case ArmorPosi::Type::three:   return "3";
+        case ArmorPosi::Type::four:    return "4";
+        case ArmorPosi::Type::guard:   return "guard";
+        case ArmorPosi::Type::outpost: return "outpost";
+        case ArmorPosi::Type::base:    return "base";
+        default:                       return "?";
+    }
+}
 
+static const char* stateName_(Tracker::State s) {
+    switch (s) {
+        case Tracker::State::Searching: return "Searching";
+        case Tracker::State::Tracking:  return "Tracking";
+        case Tracker::State::TempLost:  return "TempLost";
+        case Tracker::State::Lost:      return "Lost";
+        default:                        return "?";
+    }
+}
 
+cv::Mat rm::DrawSolverArmors(const cv::Mat& image,
+                             const std::vector<std::array<ArmorPosi, 2>>& armors_2,
+                             const std::vector<ArmorPosi>& armors,
+                             const cv::Quatd& quat,
+                             const Solver::SolverConfig& solver_config,
+                             Tracker::State state,
+                             const Robot* current_robot)
+{
+    cv::Mat vis = image.clone();
+
+    cv::Mat camMat(3, 3, CV_64FC1, const_cast<double*>(solver_config.camera_matrix.data()));
+    cv::Mat distC(5, 1, CV_64FC1, const_cast<double*>(solver_config.distortion_coeffs.data()));
+
+    Eigen::Matrix3d R_c2g = Eigen::Map<const Eigen::Matrix<double,3,3,Eigen::RowMajor>>(solver_config.R_Cam_to_gripper.data());
+    Eigen::Vector3d T_c2g = Eigen::Map<const Eigen::Vector3d>(solver_config.T_Cam_to_gripper.data());
+    Eigen::Matrix3d R_g2w = Eigen::Quaterniond{quat.w, quat.x, quat.y, quat.z}.toRotationMatrix();
+    Eigen::Matrix3d R_cam2world = R_g2w * R_c2g;
+    Eigen::Vector3d photocenter = R_g2w * T_c2g;
+
+    auto projectPt = [&](const Eigen::Vector3d& pw) -> cv::Point {
+        Eigen::Vector3d pc = R_cam2world.transpose() * (pw - photocenter);
+        std::vector<cv::Point3f> obj{{(float)pc.x(), (float)pc.y(), (float)pc.z()}};
+        std::vector<cv::Point2f> img;
+        cv::projectPoints(obj, cv::Vec3d(0,0,0), cv::Vec3d(0,0,0), camMat, distC, img);
+        return {(int)img[0].x, (int)img[0].y};
+    };
+
+    auto drawRect = [&](const Eigen::Vector3d& center, double yaw, double w,
+                        const cv::Scalar& color, int thick) {
+        const double h_half = 5.5 / 2.0;
+        const double w_half = w / 2.0;
+        Eigen::Vector3d tang(-std::sin(yaw), std::cos(yaw), 0.0);
+        Eigen::Vector3d up(0, 0, 1);
+        std::array<Eigen::Vector3d, 4> corners = {
+            center + tang * w_half + up * h_half,
+            center - tang * w_half + up * h_half,
+            center - tang * w_half - up * h_half,
+            center + tang * w_half - up * h_half,
+        };
+        std::vector<cv::Point> pts;
+        for (const auto& c : corners) pts.push_back(projectPt(c));
+        cv::polylines(vis, pts, true, color, thick);
+    };
+
+    // 黄色细框：所有 solver 在范围内的解算结果
+    for (const auto& pair : armors_2) {
+        for (int s = 0; s < 2; s++) {
+            if (!pair[s].IsInRange) continue;
+            double w = (s == 0) ? 13.5 : 23.0;
+            drawRect(pair[s].center.col(0), pair[s].yaw[0], w, cv::Scalar(0, 255, 255), 1);
+        }
+    }
+
+    // 红色粗框：ResNet 识别结果 + 标签
+    for (const auto& armor : armors) {
+        double w = (armor.type == ArmorPosi::Type::hero || armor.type == ArmorPosi::Type::base) ? 23.0 : 13.5;
+        Eigen::Vector3d cen = armor.center.col(0);
+        drawRect(cen, armor.yaw[0], w, cv::Scalar(0, 0, 255), 2);
+
+        cv::Point lp = projectPt(cen);
+        char label[48];
+        std::snprintf(label, sizeof(label), "%s %.1fm %.2f",
+                      typeName_(armor.type), cen.norm() / 100.0, armor.confidence);
+        cv::putText(vis, label, {lp.x - 40, lp.y - 14},
+                    cv::FONT_HERSHEY_SIMPLEX, 0.55, cv::Scalar(0, 0, 255), 2);
+    }
+
+    // 左上角：追踪状态 + 模式
+    {
+        char buf[128];
+        if (current_robot)
+            std::snprintf(buf, sizeof(buf), "State:%s  Mode:%s",
+                          stateName_(state),
+                          current_robot->GetMode() == Robot::KalmanMode::EKF ? "EKF" : "LKF");
+        else
+            std::snprintf(buf, sizeof(buf), "State:%s", stateName_(state));
+        cv::putText(vis, buf, {10, 30}, cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2);
+    }
+
+    return vis;
+}

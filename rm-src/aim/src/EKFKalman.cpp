@@ -12,7 +12,7 @@
 #include "opencv2/core/cvdef.h"
 
 
-//#define EKFKalmanDebug
+#define EKFKalmanDebug
 
 #ifdef EKFKalmanDebug
 #include "RerunVisualizer.hpp"

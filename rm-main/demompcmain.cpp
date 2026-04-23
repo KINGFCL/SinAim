@@ -132,56 +132,9 @@ int main() {
         std::printf("\n"); std::fflush(stdout);
 
         // ── 可视化 ───────────────────────────────────────────────
-        cv::Mat vis = frame.image.clone();
-
-        // 绿色：CV 检测到的所有装甲板
-        for (const auto& armor : opencv_armors) {
-            std::vector<cv::Point> pts;
-            for (const auto& p : armor.Lightcorners)
-                pts.push_back({(int)p.x, (int)p.y});
-            cv::polylines(vis, pts, true, cv::Scalar(0, 255, 0), 2);
-        }
-
-        // 红色：ResNet 识别结果，找回对应的 CVArmor 画框+标签
-        for (const auto& armor : armors) {
-            // 通过 center 匹配回 armors_2 的索引
-            int idx = -1;
-            for (size_t i = 0; i < armors_2.size(); i++) {
-                if ((armor.center - armors_2[i][0].center).norm() < 1e-3 ||
-                    (armor.center - armors_2[i][1].center).norm() < 1e-3) {
-                    idx = (int)i;
-                    break;
-                }
-            }
-            if (idx < 0 || idx >= (int)opencv_armors.size()) continue;
-
-            // 红框覆盖绿框
-            std::vector<cv::Point> pts;
-            for (const auto& p : opencv_armors[idx].Lightcorners)
-                pts.push_back({(int)p.x, (int)p.y});
-            cv::polylines(vis, pts, true, cv::Scalar(0, 0, 255), 2);
-
-            // 标签
-            cv::Point2f cen(0, 0);
-            for (const auto& p : opencv_armors[idx].Lightcorners) cen += p;
-            cen /= 4.0f;
-            char label[32];
-            std::snprintf(label, sizeof(label), "%s %.2f", typeName(armor.type), armor.confidence);
-            cv::putText(vis, label, {(int)cen.x - 30, (int)cen.y - 12},
-                        cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 0, 255), 2);
-        }
-
-        // 左上角：追踪状态 + 模式
-        {
-            char buf[128];
-            if (current_robot)
-                std::snprintf(buf, sizeof(buf), "State:%s  Mode:%s",
-                              stateName(track.getState()), modeName(current_robot->GetMode()));
-            else
-                std::snprintf(buf, sizeof(buf), "State:%s", stateName(track.getState()));
-            cv::putText(vis, buf, {10, 30}, cv::FONT_HERSHEY_SIMPLEX, 0.7,
-                        cv::Scalar(0, 255, 255), 2);
-        }
+        cv::Mat vis = rm::DrawSolverArmors(frame.image, armors_2, armors,
+                                           frame.quat, solver_config,
+                                           track.getState(), current_robot);
 
         cv::imshow("demo", vis);
         if (cv::waitKey(1) == 27) break;

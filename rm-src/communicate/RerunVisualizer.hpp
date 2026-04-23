@@ -1,7 +1,7 @@
 #ifndef RERUN_VISUALIZER_HPP
 #define RERUN_VISUALIZER_HPP
 
-#include <rerun.hpp>
+#include "rerun.hpp"
 #include <eigen3/Eigen/Core>
 #include <rerun/archetypes/series_lines.hpp>
 #include <vector>
