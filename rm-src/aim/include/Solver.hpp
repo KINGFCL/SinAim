@@ -28,8 +28,8 @@ public:
     std::vector< std::array<ArmorPosi,2> > operator () (const std::vector<CVArmor>& armors, const Eigen::Quaterniond& gripper_to_world);
 
 private:
-    cv::Mat_<double> cameraMatrix;
-    cv::Mat_<double> distCoeffs;
+    cv::Mat cameraMatrix;
+    cv::Mat distCoeffs;
 
     Eigen::Matrix<double, 3, 3> R_Cam_to_gripper;
     Eigen::Matrix<double, 3, 1> T_Cam_to_gripper;

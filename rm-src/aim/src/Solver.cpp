@@ -9,6 +9,7 @@
 #include <deque>
 #include <iostream>
 #include <opencv2/core.hpp>
+#include <opencv2/core/hal/interface.h>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <opencv2/core/quaternion.hpp>
@@ -25,8 +26,8 @@ extern RerunVisualizer viz;
 
 
 Solver::Solver( const SolverConfig& config ):
-    cameraMatrix(config.camera_matrix),
-    distCoeffs(config.distortion_coeffs),
+    cameraMatrix(cv::Mat(3,3,CV_64FC1,const_cast<double*>(config.camera_matrix.data())).clone() ),
+    distCoeffs(cv::Mat(5,1,CV_64FC1,const_cast<double*>(config.distortion_coeffs.data())).clone()),
     R_Cam_to_gripper( Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> >(config.R_Cam_to_gripper.data()) ),
     T_Cam_to_gripper(Eigen::Map<const Eigen::Matrix<double, 3, 1> >(config.T_Cam_to_gripper.data()) ),
     reproj_threshold(config.reproj_threshold)
