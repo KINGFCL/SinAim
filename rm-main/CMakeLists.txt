@@ -95,9 +95,31 @@ target_include_directories(mpcmain PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${RM_SRC_DIR}
     ${MVS_INCLUDE_DIRS}
-)    
+)
 
 target_link_libraries(mpcmain PRIVATE
+    rm_aim
+    rm_identify
+    rm_communicate
+    rm_hikcamera
+    yaml-cpp
+    fmt::fmt
+    spdlog::spdlog
+    openvino::runtime
+    rerun_sdk
+    Eigen3::Eigen
+    ${OpenCV_LIBS}
+)
+
+add_executable(demompcmain demompcmain.cpp Function.cpp)
+
+target_include_directories(demompcmain PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${RM_SRC_DIR}
+    ${MVS_INCLUDE_DIRS}
+)
+
+target_link_libraries(demompcmain PRIVATE
     rm_aim
     rm_identify
     rm_communicate
