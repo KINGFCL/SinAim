@@ -109,14 +109,14 @@ void Robot::LKFToEKF(const std::vector<ArmorPosi>& armors)
 
     if(armors[0].yaw_abs[0]+armors[0].yaw_abs[1] <= armors[1].yaw_abs[0]+armors[1].yaw_abs[1])
     {
-        if( std::remainder(armors[1].theta - armors[0].theta, 2*CV_PI) < 0.0 )
+        if( std::remainder(armors[1].theta[0] - armors[0].theta[0], 2*CV_PI) < 0.0 )
             this->InitEKF(armors[0].center.block<3,1>(0,0), armors[0].SCS.block<3,1>(0,0), armors[0].yaw[0]);
         else
             this->InitEKF(armors[0].center.block<3,1>(0,1), armors[0].SCS.block<3,1>(0,1), armors[0].yaw[1]);
     } 
     else
     {
-        if( std::remainder(armors[1].theta - armors[0].theta, 2*CV_PI) < 0.0 )
+        if( std::remainder(armors[1].theta[0] - armors[0].theta[0], 2*CV_PI) < 0.0 )
             this->InitEKF(armors[1].center.block<3,1>(0,0), armors[1].SCS.block<3,1>(0,0), armors[1].yaw[0]);
         else
             this->InitEKF(armors[1].center.block<3,1>(0,1), armors[1].SCS.block<3,1>(0,1), armors[1].yaw[1]);

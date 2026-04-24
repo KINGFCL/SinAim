@@ -57,7 +57,7 @@ struct ArmorPosi{
     std::array<double, 2> yaw_abs;
     std::array<double, 2> reproj;
     Eigen::Matrix<double, 3, 2> SCS;    //球坐标系坐标，以相机中心为坐标原点
-    double theta;//装甲板中心点方向角
+    std::array<double, 2> theta;//装甲板中心点方向角
 
     bool IsInRange; // 是否在有效范围内的标志位
 
@@ -75,9 +75,11 @@ struct ArmorPosi{
                 Eigen::Vector3d center_0 = this->center.block<3, 1>(0,0) - this->photocenter;
                 Eigen::Vector3d center_1 = this->center.block<3, 1>(0,1) - this->photocenter;
 
-                this->theta = std::atan2(center(0, 1), center(0, 0));
-                this->yaw_abs[0] = std::abs(std::remainder(theta-this->yaw[0], 2 * M_PI));
-                this->yaw_abs[1] = std::abs(std::remainder(theta-this->yaw[1], 2 * M_PI));
+                this->theta[0] = std::atan2(center(1, 0), center(0, 0));
+                this->theta[1] = std::atan2(center(1, 1), center(0, 1));
+
+                this->yaw_abs[0] = std::abs(std::remainder(this->theta[0]-this->yaw[0], 2 * M_PI));
+                this->yaw_abs[1] = std::abs(std::remainder(this->theta[1]-this->yaw[1], 2 * M_PI));
 
                 this->SCS(0,0) = center_0.norm();
                 double distance0 = center_0.block<2,1>(0,0).norm();
@@ -85,8 +87,9 @@ struct ArmorPosi{
                 this->SCS(2,0) = std::atan2(center_0(1), center_0(0));
 
                 this->SCS(0,1) = center_1.norm();
-                this->SCS(1,1) = this->SCS(1,0);
-                this->SCS(2,1) = this->SCS(2,0);
+                double distance1 = center_1.block<2,1>(0,0).norm();
+                this->SCS(1,1) = std::asin(distance1 / this->SCS(0,1));
+                this->SCS(2,1) = std::atan2(center_1(1), center_1(0));
 
                 //旋转yaw方向
                 this->yaw[0] = std::remainder(this->yaw[0] + M_PI, 2 * M_PI);
