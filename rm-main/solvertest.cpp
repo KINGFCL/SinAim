@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <eigen3/Eigen/Core>
 #include <iostream>
+#include <opencv2/core/mat.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <thread>
@@ -94,6 +95,9 @@ int main() {
         // ── 检测 ────────────────────────────────────────────────
         std::vector<cv::Mat> armors_pattern;
         auto opencv_armors = detect(frame.image, armors_pattern);
+        cv::Mat detect_show = frame.image.clone();
+        detect.ArmorShow(detect_show, opencv_armors);
+        cv::imshow("dtecter",detect_show);
 
         Eigen::Quaterniond gripper_to_world{frame.quat.w, frame.quat.x, frame.quat.y, frame.quat.z};
         
