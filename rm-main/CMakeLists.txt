@@ -103,6 +103,21 @@ target_link_libraries(mpcmain PUBLIC planner_lib ${OpenCV_LIBS} fmt::fmt spdlog:
 #target_include_directories(Yolomain PUBLIC ${MVS_INCLUDE_DIRS})
 #target_link_libraries(Yolomain ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} openvino::runtime rerun_sdk)
 
+add_executable(demompc 
+    demompcmain.cpp
+    src/HikCamera.cpp
+    src/logger.cpp
+    src/Detecor.cpp
+    src/SmallNumClassifier.cpp
+    src/Solver.cpp
+    src/Target.cpp
+    src/Tracker.cpp
+    src/EKFKalman.cpp
+    ./Function.cpp
+)
+target_include_directories(demompc PUBLIC ${MVS_INCLUDE_DIRS})
+target_link_libraries(demompc planner_lib ${OpenCV_LIBS} fmt::fmt spdlog::spdlog ${MVS_LIBS} openvino::runtime rerun_sdk)
+
 
 
 
