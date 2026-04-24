@@ -46,7 +46,67 @@ goldenSectionMin(double left, double right, Func&& cost, int iters = 16)
             mr_cost = cost(mr);
         }
     }
-    return { 0.5 * (left + right), right - left };
+    return { 0.5 * (left + right), std::min(ml_cost, mr_cost)};
+}
+
+template<typename Func>
+inline std::pair<double,double>
+linearEnumMin(double left, double right, Func&& cost, size_t step_num)
+{
+    if (left > right) {
+        std::swap(left, right);
+    }
+
+    step_num = std::max<std::size_t>(1, step_num);
+
+    const double step = (right - left) / static_cast<double>(step_num);
+
+    double best_x = left;
+    double best_cost = std::numeric_limits<double>::infinity();
+
+    for (std::size_t i = 0; i <= step_num; ++i) {
+        double x = (i == step_num) ? right : left + step * static_cast<double>(i);
+        double y = cost(x);
+
+        if (y < best_cost) {
+            best_cost = y;
+            best_x = x;
+        }
+    }
+
+    return {best_x, best_cost};
+}
+
+
+template<typename Func>
+inline std::pair<double, double>
+linearEnumMax(double left, double right, Func&& cost, std::size_t step_num)
+{
+    if (left > right) {
+        std::swap(left, right);
+    }
+
+    step_num = std::max<std::size_t>(1, step_num);
+
+    const double step = (right - left) / static_cast<double>(step_num);
+
+    double best_x = left;
+    double best_cost = -std::numeric_limits<double>::infinity();
+
+    for (std::size_t i = 0; i <= step_num; ++i) {
+        const double x = (i == step_num)
+            ? right
+            : left + step * static_cast<double>(i);
+
+        const double y = cost(x);
+
+        if (y > best_cost) {
+            best_cost = y;
+            best_x = x;
+        }
+    }
+
+    return {best_x, best_cost};
 }
 
 } // namespace pose
