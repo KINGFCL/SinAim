@@ -111,15 +111,15 @@ target_link_libraries(mpcmain PRIVATE
     ${OpenCV_LIBS}
 )
 
-add_executable(demompcmain demompcmain.cpp Function.cpp)
+add_executable(solvermain solvertest.cpp Function.cpp)
 
-target_include_directories(demompcmain PRIVATE
+target_include_directories(solvermain PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${RM_SRC_DIR}
     ${MVS_INCLUDE_DIRS}
 )
 
-target_link_libraries(demompcmain PRIVATE
+target_link_libraries(solvermain PRIVATE
     rm_aim
     rm_identify
     rm_communicate
