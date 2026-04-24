@@ -30,18 +30,25 @@ public:
     const double Threshold_Angle = 0.8;      // 角度误差容忍阈值 (单位: rad)
     const double Threshold_Angle_diff = 0.2; // 角度差误差容忍阈值 (单位: rad)
     //观测噪声
-    const double Var_r = 4000.0, Var_yaw = 0.001, Var_dtheta = 0.0001; // 观测yaw值方差
+    const double Var_r = 4000.0, Var_yaw = 0.01, Var_dtheta = 0.0001; // 观测yaw值方差
     
     // 过程噪声参数
     const double Var_a_xy = 10000.0,  Var_a_z = 10.0, Var_alpha = 10;
     
+    // 从相机坐标系到手坐标系的旋转矩阵
+    const Eigen::Matrix<double, 3, 3> RCamera2Grip
+    {
+        {-0.009549480539577278, -0.01953893000739315, 0.9997634908495061},
+            {-0.9999090215267193, -0.009338627954961053, -0.009733380573965271},
+            {0.009526599125766769, -0.9997654826218425, -0.01944797333944928}
+    };
     
     // 初始化协方差
     const Eigen::Matrix<double, 14, 14> CovStateInit = (Eigen::Matrix<double, 14, 1>() << 
         100, 100, 100,       // xc, yc, zc 位置方差
         10000, 10000, 10000, // vxc, vyc, vzc 速度方差
         0.01, 1,           // theta, w 角度与角速度方差
-        10, 10, 10,           // r, l, h 几何结构初始方差
+        0, 10, 10,           // r, l, h 几何结构初始方差
         0.001, 0.001, 0.001  //d_theta_1,d_theta_2,d_theta_3
     ).finished().asDiagonal();
 

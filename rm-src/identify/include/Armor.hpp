@@ -7,7 +7,6 @@
 #include <cmath>
 #include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
-#include <iostream>
 #include <vector>
 struct Light{
     explicit Light(const cv::RotatedRect& rect)
@@ -76,13 +75,9 @@ struct ArmorPosi{
                 Eigen::Vector3d center_0 = this->center.block<3, 1>(0,0) - this->photocenter;
                 Eigen::Vector3d center_1 = this->center.block<3, 1>(0,1) - this->photocenter;
 
-                // 装甲板中心方向角（从世界原点看向装甲板的 XY 平面方位角）
-                Eigen::Vector3d avg_center = 0.5 * (this->center.col(0) + this->center.col(1));
-                this->theta = std::atan2(avg_center(1), avg_center(0));
-
-                // yaw_abs: |theta - raw_alpha|，越接近 π 说明装甲板越正对相机
-                this->yaw_abs[0] = std::abs(std::remainder(theta - this->yaw[0], 2 * M_PI));
-                this->yaw_abs[1] = std::abs(std::remainder(theta - this->yaw[1], 2 * M_PI));
+                this->theta = std::atan2(center(0, 1), center(0, 0));
+                this->yaw_abs[0] = std::abs(std::remainder(theta-this->yaw[0], 2 * M_PI));
+                this->yaw_abs[1] = std::abs(std::remainder(theta-this->yaw[1], 2 * M_PI));
 
                 this->SCS(0,0) = center_0.norm();
                 double distance0 = center_0.block<2,1>(0,0).norm();
@@ -96,9 +91,6 @@ struct ArmorPosi{
                 //旋转yaw方向
                 this->yaw[0] = std::remainder(this->yaw[0] + M_PI, 2 * M_PI);
                 this->yaw[1] = std::remainder(this->yaw[1] + M_PI, 2 * M_PI);
-
-            //    std::cout<<"yaw_abs0: "<<this->yaw_abs[0] << " yaw_abs1: " <<this->yaw_abs[1]<<"\n";
-                
               }
 
     ArmorPosi():IsInRange(false){}

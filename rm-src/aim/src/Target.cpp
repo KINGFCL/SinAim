@@ -7,6 +7,8 @@
 #include <cstddef>
 #include <cstdlib>
 #include <eigen3/Eigen/Geometry>
+#include <iostream>
+#include <memory_resource>
 #include <opencv2/core.hpp>
 #include <opencv2/core/cvdef.h>
 #include <opencv2/core/hal/interface.h>
@@ -300,8 +302,6 @@ Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
 
         double yaw_err = std::abs( yaw_abs_view - yaw_abs);
 
-        yaw_err = 0;
-
         double err = (theta_err + yaw_err)*norm;
         if(err < Err)
         {
@@ -312,17 +312,21 @@ Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
     }
     
     size_t side;
-    if (this->Mode == KalmanMode::EKF) {
-        // EKF 已收敛：用预测 yaw 选最近的候选解（π 模空间处理正反面歧义）
-        double pred_yaw = ans(3, CorrId);
-        double err0 = std::abs(std::remainder(pred_yaw - armor.yaw[0], CV_PI));
-        double err1 = std::abs(std::remainder(pred_yaw - armor.yaw[1], CV_PI));
-        side = (err0 < err1) ? 0 : 1;
-    } else {
-        // LKF 或未初始化：选 yaw_abs 更接近 π 的解（法线更朝向相机）
-        double diff0 = std::abs(armor.yaw_abs[0] - M_PI);
-        double diff1 = std::abs(armor.yaw_abs[1] - M_PI);
-        side = (diff0 < diff1) ? 0 : 1;
+    const Eigen::Vector3d& photocenter = armor.photocenter;
+    const Eigen::Vector3d robot_center_cam = robot_center - photocenter;
+    double robot_center_theta = std::atan2(robot_center_cam(1), robot_center_cam(0));
+
+    Eigen::Vector3d armorcenter_cam = ans.block<3,1>(0,CorrId) - photocenter;
+
+    double thetaArmor = std::atan2(armorcenter_cam(1), armorcenter_cam(0));
+        
+    if( std::remainder( robot_center_theta - thetaArmor, CV_PI*2.0) < 0.0 )
+    {
+        side = 0;
+    }
+    else
+    {
+        side = 1;
     }
     
     return MatchAns{CorrId, side, Err};

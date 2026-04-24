@@ -90,7 +90,7 @@ int main() {
     {
         if (Frames.empty()) {
             if (demo.isDone()) break;
-            // if (cv::waitKey(1) == 27) break;
+            if (cv::waitKey(1) == 27) break;
             continue;
         }
 
@@ -112,13 +112,6 @@ int main() {
         // ── 分类 ────────────────────────────────────────────────
         std::vector<ArmorPosi> armors = resnet(armors_2, armors_pattern);
 
-        std::cout<<"----------------------------------\n";
-        for(auto armor_:armors)
-        {
-            std::cout<< "yaw0_abs: " << armor_.yaw_abs[0] << " yaw1_abs: " << armor_.yaw_abs[1] << 
-            " yaw0: " << armor_.yaw[0] << " yaw1: " << armor_.yaw[1] << " armor.center_theta: "<< armor_.theta<<"\n";
-        }
-
         // ── 追踪 ────────────────────────────────────────────────
         double dt = rm::SolveDt(next_point, frame.time, 0.01);
         track(armors, frame.quat, Gun, dt);
@@ -127,31 +120,31 @@ int main() {
         const auto& current_robot = track.getCurrentRobot();
 
         // ── 调试输出 ─────────────────────────────────────────────
-        // std::printf("[%d] CV:%zu Sov:%zu ResNet:%zu  State:%s",
-        //             frame_count,
-        //             opencv_armors.size(),
-        //             armors_2.size(),
-        //             armors.size(),
-        //             stateName(track.getState()));
+        std::printf("[%d] CV:%zu Sov:%zu ResNet:%zu  State:%s",
+                    frame_count,
+                    opencv_armors.size(),
+                    armors_2.size(),
+                    armors.size(),
+                    stateName(track.getState()));
         if (current_robot)
-            //std::printf("  Mode:%s", modeName(current_robot->GetMode()));
+            std::printf("  Mode:%s", modeName(current_robot->GetMode()));
         if (!armors.empty()) {
-            //std::printf("  [");
+            std::printf("  [");
             for (size_t i = 0; i < armors.size(); i++) {
-                //std::printf("%s(%.2f)%s", typeName(armors[i].type), armors[i].confidence,
-                           // i + 1 < armors.size() ? " " : "");
+                std::printf("%s(%.2f)%s", typeName(armors[i].type), armors[i].confidence,
+                            i + 1 < armors.size() ? " " : "");
             }
-            //std::printf("]");
+            std::printf("]");
         }
-        //std::printf("\n"); std::fflush(stdout);
+        std::printf("\n"); std::fflush(stdout);
 
         // ── 可视化 ───────────────────────────────────────────────
         cv::Mat vis = rm::DrawSolverArmors(frame.image, armors_2, armors,
                                            frame.quat, solver_config,
                                            track.getState(), current_robot);
 
-        // cv::imshow("demo", vis);
-        // if (cv::waitKey(1) == 27) break;
+        cv::imshow("demo", vis);
+        if (cv::waitKey(1) == 27) break;
 
         // ── 性能统计 ─────────────────────────────────────────────
         test.count(std::chrono::steady_clock::now() - start);

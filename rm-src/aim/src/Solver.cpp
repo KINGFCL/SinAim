@@ -50,7 +50,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
     std::array<Eigen::Vector3d, 4> v_in;
     for(const auto& armor:armors)
     {
-        cv::undistortPoints(armor.Lightcorners, undistorted, this->cameraMatrix, this->distCoeffs);
+        cv::undistortPoints(armor.Lightcorners, undistorted, cameraMatrix, distCoeffs);
         
         v_in[0] = R_cam2world * Eigen::Vector3d(undistorted[0].x,undistorted[0].y,1.0);
         v_in[1] = R_cam2world * Eigen::Vector3d(undistorted[1].x,undistorted[1].y,1.0);
@@ -112,17 +112,6 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                     isInRange_small = false;
                     break;
                 }
-
-                // if(solution_small[0].reproj<solution_small[1].reproj)
-                // {
-                //     yaw_small[0] = yaw_small[1] = solution_small[0].yaw;
-                //     center_small.block<3,1>(0,0) = solution_small[0].t_B2A + photocenter_world;
-                //     center_small.block<3,1>(0,1) = solution_small[0].t_B2A + photocenter_world;
-                // }else {
-                //     yaw_small[0] = yaw_small[1] = solution_small[1].yaw;
-                //     center_small.block<3,1>(0,0) = solution_small[1].t_B2A + photocenter_world;
-                //     center_small.block<3,1>(0,1) = solution_small[1].t_B2A + photocenter_world;                    
-                // }
                 break;
 
             default:
