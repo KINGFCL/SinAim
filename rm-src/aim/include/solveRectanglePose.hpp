@@ -13,6 +13,42 @@
 
 namespace pose {
 
+
+struct PoseSolution {
+    Eigen::Vector3d T;  // 矩形中心在 base 坐标下的平移向量
+    double          yaw;    // 求得的 alpha (rad)
+    double          reproj; // 重投影代价: sum_i (1 - cos(angle_i))
+                            // 约等于 0.5 * sum(angle_i^2), 单位 rad^2
+};
+
+
+// ---------- SVD 求矩形中心方向 ON ----------
+inline Eigen::Vector3d solveCenterDirection(const std::array<Eigen::Vector3d,4>& v)
+{
+    Eigen::Matrix<double,3,4> M;
+    M.col(0) =  v[0].normalized();
+    M.col(1) = -v[1].normalized();
+    M.col(2) =  v[2].normalized();
+    M.col(3) = -v[3].normalized();
+
+    Eigen::JacobiSVD<Eigen::Matrix<double,3,4>>
+        svd(M, Eigen::ComputeFullV);
+    Eigen::Vector4d dprime = svd.matrixV().col(3); // 最小奇异值对应列
+
+    if (dprime.sum() < 0) dprime = -dprime;        // 保证深度为正
+
+    Eigen::Vector3d Tprime = 0.25 * ( dprime[0] * v[0] + dprime[1] * v[1] + dprime[2] * v[2] + dprime[3] * v[3] );
+
+    return Tprime.normalized();
+}
+
+inline std::array< PoseSolution, 2>
+solveRectanglePose(const std::array<Eigen::Vector3d,4>& v_in,
+                   double beta, double gamma,
+                   double W, double H,double accepted_reproj_cost = 5e-4) 
+{
+    Eigen::Vector3d center_cam = solveCenterDirection(v_in);
+}
 // ---------- 黄金分割法最小化 ----------
 template<typename Func>
 inline std::pair<double, double>
