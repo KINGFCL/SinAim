@@ -170,26 +170,32 @@ inline double reprojCostFast(double alpha,
     return cost;
 }
 
-// ---------- 黄金分割法最小化 ----------
+// ---------- 1° 间隔线性枚举求最小值 ----------
+// 在 [left, right] 范围内以 step_rad 为步长逐一计算代价,
+// 返回 {最优 alpha, 对应代价}.
 template<typename Func>
 inline std::pair<double,double>
-trisectionMin(double left, double right, Func&& f, int iters = 16)
+linearEnumMin(double left, double right, Func&& f, double step_rad = M_PI / 180.0)
 {
-    const double phi = (std::sqrt(5.0) - 1.0) / 2.0;
-    double ml_cost = 0.0, mr_cost = 0.0;
-    int reserved = -1;
-    for (int i = 0; i < iters; ++i) {
-        double ml = left + (right - left) * (1.0 - phi);
-        double mr = left + (right - left) * phi;
-        if (reserved != 0) ml_cost = f(ml);
-        if (reserved != 1) mr_cost = f(mr);
-        if (ml_cost < mr_cost) {
-            right = mr; mr_cost = ml_cost; reserved = 1;
-        } else {
-            left = ml;  ml_cost = mr_cost; reserved = 0;
+    double best_alpha = left;
+    double best_cost  = std::numeric_limits<double>::max();
+
+    for (double a = left; a <= right; a += step_rad) {
+        double c = f(a);
+        if (c < best_cost) {
+            best_cost  = c;
+            best_alpha = a;
         }
     }
-    return { 0.5 * (left + right), right - left };
+    // 确保右端点也被评估 (避免浮点累积导致漏掉)
+    {
+        double c = f(right);
+        if (c < best_cost) {
+            best_cost  = c;
+            best_alpha = right;
+        }
+    }
+    return { best_alpha, best_cost };
 }
 
 // ----------------------------------------------------------------------------
@@ -212,7 +218,7 @@ trisectionMin(double left, double right, Func&& f, int iters = 16)
 inline std::vector<PoseSolution>
 solveRectanglePose(const std::array<Eigen::Vector3d,4>& v_in,
                    double beta, double gamma,
-                   double W, double H,double accepted_reproj_cost = 5e-4) 
+                   double W, double H, double accepted_reproj_cost = 5e-4)
 {
     std::array<Eigen::Vector3d,4> v;
     for (int i = 0; i < 4; ++i) v[i] = v_in[i].normalized();
@@ -229,12 +235,12 @@ solveRectanglePose(const std::array<Eigen::Vector3d,4>& v_in,
         return reprojCostFast(a, Ryx_T, ON, v, W, H);
     };
 
-    // 在正/负两个半区间内分别最小化
+    // 在正/负两个半区间内分别做 1° 线性枚举求最小值
     double yaw_standard = std::atan2(ON(1), ON(0));
-    auto [a_pos, w_pos] = trisectionMin(yaw_standard,    yaw_standard+limit, cost_fn, 16);
-    auto [a_neg, w_neg] = trisectionMin(yaw_standard-limit, yaw_standard,   cost_fn, 16);
+    auto [a_pos, c_pos_enum] = linearEnumMin(yaw_standard,         yaw_standard + limit, cost_fn, 1.0 * deg);
+    auto [a_neg, c_neg_enum] = linearEnumMin(yaw_standard - limit, yaw_standard,         cost_fn, 1.0 * deg);
 
-    // 收尾时一并取出 R, t, 避免再算一次
+    // 用枚举得到的最优 alpha 取出完整的 R, t
     Eigen::Matrix3d R_pos, R_neg;
     Eigen::Vector3d t_pos, t_neg;
     double c_pos = reprojCostFast(a_pos, Ryx_T, ON, v, W, H, &R_pos, &t_pos);
@@ -242,7 +248,7 @@ solveRectanglePose(const std::array<Eigen::Vector3d,4>& v_in,
 
     auto valid = [&](double a, double c, double w_end) {
         return std::isfinite(c) && c < accepted_reproj_cost
-            && std::abs(std::remainder(a - w_end, 2.0 * M_PI) ) > 0.5 * deg;   // 远离区间端点
+            && std::abs(std::remainder(a - w_end, 2.0 * M_PI)) > 0.5 * deg;   // 远离区间端点
     };
 
     std::vector<PoseSolution> out;
@@ -253,15 +259,15 @@ solveRectanglePose(const std::array<Eigen::Vector3d,4>& v_in,
         out.push_back(s);
     };
 
-    bool ok_neg = valid(a_neg, c_neg, yaw_standard-limit);
-    bool ok_pos = valid(a_pos, c_pos,  yaw_standard+limit);
+    bool ok_neg = valid(a_neg, c_neg, yaw_standard - limit);
+    bool ok_pos = valid(a_pos, c_pos, yaw_standard + limit);
 
-    //按照逆时针，顺时针顺序输出
-    if (ok_neg&&ok_pos)
+    // 按照逆时针，顺时针顺序输出
+    if (ok_neg && ok_pos)
     {
         push(a_neg, c_neg, R_neg, t_neg);
         push(a_pos, c_pos, R_pos, t_pos);
-    } 
+    }
 
     // 排重: 两半区间收敛到同一根 (典型: yaw ≈ 0 的正对情形)
     if (out.size() == 2 &&
@@ -274,3 +280,4 @@ solveRectanglePose(const std::array<Eigen::Vector3d,4>& v_in,
 }
 
 } // namespace pose
+

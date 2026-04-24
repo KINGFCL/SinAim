@@ -19,7 +19,7 @@ public:
         std::array<double, 5> distortion_coeffs;
         std::array<double, 9> R_Cam_to_gripper;
         std::array<double, 3> T_Cam_to_gripper;
-        double reproj_threshold = 1.0;
+        double reproj_threshold = 1;
     };
 
     explicit Solver( const SolverConfig& config );

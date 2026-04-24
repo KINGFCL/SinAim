@@ -410,6 +410,7 @@ cv::Mat rm::DrawSolverArmors(const cv::Mat& image,
         for (int s = 0; s < 2; s++) {
             if (!pair[s].IsInRange) continue;
             double w = (s == 0) ? 13.5 : 23.0;
+            w = 13.5;//调试代码
             drawRect(pair[s].center.col(0), pair[s].yaw[0], w, cv::Scalar(0, 255, 255), 1);
         }
     }
