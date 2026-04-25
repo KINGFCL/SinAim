@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Eigen/src/Core/Matrix.h>
+
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/SVD>
 
@@ -177,9 +177,11 @@ solveRectanglePose(const Eigen::Matrix<double,3,4>& v_in,
                    double pitch, double roll,
                    double W, double H,double accepted_reproj_cost = 5e-4) 
 {
-    Eigen::Vector3d center_cam = solveCenterDirection(v_in);
+    const Eigen::Vector3d center_cam = solveCenterDirection(v_in);
     const Eigen::Vector3d T_cam = 200.0 * center_cam;//假设在200cm处
-    const Eigen::Vector3d T_base = R_cam2base * T_cam;
+    const Eigen::Vector3d T_base = R_cam2base * center_cam;
+
+    const Eigen::Matrix3d R_base2cam = R_cam2base.transpose();
 
     double yaw_standard = std::atan2(T_base(1), T_base(0));
     const double limit = 0.444444444444444444444444444444444 * M_PI;
@@ -195,30 +197,26 @@ solveRectanglePose(const Eigen::Matrix<double,3,4>& v_in,
 
     auto yawcost = [&](double yaw) -> double {
         const Eigen::Matrix3d R_world2base = EulerYawPitchRoll(R_raw, yaw);
-        const Eigen::Matrix3d R_world2cam = R_cam2base * R_world2base;
+        const Eigen::Matrix3d R_world2cam = R_base2cam * R_world2base;
                 
         Eigen::Matrix<double,3,4> P_cam = R_world2cam * P;
         
         P_cam.colwise() += T_cam;
-        P_cam.col(0) += T_cam;
-        P_cam.col(1) += T_cam;
-        P_cam.col(2) += T_cam;
-        P_cam.col(3) += T_cam;
 
         double z0 = 1.0 / P_cam(2,0), z1 = 1.0 / P_cam(2,1), z2 = 1.0 / P_cam(2,2), z3 = 1.0 / P_cam(2,3);
         
-        Eigen::Matrix<double,2,4> P_idea;
-        P_idea.col(0) = z0 * P_cam.block<2,1>(0,0);
-        P_idea.col(1) = z1 * P_cam.block<2,1>(0,1);
-        P_idea.col(2) = z2 * P_cam.block<2,1>(0,2);
-        P_idea.col(3) = z3 * P_cam.block<2,1>(0,3);
+        Eigen::Matrix<double,2,4> v_idea;
+        v_idea.col(0) = z0 * P_cam.block<2,1>(0,0);
+        v_idea.col(1) = z1 * P_cam.block<2,1>(0,1);
+        v_idea.col(2) = z2 * P_cam.block<2,1>(0,2);
+        v_idea.col(3) = z3 * P_cam.block<2,1>(0,3);
 
         //计算cost:
-        Eigen::Vector2d M = P_idea.rowwise().mean(); // 计算 idea 的质心
+        Eigen::Vector2d M = v_idea.rowwise().mean(); // 计算 idea 的质心
 
         // 广播减法，求去质心后的向量
         Eigen::Matrix<double, 2, 4> U = v_real.colwise() - M;
-        Eigen::Matrix<double, 2, 4> V = P_idea.colwise() - M;
+        Eigen::Matrix<double, 2, 4> V = v_idea.colwise() - M;
 
         // 计算点积和与范数平方和，求最优缩放系数 s
         double sum_UV = U.cwiseProduct(V).sum();
@@ -230,8 +228,64 @@ solveRectanglePose(const Eigen::Matrix<double,3,4>& v_in,
         return (U - s * V).squaredNorm();
     };
 
-    std::pair<double, double> ans_left = linearEnumMin( yaw_standard - limit, yaw_standard, yawcost, 80);
-    std::pair<double, double> ans_right = linearEnumMin( yaw_standard, yaw_standard + limit, yawcost, 80);
+
+    
+    std::pair<double, double> ans_yaw_left = linearEnumMin( yaw_standard - limit, yaw_standard, yawcost, 80);
+    std::pair<double, double> ans_yaw_right = linearEnumMin( yaw_standard, yaw_standard + limit, yawcost, 80);
+    
+    //计算最终旋转的旋转矩阵
+    const Eigen::Matrix3d R_world2base_left = EulerYawPitchRoll(R_raw, ans_yaw_left.first);
+    const Eigen::Matrix3d R_world2cam_left = R_base2cam * R_world2base_left;
+
+    const Eigen::Matrix3d R_world2base_right = EulerYawPitchRoll(R_raw, ans_yaw_right.first);
+    const Eigen::Matrix3d R_world2cam_right = R_base2cam * R_world2base_right;
+
+    Eigen::Matrix<double,3,4> P_cam_left = R_world2cam_left * P;
+    Eigen::Matrix<double,3,4> P_cam_right = R_world2cam_right * P;
+
+    auto distance_cost_left = [&](double distance) -> double {
+
+        Eigen::Vector3d ans_center_cam = distance * center_cam;
+
+        Eigen::Matrix<double,3,4> P_cam = P_cam_left.colwise() + ans_center_cam;
+
+        double z0 = 1.0 / P_cam(2,0), z1 = 1.0 / P_cam(2,1), z2 = 1.0 / P_cam(2,2), z3 = 1.0 / P_cam(2,3);
+        
+        Eigen::Matrix<double,2,4> v_idea;
+        v_idea.col(0) = z0 * P_cam.block<2,1>(0,0);
+        v_idea.col(1) = z1 * P_cam.block<2,1>(0,1);
+        v_idea.col(2) = z2 * P_cam.block<2,1>(0,2);
+        v_idea.col(3) = z3 * P_cam.block<2,1>(0,3);
+
+        Eigen::Matrix<double,2,4> E = v_real - v_idea;
+       
+        return E.squaredNorm();
+    };
+    auto distance_cost_right = [&](double distance) -> double {
+
+        Eigen::Vector3d ans_center_cam = distance * center_cam;
+
+        Eigen::Matrix<double,3,4> P_cam = P_cam_right.colwise() + ans_center_cam;
+
+        double z0 = 1.0 / P_cam(2,0), z1 = 1.0 / P_cam(2,1), z2 = 1.0 / P_cam(2,2), z3 = 1.0 / P_cam(2,3);
+        
+        Eigen::Matrix<double,2,4> v_idea;
+        v_idea.col(0) = z0 * P_cam.block<2,1>(0,0);
+        v_idea.col(1) = z1 * P_cam.block<2,1>(0,1);
+        v_idea.col(2) = z2 * P_cam.block<2,1>(0,2);
+        v_idea.col(3) = z3 * P_cam.block<2,1>(0,3);
+
+        Eigen::Matrix<double,2,4> E = v_real - v_idea;
+       
+        return E.squaredNorm();
+    };
+
+    std::pair<double, double> ans_distance_left = goldenSectionMin(10.0, 800.0, distance_cost_left,15);
+    std::pair<double, double> ans_distance_right = goldenSectionMin(10.0, 800.0, distance_cost_right,15);
+
+    
+    return{ PoseSolution{ans_distance_left.first * T_base, ans_yaw_left.first, ans_distance_left.second},
+            PoseSolution{ans_distance_right.first * T_base, ans_yaw_right.first, ans_distance_right.second}};
 }
 
 } // namespace pose
