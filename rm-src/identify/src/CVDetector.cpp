@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <vector>
 //#include <cmath>
-#define detectorDebug
+// #define detectorDebug
 //Debug
 
 CVDetector::CVDetector(Light::Color color, cv::Size ROISize): 

@@ -155,18 +155,18 @@ int main() {
                     cv::circle(vis, pt, 5, cv::Scalar(0, 255, 0), -1);
 
             // 小装甲：解0红，解1蓝；大装甲：解0橙，解1紫
-            // for (const auto& pair : armors_2) {
-            //     const auto& sm = pair[0];
-            //     const auto& bg = pair[1];
-            //     if (sm.IsInRange) {
-            //         drawCorners(sm.center.col(0), sm.yaw[0], 13.5, cv::Scalar(0,   0, 255));
-            //         drawCorners(sm.center.col(1), sm.yaw[1], 13.5, cv::Scalar(255, 0,   0));
-            //     }
-            //     if (false) {
-            //         drawCorners(bg.center.col(0), bg.yaw[0], 23.0, cv::Scalar(0, 165, 255));
-            //         drawCorners(bg.center.col(1), bg.yaw[1], 23.0, cv::Scalar(128, 0, 128));
-            //     }
-            // }
+            for (const auto& pair : armors_2) {
+                const auto& sm = pair[0];
+                const auto& bg = pair[1];
+                if (sm.IsInRange) {
+                    // drawCorners(sm.center.col(0), sm.yaw[0], 13.5, cv::Scalar(0,   0, 255));
+                    drawCorners(sm.center.col(1), sm.yaw[1], 13.5, cv::Scalar(255, 0,   0));
+                }
+                if (false) {
+                    drawCorners(bg.center.col(0), bg.yaw[0], 23.0, cv::Scalar(0, 165, 255));
+                    drawCorners(bg.center.col(1), bg.yaw[1], 23.0, cv::Scalar(128, 0, 128));
+                }
+            }
 
             cv::imshow("demo", vis);
             if (cv::waitKey(0) == 27) break;
