@@ -179,6 +179,11 @@ solveRectanglePose(const Eigen::Matrix<double,3,4>& v_in,
 {
     Eigen::Vector3d center_cam = solveCenterDirection(v_in);
     const Eigen::Vector3d T_cam = 200.0 * center_cam;//假设在200cm处
+    const Eigen::Vector3d T_base = R_cam2base * T_cam;
+
+    double yaw_standard = std::atan2(T_base(1), T_base(0));
+    const double limit = 0.444444444444444444444444444444444 * M_PI;
+
     const Eigen::Matrix<double,3,4> P {
             {0.0,   0.0,    0.0,    0.0},
             {W*0.5, -W*0.5, -W*0.5, W*0.5},
@@ -194,6 +199,7 @@ solveRectanglePose(const Eigen::Matrix<double,3,4>& v_in,
                 
         Eigen::Matrix<double,3,4> P_cam = R_world2cam * P;
         
+        P_cam.colwise() += T_cam;
         P_cam.col(0) += T_cam;
         P_cam.col(1) += T_cam;
         P_cam.col(2) += T_cam;
@@ -224,7 +230,8 @@ solveRectanglePose(const Eigen::Matrix<double,3,4>& v_in,
         return (U - s * V).squaredNorm();
     };
 
-    std::pair<double, double> ans_left = linearEnumMin( )
+    std::pair<double, double> ans_left = linearEnumMin( yaw_standard - limit, yaw_standard, yawcost, 80);
+    std::pair<double, double> ans_right = linearEnumMin( yaw_standard, yaw_standard + limit, yawcost, 80);
 }
 
 } // namespace pose
