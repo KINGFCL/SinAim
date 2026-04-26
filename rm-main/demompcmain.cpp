@@ -111,15 +111,15 @@ int main() {
 
         // ── 分类 ────────────────────────────────────────────────
         std::vector<ArmorPosi> armors = resnet(armors_2, armors_pattern);
-        std::cout<<"----------------------------------\n一帧的数据: ";
-        for(auto armor_:armors)
-        {
-            std::cout<< "yaw0_abs: " << armor_.yaw_abs[0] << " yaw1_abs: " << armor_.yaw_abs[1] << 
-            " yaw0: " << armor_.yaw[0] << " yaw1: " << armor_.yaw[1] << " armor.center_theta0: "<< armor_.theta[0] << " armor.center_theta1: "
-               << armor_.theta[1]<<"\n"<<armor_.center<< " err0: " << armor_.reproj[0] << 
-               " err1: " << armor_.reproj[1] ;
+        // std::cout<<"----------------------------------\n一帧的数据: ";
+        // for(auto armor_:armors)
+        // {
+        //     std::cout<< "yaw0_abs: " << armor_.yaw_abs[0] << " yaw1_abs: " << armor_.yaw_abs[1] << 
+        //     " yaw0: " << armor_.yaw[0] << " yaw1: " << armor_.yaw[1] << " armor.center_theta0: "<< armor_.theta[0] << " armor.center_theta1: "
+        //        << armor_.theta[1]<<"\n"<<armor_.center<< " err0: " << armor_.reproj[0] << 
+        //        " err1: " << armor_.reproj[1] ;
 
-        }
+        // }
         // ── 追踪 ────────────────────────────────────────────────
         double dt = rm::SolveDt(next_point, frame.time, 0.01);
         track(armors, frame.quat, Gun, dt);

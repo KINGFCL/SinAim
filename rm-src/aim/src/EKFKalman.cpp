@@ -1,4 +1,4 @@
-#define EKFKalmanDebug
+// #define EKFKalmanDebug
 #include "EKFKalman.hpp"
 #include <cmath>
 #include <cstddef>

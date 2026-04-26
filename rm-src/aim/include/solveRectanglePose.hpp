@@ -184,7 +184,7 @@ solveRectanglePose(const Eigen::Matrix<double,3,4>& v_in,
     const Eigen::Matrix3d R_base2cam = R_cam2base.transpose();
 
     double yaw_standard = std::atan2(T_base(1), T_base(0));
-    const double limit = 0.444444444444444444444444444444444 * M_PI;
+    const double limit = 0.444444444444444444444444444444444 * M_PI * 2;
 
     const Eigen::Matrix<double,3,4> P {
             {0.0,   0.0,    0.0,    0.0},
@@ -200,32 +200,31 @@ solveRectanglePose(const Eigen::Matrix<double,3,4>& v_in,
         const Eigen::Matrix3d R_world2cam = R_base2cam * R_world2base;
                 
         Eigen::Matrix<double,3,4> P_cam = R_world2cam * P;
+
+        auto distance_cost = [&](double distance) -> double {
+
+            Eigen::Vector3d ans_center_cam = distance * center_cam;
+
+            Eigen::Matrix<double,3,4> P_cam_T = P_cam.colwise() + ans_center_cam;
+
+            double z0 = 1.0 / P_cam_T(2,0), z1 = 1.0 / P_cam_T(2,1), z2 = 1.0 / P_cam_T(2,2), z3 = 1.0 / P_cam_T(2,3);
+            
+            Eigen::Matrix<double,2,4> v_idea;
+            v_idea.col(0) = z0 * P_cam_T.block<2,1>(0,0);
+            v_idea.col(1) = z1 * P_cam_T.block<2,1>(0,1);
+            v_idea.col(2) = z2 * P_cam_T.block<2,1>(0,2);
+            v_idea.col(3) = z3 * P_cam_T.block<2,1>(0,3);
+
+            Eigen::Matrix<double,2,4> E = v_real - v_idea;
         
-        P_cam.colwise() += T_cam;
-
-        double z0 = 1.0 / P_cam(2,0), z1 = 1.0 / P_cam(2,1), z2 = 1.0 / P_cam(2,2), z3 = 1.0 / P_cam(2,3);
+            return E.squaredNorm();
+        };
         
-        Eigen::Matrix<double,2,4> v_idea;
-        v_idea.col(0) = z0 * P_cam.block<2,1>(0,0);
-        v_idea.col(1) = z1 * P_cam.block<2,1>(0,1);
-        v_idea.col(2) = z2 * P_cam.block<2,1>(0,2);
-        v_idea.col(3) = z3 * P_cam.block<2,1>(0,3);
-
-        //计算cost:
-        Eigen::Vector2d M = v_idea.rowwise().mean(); // 计算 idea 的质心
-
-        // 广播减法，求去质心后的向量
-        Eigen::Matrix<double, 2, 4> U = v_real.colwise() - M;
-        Eigen::Matrix<double, 2, 4> V = v_idea.colwise() - M;
-
-        // 计算点积和与范数平方和，求最优缩放系数 s
-        double sum_UV = U.cwiseProduct(V).sum();
-        double norm_V2 = V.squaredNorm();
-        double s = sum_UV / norm_V2;
+        std::pair<double, double> ans_distance = linearEnumMin(10, 800, distance_cost,790);
 
         // 计算最终的对齐误差 E(s)
         // 直接根据定义计算残差矩阵 (U - s*V) 的范数平方
-        return (U - s * V).squaredNorm();
+        return ans_distance.second;
     };
 
 
@@ -280,8 +279,8 @@ solveRectanglePose(const Eigen::Matrix<double,3,4>& v_in,
         return E.squaredNorm();
     };
 
-    std::pair<double, double> ans_distance_left = goldenSectionMin(10.0, 800.0, distance_cost_left,15);
-    std::pair<double, double> ans_distance_right = goldenSectionMin(10.0, 800.0, distance_cost_right,15);
+    std::pair<double, double> ans_distance_left = linearEnumMin(10.0, 800.0, distance_cost_left,790);
+    std::pair<double, double> ans_distance_right = linearEnumMin(10.0, 800.0, distance_cost_right,790);
 
     
     return{ PoseSolution{ans_distance_left.first * T_base, ans_yaw_left.first, ans_distance_left.second},

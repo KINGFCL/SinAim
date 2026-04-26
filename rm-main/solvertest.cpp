@@ -1,5 +1,7 @@
+#include "Solver.hpp"
 #include "Demo.hpp"
 #include "Config.hpp"
+#include "solveRectanglePose.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -117,6 +119,11 @@ int main() {
         // }
         // ── 追踪 ────────────────────────────────────────────────
 
+        if(!armors.empty())
+        {
+            size_t index = armors[0].reproj[0] < armors[0].reproj[1] ? 0 : 1;
+            viz.show("raw_show_yaw", std::remainder(armors[0].yaw[index]+M_PI,2 * M_PI));
+        }
         // ── 可视化：重投影角点 ────────────────────────────────────────
         {
             cv::Mat vis = frame.image.clone();
@@ -124,29 +131,34 @@ int main() {
             cv::Mat camMat(3, 3, CV_64FC1, const_cast<double*>(solver_config.camera_matrix.data()));
             cv::Mat distC(5, 1, CV_64FC1, const_cast<double*>(solver_config.distortion_coeffs.data()));
 
+            auto ArmorPosiToCam = [](double yaw, Eigen::Matrix3d R_cam2world, Eigen::Vector3d center) -> Eigen::Matrix<double,3,4>
+            {
+                Eigen::Matrix3d R_world2base = pose::EulerYawPitchRoll(pose::EulerPitchRoll(15.0 * M_PI / 180.0, 0), std::remainder(yaw+M_PI,2*M_PI));
+                double W = 13.5, H = 5.5;
+                const Eigen::Matrix<double,3,4> P {
+                    {0.0,   0.0,    0.0,    0.0},
+                    {W*0.5, -W*0.5, -W*0.5, W*0.5},
+                    {H*0.5, H*0.5,  -H*0.5, -H*0.5}
+                };
+                Eigen::Matrix<double,3,4> P_base = R_world2base * P;
+                P_base = P_base.colwise() + center;
+                return R_cam2world.transpose() * P_base;
+            };
+
             Eigen::Matrix3d R_c2g = Eigen::Map<const Eigen::Matrix<double,3,3,Eigen::RowMajor>>(solver_config.R_Cam_to_gripper.data());
             Eigen::Vector3d T_c2g = Eigen::Map<const Eigen::Vector3d>(solver_config.T_Cam_to_gripper.data());
             Eigen::Matrix3d R_cam2world = gripper_to_world.toRotationMatrix() * R_c2g;
             Eigen::Vector3d photocenter = gripper_to_world.toRotationMatrix() * T_c2g;
 
-            auto projectPt = [&](const Eigen::Vector3d& pw) -> cv::Point2f {
-                Eigen::Vector3d pc = R_cam2world.transpose() * (pw - photocenter);
-                std::vector<cv::Point3f> obj{{(float)pc.x(), (float)pc.y(), (float)pc.z()}};
-                std::vector<cv::Point2f> img;
-                cv::projectPoints(obj, cv::Vec3d(0,0,0), cv::Vec3d(0,0,0), camMat, distC, img);
-                return img[0];
-            };
-
-            auto drawCorners = [&](const Eigen::Vector3d& cen, double yaw, double w, const cv::Scalar& color) {
-                const double wh = w / 2.0, hh = 5.5 / 2.0;
-                Eigen::Vector3d tang(-std::sin(yaw), std::cos(yaw), 0.0);
-                Eigen::Vector3d up(0, 0, 1);
-                std::array<Eigen::Vector3d, 4> corners = {
-                    cen + tang*wh + up*hh, cen - tang*wh + up*hh,
-                    cen - tang*wh - up*hh, cen + tang*wh - up*hh
-                };
-                for (const auto& c : corners)
-                    cv::circle(vis, projectPt(c), 5, color, -1);
+            auto drawCorners = [&](const Eigen::Vector3d& cen, double yaw, const cv::Scalar& color) {
+                Eigen::Matrix<double,3,4> corners_cam = ArmorPosiToCam(yaw, R_cam2world, cen - photocenter);
+                for (int i = 0; i < 4; ++i) {
+                    Eigen::Vector3d c = corners_cam.col(i);
+                    std::vector<cv::Point3f> obj{{(float)c.x(), (float)c.y(), (float)c.z()}};
+                    std::vector<cv::Point2f> img;
+                    cv::projectPoints(obj, cv::Vec3d(0,0,0), cv::Vec3d(0,0,0), camMat, distC, img);
+                    cv::circle(vis, img[0], 5, color, -1);
+                }
             };
 
             // 绿色：原始检测角点
@@ -159,17 +171,17 @@ int main() {
                 const auto& sm = pair[0];
                 const auto& bg = pair[1];
                 if (sm.IsInRange) {
-                    // drawCorners(sm.center.col(0), sm.yaw[0], 13.5, cv::Scalar(0,   0, 255));
-                    drawCorners(sm.center.col(1), sm.yaw[1], 13.5, cv::Scalar(255, 0,   0));
+                    //drawCorners(sm.center.col(0), std::remainder(sm.yaw[0] + M_PI, 2*M_PI), cv::Scalar(0,   0, 255));
+                    drawCorners(sm.center.col(1), std::remainder(sm.yaw[1] + M_PI, 2*M_PI), cv::Scalar(255, 0,   0));
                 }
                 if (false) {
-                    drawCorners(bg.center.col(0), bg.yaw[0], 23.0, cv::Scalar(0, 165, 255));
-                    drawCorners(bg.center.col(1), bg.yaw[1], 23.0, cv::Scalar(128, 0, 128));
+                    drawCorners(bg.center.col(0), bg.yaw[0], cv::Scalar(0, 165, 255));
+                    drawCorners(bg.center.col(1), bg.yaw[1], cv::Scalar(128, 0, 128));
                 }
             }
 
-            cv::imshow("demo", vis);
-            if (cv::waitKey(0) == 27) break;
+            // cv::imshow("demo", vis);
+            // if (cv::waitKey(0) == 27) break;
         }
 
         // ── 性能统计 ─────────────────────────────────────────────
