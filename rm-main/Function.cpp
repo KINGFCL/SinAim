@@ -59,7 +59,7 @@ void rm::MPCPlanFunction(MPC::Planner& planner, FastQueue<std::unique_ptr<RobotS
 
         const std::unique_ptr<RobotState>& target = RobotStates.front();
 
-        if(target == nullptr) {RobotStates.pop(); continue;} //丢弃空指针
+        if(target == nullptr) {RobotStates.pop(); rm::SendMessageToRobot(ser, 0.0, 0.0, false);;continue;} //丢弃空指针
 
         MPC::Plan plan = planner.plan(target, 22.0);
 

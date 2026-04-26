@@ -51,7 +51,7 @@ io::HikCamera Hik(1,16);
 io::RTSerial<Packet> ser(50);
 
 // 传统视觉检测器
-Detector detect(Light::Color::Blue, 0.4);
+Detector detect(Light::Color::Red, 0.4);
 
 // YOLO检测器
 SmallNumClassifier smallnet("../model/mlp.onnx");
