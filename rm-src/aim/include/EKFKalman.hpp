@@ -4,7 +4,7 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
 
-// #define EKFKalmanDebug
+#define EKFKalmanDebug
 #ifdef EKFKalmanDebug
 #include <functional>
 using EKFDebugFn = void(*)(const Eigen::Matrix<double,14,1>&,
@@ -47,9 +47,9 @@ public:
     const Eigen::Matrix<double, 14, 14> CovStateInit = (Eigen::Matrix<double, 14, 1>() << 
         100, 100, 100,       // xc, yc, zc 位置方差
         10000, 10000, 10000, // vxc, vyc, vzc 速度方差
-        0.01, 1,           // theta, w 角度与角速度方差
-        0, 10, 10,           // r, l, h 几何结构初始方差
-        0.00, 0.00, 0.00  //d_theta_1,d_theta_2,d_theta_3
+        0.01, 5,           // theta, w 角度与角速度方差
+         10, 10,           // r, l, h 几何结构初始方差
+        0.001, 0.001, 0.001  //d_theta_1,d_theta_2,d_theta_3
     ).finished().asDiagonal();
 
     Eigen::Matrix<double, 3, 3> CovViewCamera = (Eigen::Matrix<double, 3, 1>() << 
