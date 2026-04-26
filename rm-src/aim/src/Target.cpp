@@ -7,8 +7,6 @@
 #include <cstddef>
 #include <cstdlib>
 #include <eigen3/Eigen/Geometry>
-#include <iostream>
-#include <memory_resource>
 #include <opencv2/core.hpp>
 #include <opencv2/core/cvdef.h>
 #include <opencv2/core/hal/interface.h>
@@ -333,9 +331,39 @@ Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
 }
 std::pair< Robot::MatchAns, Robot::MatchAns> Robot::MatchErrorInEKF(const std::vector<ArmorPosi>& armors, double dt)
 {
-    std::pair< Robot::MatchAns, Robot::MatchAns> ans;
-    ans.first = this->MatchErrorInEKF(armors[0], dt);
-    ans.second = this->MatchErrorInEKF(armors[1], dt);
+    // 两个装甲板同时可见时，它们在相机视角里一定是左右相邻的两块板。
+    // 用 yaw_abs 更小（更正对相机）的那块做单板匹配确定 ID，
+    // 另一块的 ID 由相邻关系（+1 mod 4）推导，避免两块匹配到同一 ID。
+
+    // 1. 确定哪块更正对相机（yaw_abs 之和更小）
+    int primary = 0, secondary = 1;
+    if(armors[0].yaw_abs[0]+armors[0].yaw_abs[1] > armors[1].yaw_abs[0]+armors[1].yaw_abs[1])
+        std::swap(primary, secondary);
+
+    // 2. 对 primary 做单板匹配
+    MatchAns primaryAns = this->MatchErrorInEKF(armors[primary], dt);
+
+    // 3. secondary 的 ID 由 theta 相对顺序决定：
+    //    若 secondary 在 primary 的逆时针方向（theta 差 > 0），则 secondary ID = (primary+1)%4
+    //    否则 secondary ID = (primary+3)%4（即 -1 mod 4）
+    double dtheta = std::remainder(armors[secondary].theta[0] - armors[primary].theta[0], 2*CV_PI);
+    size_t secondaryId = (dtheta > 0) ? (primaryAns.id + 1) % 4 : (primaryAns.id + 3) % 4;
+
+    // 4. secondary 的 side：同样用 theta 相对关系判断（与 LKFToEKF 逻辑一致）
+    //    robot_center 在 secondary 装甲板的哪侧决定取哪个 PnP 解
+    Eigen::Vector3d robot_center_pred;
+    Eigen::Matrix4d pred = this->Predict(dt, robot_center_pred);
+    Eigen::Vector3d armorCenter_sec_cam = pred.block<3,1>(0, secondaryId) - armors[secondary].photocenter;
+    double thetaArmor_sec = std::atan2(armorCenter_sec_cam(1), armorCenter_sec_cam(0));
+    Eigen::Vector3d robot_center_cam = robot_center_pred - armors[secondary].photocenter;
+    double robot_theta_sec = std::atan2(robot_center_cam(1), robot_center_cam(0));
+    size_t secondarySide = (std::remainder(robot_theta_sec - thetaArmor_sec, CV_PI*2.0) < 0.0) ? 0 : 1;
+
+    MatchAns secondaryAns{secondaryId, secondarySide, 0.0};
+
+    std::pair<MatchAns, MatchAns> ans;
+    if(primary == 0) { ans.first = primaryAns;   ans.second = secondaryAns; }
+    else             { ans.first = secondaryAns; ans.second = primaryAns;   }
     return ans;
 }
 
