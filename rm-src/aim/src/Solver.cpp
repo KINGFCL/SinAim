@@ -1,23 +1,14 @@
 #include "Solver.hpp"
 #include "Armor.hpp"
-#include "solveRectanglePose.hpp"
 #include "eigen3/Eigen/Dense"
-// #include <array>
 #include <Eigen/src/Core/Matrix.h>
 #include <array>
 #include <cmath>
-#include <cstdlib>
-#include <deque>
-#include <iostream>
 #include <opencv2/core.hpp>
-#include <opencv2/core/hal/interface.h>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
-#include <opencv2/core/quaternion.hpp>
 #include <opencv2/calib3d.hpp>
-#include <opencv2/imgproc.hpp>
 #include <vector>
-#include <numeric>
 
 // #define SolverDebug
 #ifdef SolverDebug
@@ -32,7 +23,13 @@ Solver::Solver( const SolverConfig& config ):
     R_Cam_to_gripper( Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> >(config.R_Cam_to_gripper.data()) ),
     T_Cam_to_gripper(Eigen::Map<const Eigen::Matrix<double, 3, 1> >(config.T_Cam_to_gripper.data()) ),
     reproj_threshold(config.reproj_threshold)
-{}
+{
+    float hs = static_cast<float>(h) / 2.0f;
+    float ws = static_cast<float>(w_small) / 2.0f;
+    float wb = static_cast<float>(w_big)   / 2.0f;
+    objectSmallArmorP = { {-ws, -hs, 0}, {ws, -hs, 0}, {ws, hs, 0}, {-ws, hs, 0} };
+    objectBigArmorP   = { {-wb, -hs, 0}, {wb, -hs, 0}, {wb, hs, 0}, {-wb, hs, 0} };
+}
 
 std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CVArmor>& armors, const Eigen::Quaterniond& gripper_to_world)
 {
@@ -41,97 +38,74 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
     results.reserve(armors.size());
 
     Eigen::Matrix3d R_gripper_to_world = gripper_to_world.toRotationMatrix();
-
-    Eigen::Matrix3d R_cam2world =  R_gripper_to_world * this->R_Cam_to_gripper;
-
+    Eigen::Matrix3d R_cam2world = R_gripper_to_world * this->R_Cam_to_gripper;
     Eigen::Vector3d photocenter_world = R_gripper_to_world * this->T_Cam_to_gripper;
 
-    // 1. 去畸变, 输出归一化平面坐标 (fx=fy=1, cx=cy=0 的理想坐标)
-    std::vector<cv::Point2f> undistorted;
-    Eigen::Matrix<double, 3, 4> v_in;
-    for(const auto& armor:armors)
+    for(const auto& armor : armors)
     {
-        cv::undistortPoints(armor.Lightcorners, undistorted, cameraMatrix, distCoeffs);
-        
-        v_in.col(0) =  Eigen::Vector3d(undistorted[0].x,undistorted[0].y,1.0);
-        v_in.col(1) =  Eigen::Vector3d(undistorted[1].x,undistorted[1].y,1.0);
-        v_in.col(2) =  Eigen::Vector3d(undistorted[2].x,undistorted[2].y,1.0);
-        v_in.col(3) =  Eigen::Vector3d(undistorted[3].x,undistorted[3].y,1.0);
-
-        std::array<pose::PoseSolution,2> solution_small =
-            pose::solveRectanglePose(v_in, R_cam2world, beta, gamma, this->w_small, this->h, this->reproj_threshold);
-
-        std::array<pose::PoseSolution,2> solution_big =
-            pose::solveRectanglePose(v_in, R_cam2world, beta, gamma, this->w_big, this->h, this->reproj_threshold);
-
-        Eigen::Matrix<double, 3, 2> center_small;
-        Eigen::Matrix<double, 3, 2> center_big;
-
-        std::array<double, 2> yaw_small, yaw_big;
-        std::array<double, 2> reproj_small, reproj_big;
-
+        Eigen::Matrix<double,3,2> center_small, center_big;
+        std::array<double,2> yaw_small, yaw_big, reproj_small, reproj_big;
         bool isInRange_small = true, isInRange_big = true;
 
-
-        switch (solution_small.size()) {
-            case 2:
-            center_small.block<3,1>(0,0) = solution_small[0].T + photocenter_world;
-            center_small.block<3,1>(0,1) = solution_small[1].T + photocenter_world;
-            yaw_small[0] = solution_small[0].yaw;
-            yaw_small[1] = solution_small[1].yaw;
-            reproj_small[0] = solution_small[0].reproj;
-            reproj_small[1] = solution_small[1].reproj;
-
-            //范围判断：
-            if(center_small.col(0).z() > this->range.max_high || center_small.col(0).z() < this->range.min_high ||
-                center_small.col(1).z() > this->range.max_high || center_small.col(1).z() < this->range.min_high)
-            {
-                isInRange_small = false;
-                break;
-            }
-            if(center_small.col(0).norm() > this->range.max_distence || center_small.col(1).norm() > this->range.max_distence)
-            {
-                isInRange_small = false;
-                break;
+        // 小装甲板
+        {
+            std::vector<cv::Mat> rvecs, tvecs;
+            std::vector<double> reprojErr;
+            cv::solvePnPGeneric(objectSmallArmorP, armor.Lightcorners, cameraMatrix, distCoeffs,
+                                rvecs, tvecs, false, cv::SOLVEPNP_IPPE,
+                                cv::noArray(), cv::noArray(), reprojErr);
+            for(int i = 0; i < 2; i++) {
+                cv::Mat R_cv;
+                cv::Rodrigues(rvecs[i], R_cv);
+                Eigen::Matrix3d R_armor;
+                for(int r = 0; r < 3; r++)
+                    for(int c = 0; c < 3; c++)
+                        R_armor(r,c) = R_cv.at<double>(r,c);
+                Eigen::Vector3d T_cam(tvecs[i].at<double>(0), tvecs[i].at<double>(1), tvecs[i].at<double>(2));
+                center_small.col(i) = R_cam2world * T_cam + photocenter_world;
+                Eigen::Vector3d toward_world = R_cam2world * (R_armor * Eigen::Vector3d(1,0,0));
+                yaw_small[i] = std::atan2(toward_world.y(), toward_world.x());
+                reproj_small[i] = reprojErr[i];
             }
         }
+        if(center_small.col(0).z() > range.max_high || center_small.col(0).z() < range.min_high ||
+           center_small.col(1).z() > range.max_high || center_small.col(1).z() < range.min_high ||
+           center_small.col(0).norm() > range.max_distence || center_small.col(1).norm() > range.max_distence)
+            isInRange_small = false;
 
-        switch (solution_big.size()) {
-            case 2:
-                center_big.block<3,1>(0,0) = solution_big[0].T + photocenter_world;
-                center_big.block<3,1>(0,1) = solution_big[1].T + photocenter_world;
-                yaw_big[0] = solution_big[0].yaw;
-                yaw_big[1] = solution_big[1].yaw;
-                reproj_big[0] = solution_big[0].reproj;
-                reproj_big[1] = solution_big[1].reproj;
-                
-                //范围判断：
-                if(center_big.col(0).z() > this->range.max_high || center_big.col(0).z() < this->range.min_high ||
-                   center_big.col(1).z() > this->range.max_high || center_big.col(1).z() < this->range.min_high)
-                {                    
-                    isInRange_big = false;   
-                    break;
-                }                
-                if(center_big.col(0).norm() > this->range.max_distence || center_big.col(1).norm() > this->range.max_distence)
-                {                    
-                    isInRange_big = false;
-                    break;
-                }
-                break;
+        // 大装甲板
+        {
+            std::vector<cv::Mat> rvecs, tvecs;
+            std::vector<double> reprojErr;
+            cv::solvePnPGeneric(objectBigArmorP, armor.Lightcorners, cameraMatrix, distCoeffs,
+                                rvecs, tvecs, false, cv::SOLVEPNP_IPPE,
+                                cv::noArray(), cv::noArray(), reprojErr);
+            for(int i = 0; i < 2; i++) {
+                cv::Mat R_cv;
+                cv::Rodrigues(rvecs[i], R_cv);
+                Eigen::Matrix3d R_armor;
+                for(int r = 0; r < 3; r++)
+                    for(int c = 0; c < 3; c++)
+                        R_armor(r,c) = R_cv.at<double>(r,c);
+                Eigen::Vector3d T_cam(tvecs[i].at<double>(0), tvecs[i].at<double>(1), tvecs[i].at<double>(2));
+                center_big.col(i) = R_cam2world * T_cam + photocenter_world;
+                Eigen::Vector3d toward_world = R_cam2world * (R_armor * Eigen::Vector3d(1,0,0));
+                yaw_big[i] = std::atan2(toward_world.y(), toward_world.x());
+                reproj_big[i] = reprojErr[i];
+            }
         }
+        if(center_big.col(0).z() > range.max_high || center_big.col(0).z() < range.min_high ||
+           center_big.col(1).z() > range.max_high || center_big.col(1).z() < range.min_high ||
+           center_big.col(0).norm() > range.max_distence || center_big.col(1).norm() > range.max_distence)
+            isInRange_big = false;
 
-        std::array< ArmorPosi, 2>armor_result_small_and_big;
+        std::array<ArmorPosi,2> armor_result;
         if(isInRange_small)
-        {
-            armor_result_small_and_big[0] = ArmorPosi(center_small,photocenter_world, yaw_small, reproj_small, isInRange_small);
-        }
+            armor_result[0] = ArmorPosi(center_small, photocenter_world, yaw_small, reproj_small, true);
         if(isInRange_big)
-        {
-            armor_result_small_and_big[1] = ArmorPosi(center_big, photocenter_world, yaw_big, reproj_big, isInRange_big);
-        }
-        results.push_back(armor_result_small_and_big);
+            armor_result[1] = ArmorPosi(center_big, photocenter_world, yaw_big, reproj_big, true);
+        results.push_back(armor_result);
     }
 
     return results;
 }
-

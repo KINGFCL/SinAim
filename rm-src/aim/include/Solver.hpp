@@ -10,6 +10,7 @@
 #include <opencv2/core/hal/interface.h>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
+#include <opencv2/core/types.hpp>
 #include <vector>
 class Solver
 {
@@ -40,16 +41,14 @@ private:
         double max_distence = 800.0; // 最大距离，单位：厘米
     } const range;
 
-    const double reproj_threshold;// 从投影阈值，需根据实际情况调整
-    
-    const double w_big = 23.0;// 大装甲板宽度，单位：厘米
+    const double reproj_threshold;
 
-    const double w_small = 13.5; // 小装甲板宽度，单位：厘米
+    const double w_big   = 23.0;
+    const double w_small = 13.5;
+    const double h       = 5.5;
 
-    const double h = 5.5;// 灯条长度，单位：厘米
-
-    const double beta = 0.0;
-    const double gamma = 15.0 * M_PI / 180.0;
+    std::vector<cv::Point3f> objectSmallArmorP;
+    std::vector<cv::Point3f> objectBigArmorP;
 
 };
 
