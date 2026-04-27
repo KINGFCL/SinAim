@@ -265,9 +265,9 @@ Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
 {
     Eigen::Vector3d robot_center;
     Eigen::Matrix4d ans = this->Predict(dt, robot_center);
-    Eigen::Vector3d armorcenter = 0.5 * ( armor.center.block<3,1>(0,0) + armor.center.block<3,1>(0,1) );
-    double yaw_abs_view = 0.5*(armor.yaw_abs[0]+armor.yaw_abs[1]);
+
     std::array<size_t, 3> IDS;
+    std::array<size_t, 3> Side;
     size_t ErrId;
     size_t CorrId;
     double distance = -1;
@@ -289,16 +289,31 @@ Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
     double Err = 1e5;
     double norm = robot_center.norm();
     
-    //匹配
+
+    const Eigen::Vector3d& photocenter = armor.photocenter;
+    const Eigen::Vector3d robot_center_cam = robot_center - photocenter;
+    double robot_center_theta = std::atan2(robot_center_cam(1), robot_center_cam(0));
+    
+    //方向判断：
+    for(size_t i = 0; i < 3; i++)
+    {
+        Eigen::Vector3d armorcenter_cam = ans.block<3,1>(0,IDS[i]) - photocenter;
+
+        double thetaArmor = std::atan2(armorcenter_cam(1), armorcenter_cam(0));
+        
+        Side[i] = ( std::remainder( robot_center_theta - thetaArmor, CV_PI*2.0) < 0.0 ) ? 0 : 1;
+    }
+    
+    
     for(auto i : IDS)
     {
-        double dot = ans.block<3,1>(0,i).dot(armorcenter)/(norm*armorcenter.norm());
+        double dot = ans.block<3,1>(0,i).dot(armor.center.col(Side[i]))/(ans.block<3,1>(0,i).norm()*armor.center.col(Side[i]).norm());
 
         double yaw_abs = std::abs(std::remainder(ans(3,i) - std::atan2( ans(1,i), ans(0,i) ), CV_PI*2.0) ); 
 
-        double theta_err = std::acos(dot);
+        double theta_err = std::acos(std::clamp(dot,-1.0,1.0));
 
-        double yaw_err = std::abs( yaw_abs_view - yaw_abs);
+        double yaw_err = std::abs( armor.yaw_abs[Side[i]] - yaw_abs);
 
         double err = (theta_err + yaw_err)*norm;
         if(err < Err)
@@ -306,28 +321,10 @@ Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
             Err = err;
             CorrId = i;
         }
-
     }
+
     
-    size_t side;
-    const Eigen::Vector3d& photocenter = armor.photocenter;
-    const Eigen::Vector3d robot_center_cam = robot_center - photocenter;
-    double robot_center_theta = std::atan2(robot_center_cam(1), robot_center_cam(0));
-
-    Eigen::Vector3d armorcenter_cam = ans.block<3,1>(0,CorrId) - photocenter;
-
-    double thetaArmor = std::atan2(armorcenter_cam(1), armorcenter_cam(0));
-        
-    if( std::remainder( robot_center_theta - thetaArmor, CV_PI*2.0) < 0.0 )
-    {
-        side = 0;
-    }
-    else
-    {
-        side = 1;
-    }
-    
-    return MatchAns{CorrId, side, Err};
+    return MatchAns{CorrId, Side[CorrId], Err};
 }
 std::pair< Robot::MatchAns, Robot::MatchAns> Robot::MatchErrorInEKF(const std::vector<ArmorPosi>& armors, double dt)
 {
