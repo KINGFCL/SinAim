@@ -1,7 +1,6 @@
 #include "Solver.hpp"
 #include "Demo.hpp"
 #include "Config.hpp"
-#include "solveRectanglePose.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -131,18 +130,31 @@ int main() {
             cv::Mat camMat(3, 3, CV_64FC1, const_cast<double*>(solver_config.camera_matrix.data()));
             cv::Mat distC(5, 1, CV_64FC1, const_cast<double*>(solver_config.distortion_coeffs.data()));
 
+            // yaw = atan2(width_world.y, width_world.x)，即装甲板X轴（宽度方向）在世界系的yaw
+            // 与旧 solveRectanglePose 的法线yaw不同，这里直接用宽度方向重建旋转矩阵
             auto ArmorPosiToCam = [](double yaw, Eigen::Matrix3d R_cam2world, Eigen::Vector3d center) -> Eigen::Matrix<double,3,4>
             {
-                Eigen::Matrix3d R_world2base = pose::EulerYawPitchRoll(pose::EulerPitchRoll(15.0 * M_PI / 180.0, 0), std::remainder(yaw+M_PI,2*M_PI));
+                // 装甲板X轴（宽度方向）
+                Eigen::Vector3d x_w(std::cos(yaw), std::sin(yaw), 0.0);
+                // 世界Z轴（竖直向上）在装甲板X轴垂直平面内的分量作为Y轴（高度方向）
+                Eigen::Vector3d z_up(0.0, 0.0, 1.0);
+                Eigen::Vector3d y_w = (z_up - z_up.dot(x_w) * x_w).normalized();
+                // Z轴 = 法线方向
+                Eigen::Vector3d z_w = x_w.cross(y_w);
+                Eigen::Matrix3d R_world2base;
+                R_world2base.col(0) = x_w;
+                R_world2base.col(1) = y_w;
+                R_world2base.col(2) = z_w;
+                // object points 与 solvePnP 一致：XY平面，Z=0
                 double W = 13.5, H = 5.5;
                 const Eigen::Matrix<double,3,4> P {
-                    {0.0,   0.0,    0.0,    0.0},
-                    {W*0.5, -W*0.5, -W*0.5, W*0.5},
-                    {H*0.5, H*0.5,  -H*0.5, -H*0.5}
+                    {-W*0.5, W*0.5,  W*0.5, -W*0.5},
+                    {-H*0.5, -H*0.5, H*0.5,  H*0.5},
+                    {0.0,    0.0,    0.0,    0.0   }
                 };
-                Eigen::Matrix<double,3,4> P_base = R_world2base * P;
-                P_base = P_base.colwise() + center;
-                return R_cam2world.transpose() * P_base;
+                Eigen::Matrix<double,3,4> P_world = R_world2base * P;
+                P_world = P_world.colwise() + center;
+                return R_cam2world.transpose() * P_world;
             };
 
             Eigen::Matrix3d R_c2g = Eigen::Map<const Eigen::Matrix<double,3,3,Eigen::RowMajor>>(solver_config.R_Cam_to_gripper.data());
@@ -180,8 +192,8 @@ int main() {
                 }
             }
 
-            // cv::imshow("demo", vis);
-            // if (cv::waitKey(0) == 27) break;
+            cv::imshow("demo", vis);
+            if (cv::waitKey(0) == 27) break;
         }
 
         // ── 性能统计 ─────────────────────────────────────────────

@@ -73,9 +73,9 @@ void Robot::InitEKF(const Eigen::Vector3d& center, const Eigen::Vector3d& SCS, d
     this->Armors(0,2) = std::remainder(yaw + CV_PI,       CV_PI*2.0);
     this->Armors(0,3) = std::remainder(yaw + CV_PI*3.0/2.0, CV_PI*2.0);
 
-    this->d_theta_1 = CV_PI/2.0;
+    this->d_theta_1 = CV_PI*0.5;
     this->d_theta_2 = CV_PI;
-    this->d_theta_3 = -CV_PI/2.0;
+    this->d_theta_3 = -CV_PI*0.5;
 
     // 高度 Z 坐标
     this->Armors(2,0) = this->Armors(2,2) = this->center(2);
@@ -304,27 +304,27 @@ Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
         Side[i] = ( std::remainder( robot_center_theta - thetaArmor, CV_PI*2.0) < 0.0 ) ? 0 : 1;
     }
     
-    
-    for(auto i : IDS)
+    size_t CorrIndx;
+    for(size_t i = 0; i<3; i++ )
     {
-        double dot = ans.block<3,1>(0,i).dot(armor.center.col(Side[i]))/(ans.block<3,1>(0,i).norm()*armor.center.col(Side[i]).norm());
-
-        double yaw_abs = std::abs(std::remainder(ans(3,i) - std::atan2( ans(1,i), ans(0,i) ), CV_PI*2.0) ); 
+        double dot = ans.block<3,1>(0,IDS[i]).dot(armor.center.col(Side[i]))/(ans.block<3,1>(0,IDS[i]).norm()*armor.center.col(Side[i]).norm());
 
         double theta_err = std::acos(std::clamp(dot,-1.0,1.0));
+        double yaw = ans(3,IDS[i]);
 
-        double yaw_err = std::abs( armor.yaw_abs[Side[i]] - yaw_abs);
+        double yaw_err = std::abs( armor.yaw[Side[i]] - yaw);
 
-        double err = (theta_err + yaw_err)*norm;
+        double err = theta_err + yaw_err;
         if(err < Err)
         {
             Err = err;
-            CorrId = i;
+            CorrId = IDS[i];
+            CorrIndx = i;
         }
     }
 
-    
-    return MatchAns{CorrId, Side[CorrId], Err};
+
+    return MatchAns{CorrId, Side[CorrIndx], Err};
 }
 std::pair< Robot::MatchAns, Robot::MatchAns> Robot::MatchErrorInEKF(const std::vector<ArmorPosi>& armors, double dt)
 {
@@ -334,8 +334,8 @@ std::pair< Robot::MatchAns, Robot::MatchAns> Robot::MatchErrorInEKF(const std::v
 
     // 1. 确定哪块更正对相机（yaw_abs 之和更小）
     int primary = 0, secondary = 1;
-    if(armors[0].yaw_abs[0]+armors[0].yaw_abs[1] > armors[1].yaw_abs[0]+armors[1].yaw_abs[1])
-        std::swap(primary, secondary);
+    // if(this->MatchErrorInEKF(armors[0], dt).err > this->MatchErrorInEKF(armors[1], dt).err )
+    //     std::swap(primary, secondary);
 
     // 2. 对 primary 做单板匹配
     MatchAns primaryAns = this->MatchErrorInEKF(armors[primary], dt);
@@ -344,7 +344,7 @@ std::pair< Robot::MatchAns, Robot::MatchAns> Robot::MatchErrorInEKF(const std::v
     //    若 secondary 在 primary 的逆时针方向（theta 差 > 0），则 secondary ID = (primary+1)%4
     //    否则 secondary ID = (primary+3)%4（即 -1 mod 4）
     double dtheta = std::remainder(armors[secondary].theta[0] - armors[primary].theta[0], 2*CV_PI);
-    size_t secondaryId = (dtheta > 0) ? (primaryAns.id + 1) % 4 : (primaryAns.id + 3) % 4;
+    size_t secondaryId = (dtheta < 0) ? (primaryAns.id + 1) % 4 : (primaryAns.id + 3) % 4;
 
     // 4. secondary 的 side：同样用 theta 相对关系判断（与 LKFToEKF 逻辑一致）
     //    robot_center 在 secondary 装甲板的哪侧决定取哪个 PnP 解
