@@ -89,7 +89,7 @@ cv::Mat CVDetector::preprocessImage(cv::Mat& rgb_img) //图像预处理
   cv::cvtColor(rgb_img, this->gray_img, cv::COLOR_RGB2GRAY);
 
   cv::Mat binary_img;
-  cv::threshold(gray_img, binary_img, 240, 255, cv::THRESH_BINARY);
+  cv::threshold(gray_img, binary_img, 200, 255, cv::THRESH_BINARY);
   #ifdef detectorDebug
   cv::imshow("binary_img",binary_img);
   cv::waitKey(1);
