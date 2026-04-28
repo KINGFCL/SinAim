@@ -25,6 +25,7 @@
 void Robot::Init(const std::vector<ArmorPosi>& armors)
 {
     if(armors.empty()) return;
+    if(armors.size() == 1) return;
     
     // 装甲板类型检查
     if(static_cast<int>(armors[0].type) < 1) return;
