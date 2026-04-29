@@ -71,15 +71,12 @@ struct ArmorPosi{
               std::array<double, 2> yaw, 
               std::array<double, 2> reproj,
               bool isInRange):
-              center(center),photocenter(photocenter), yaw(yaw), reproj(reproj), IsInRange(isInRange){
+              center(center),photocenter(photocenter), yaw({ std::remainder(yaw[0] + 0.5*M_PI, M_PI*2), std::remainder(yaw[1] + 0.5*M_PI, M_PI*2)} ), reproj(reproj), IsInRange(isInRange){
                 Eigen::Vector3d center_0 = this->center.block<3, 1>(0,0) - this->photocenter;
                 Eigen::Vector3d center_1 = this->center.block<3, 1>(0,1) - this->photocenter;
 
                 this->theta[0] = std::atan2(center(1, 0), center(0, 0));
                 this->theta[1] = std::atan2(center(1, 1), center(0, 1));
-
-                this->yaw_abs[0] = std::abs(std::remainder(this->theta[0]-this->yaw[0], 2 * M_PI));
-                this->yaw_abs[1] = std::abs(std::remainder(this->theta[1]-this->yaw[1], 2 * M_PI));
 
                 this->SCS(0,0) = center_0.norm();
                 double distance0 = center_0.block<2,1>(0,0).norm();
@@ -91,9 +88,9 @@ struct ArmorPosi{
                 this->SCS(1,1) = std::asin(distance1 / this->SCS(0,1));
                 this->SCS(2,1) = std::atan2(center_1(1), center_1(0));
 
-                //旋转yaw方向
-                this->yaw[0] = std::remainder(this->yaw[0] + M_PI, 2 * M_PI);
-                this->yaw[1] = std::remainder(this->yaw[1] + M_PI, 2 * M_PI);
+                // yaw_abs：装甲板偏转角，theta 是从世界原点看向装甲板的方位角，yaw 已转成位置角
+                this->yaw_abs[0] = std::abs(std::remainder(this->theta[0]-this->yaw[0], 2 * M_PI));
+                this->yaw_abs[1] = std::abs(std::remainder(this->theta[1]-this->yaw[1], 2 * M_PI));
               }
 
     ArmorPosi():IsInRange(false){}

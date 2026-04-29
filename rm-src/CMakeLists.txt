@@ -33,4 +33,10 @@ add_subdirectory(aim)
         fmt::fmt
         spdlog::spdlog
     )
+
+add_executable(test_ekf_diag test_ekf_diag.cpp)
+target_link_libraries(test_ekf_diag rm_aim rm_identify ${OpenCV_LIBS} Eigen3::Eigen)
+
+add_executable(test_solver test_solver.cpp)
+target_link_libraries(test_solver rm_aim rm_identify ${OpenCV_LIBS} Eigen3::Eigen)
 # endif()

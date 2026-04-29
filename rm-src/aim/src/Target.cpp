@@ -105,20 +105,12 @@ void Robot::LKFToEKF(const std::vector<ArmorPosi>& armors)
     if(armors.size()< 2 ) return;
     this->lkfkalman.Init();
 
-    if(armors[0].yaw_abs[0]+armors[0].yaw_abs[1] <= armors[1].yaw_abs[0]+armors[1].yaw_abs[1])
-    {
-        if( std::remainder(armors[1].theta[0] - armors[0].theta[0], 2*CV_PI) < 0.0 )
-            this->InitEKF(armors[0].center.block<3,1>(0,0), armors[0].SCS.block<3,1>(0,0), armors[0].yaw[0]);
-        else
-            this->InitEKF(armors[0].center.block<3,1>(0,1), armors[0].SCS.block<3,1>(0,1), armors[0].yaw[1]);
-    } 
-    else
-    {
-        if( std::remainder(armors[1].theta[0] - armors[0].theta[0], 2*CV_PI) < 0.0 )
-            this->InitEKF(armors[1].center.block<3,1>(0,0), armors[1].SCS.block<3,1>(0,0), armors[1].yaw[0]);
-        else
-            this->InitEKF(armors[1].center.block<3,1>(0,1), armors[1].SCS.block<3,1>(0,1), armors[1].yaw[1]);
-    }
+    // Side 0 is always the lower-reproj (physically correct) IPPE solution.
+    // Use it directly for initialization; the rotation direction only determines
+    // which of the two detected armors is the better reference.
+    const ArmorPosi& ref = (armors[0].yaw_abs[0]+armors[0].yaw_abs[1] <= armors[1].yaw_abs[0]+armors[1].yaw_abs[1])
+                           ? armors[0] : armors[1];
+    this->InitEKF(ref.center.block<3,1>(0,0), ref.SCS.block<3,1>(0,0), ref.yaw[0]);
 }
 
 

@@ -21,4 +21,4 @@ T_Cam_to_gripper: [13.6068364765315,
             0.8995665883635868]
 
 # 重投影误差阈值
-reproj_threshold: 1e10
+reproj_threshold: 1
