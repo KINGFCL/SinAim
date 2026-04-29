@@ -20,7 +20,7 @@ public:
         std::array<double, 5> distortion_coeffs;
         std::array<double, 9> R_Cam_to_gripper;
         std::array<double, 3> T_Cam_to_gripper;
-        double reproj_threshold = 1;
+        double reproj_threshold = 0.01;
     };
 
     explicit Solver( const SolverConfig& config );
@@ -47,8 +47,8 @@ private:
     const double w_small = 13.5;
     const double h       = 5.5;
 
-    std::vector<cv::Point3d> objectSmallArmorP;
-    std::vector<cv::Point3d> objectBigArmorP;
+    std::vector<cv::Point3d> objectBigArmorP{{0,0,0},{23,0,0},{23,5.5,0},{0,5.5,0}};
+    std::vector<cv::Point3d> objectSmallArmorP{{0,0,0},{13.5,0,0},{13.5,5.5,0},{0,5.5,0}};
 
 };
 

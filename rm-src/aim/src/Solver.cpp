@@ -29,8 +29,8 @@ Solver::Solver( const SolverConfig& config ):
     double ws = w_small * 0.5;
     double wb = w_big * 0.5;
 
-    objectSmallArmorP = { {ws, hs, 0.0}, {-ws,hs, 0.0}, {-ws,-hs, 0.0}, {ws, -hs, 0.0} };
-    objectBigArmorP   = { {0, wb, hs}, {0.0,-wb,hs}, {0, -wb, -hs}, {0, wb, -hs} };
+    // objectSmallArmorP = { {ws, hs, 0.0}, {-ws,hs, 0.0}, {-ws,-hs, 0.0}, {ws, -hs, 0.0} };
+    // objectBigArmorP   = { {0, wb, hs}, {0.0,-wb,hs}, {0, -wb, -hs}, {0, wb, -hs} };
 }
 
 std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CVArmor>& armors, const Eigen::Quaterniond& gripper_to_world)
@@ -73,6 +73,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
         }
         if(center_small.col(0).z() > range.max_high || center_small.col(0).z() < range.min_high ||
            center_small.col(1).z() > range.max_high || center_small.col(1).z() < range.min_high ||
+           reproj_small[0] > reproj_threshold || reproj_small[1] > reproj_threshold ||
            center_small.col(0).norm() > range.max_distence || center_small.col(1).norm() > range.max_distence)
             isInRange_small = false;
 
@@ -99,6 +100,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
         }
         if(center_big.col(0).z() > range.max_high || center_big.col(0).z() < range.min_high ||
            center_big.col(1).z() > range.max_high || center_big.col(1).z() < range.min_high ||
+           reproj_big[0] > reproj_threshold || reproj_big[1] > reproj_threshold ||
            center_big.col(0).norm() > range.max_distence || center_big.col(1).norm() > range.max_distence)
             isInRange_big = false;
 
