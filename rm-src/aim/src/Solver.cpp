@@ -1,7 +1,6 @@
 #include "Solver.hpp"
 #include "Armor.hpp"
 #include "eigen3/Eigen/Dense"
-#include <Eigen/src/Core/Matrix.h>
 #include <array>
 #include <cmath>
 #include <opencv2/core.hpp>
@@ -24,11 +23,27 @@ Solver::Solver( const SolverConfig& config ):
     T_Cam_to_gripper(Eigen::Map<const Eigen::Matrix<double, 3, 1> >(config.T_Cam_to_gripper.data()) ),
     reproj_threshold(config.reproj_threshold)
 {
-    float hs = static_cast<float>(h) / 2.0f;
-    float ws = static_cast<float>(w_small) / 2.0f;
-    float wb = static_cast<float>(w_big)   / 2.0f;
-    objectSmallArmorP = { {-ws, -hs, 0}, {ws, -hs, 0}, {ws, hs, 0}, {-ws, hs, 0} };
-    objectBigArmorP   = { {-wb, -hs, 0}, {wb, -hs, 0}, {wb, hs, 0}, {-wb, hs, 0} };
+}
+
+// 用 Z 轴消歧选出一个 PnP 解，返回 (R_cv, T_cv, reproj_err)
+static std::tuple<cv::Mat, cv::Mat, double> disambiguate(
+    const std::vector<cv::Mat>& rvecs,
+    const std::vector<cv::Mat>& tvecs,
+    const std::vector<double>& reprojErr)
+{
+    double Z_data[3]{0, 0, 10};
+    cv::Mat Z_vector(cv::Size(1,3), CV_64FC1, Z_data);
+
+    cv::Mat r_0, r_1;
+    cv::Rodrigues(rvecs.front(), r_0);
+    cv::Rodrigues(rvecs.back(),  r_1);
+
+    cv::Mat Z_cam_0 = r_0 * Z_vector;
+
+    if(Z_cam_0.at<double>(2,0) > 0)
+        return {r_0, tvecs.front(), reprojErr.front()};
+    else
+        return {r_1, tvecs.back(),  reprojErr.back()};
 }
 
 std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CVArmor>& armors, const Eigen::Quaterniond& gripper_to_world)
@@ -43,63 +58,66 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
 
     for(const auto& armor : armors)
     {
-        Eigen::Matrix<double,3,2> center_small, center_big;
-        std::array<double,2> yaw_small, yaw_big, reproj_small, reproj_big;
+        std::array<ArmorPosi,2> armor_result;
         bool isInRange_small = true, isInRange_big = true;
 
-        // 小装甲板
+        // 解算小装甲板
+        Eigen::Vector3d center_small;
+        double yaw_small, reproj_small;
         {
             std::vector<cv::Mat> rvecs, tvecs;
             std::vector<double> reprojErr;
             cv::solvePnPGeneric(objectSmallArmorP, armor.Lightcorners, cameraMatrix, distCoeffs,
                                 rvecs, tvecs, false, cv::SOLVEPNP_IPPE,
                                 cv::noArray(), cv::noArray(), reprojErr);
-            for(int i = 0; i < 2; i++) {
-                cv::Mat R_cv;
-                cv::Rodrigues(rvecs[i], R_cv);
-                Eigen::Matrix3d R_armor;
-                for(int r = 0; r < 3; r++)
-                    for(int c = 0; c < 3; c++)
-                        R_armor(r,c) = R_cv.at<double>(r,c);
-                Eigen::Vector3d T_cam(tvecs[i].at<double>(0), tvecs[i].at<double>(1), tvecs[i].at<double>(2));
-                center_small.col(i) = R_cam2world * T_cam + photocenter_world;
-                Eigen::Vector3d toward_world = R_cam2world * (R_armor * Eigen::Vector3d(1,0,0));
-                yaw_small[i] = std::atan2(toward_world.y(), toward_world.x());
-                reproj_small[i] = reprojErr[i];
-            }
+
+            auto [R_cv, T_cv, err] = disambiguate(rvecs, tvecs, reprojErr);
+
+            cv::Mat P_cam = R_cv * SmallArmorCenter + T_cv;
+            Eigen::Vector3d T_cam(P_cam.at<double>(0,0), P_cam.at<double>(1,0), P_cam.at<double>(2,0));
+            center_small = R_cam2world * T_cam + photocenter_world;
+
+            Eigen::Matrix3d R_armor;
+            for(int r = 0; r < 3; r++)
+                for(int c = 0; c < 3; c++)
+                    R_armor(r,c) = R_cv.at<double>(r,c);
+            // 装甲板法线（Z轴）在世界系的方向，即从机器人中心指向装甲板的方向
+            Eigen::Vector3d normal_world = R_cam2world * (R_armor * Eigen::Vector3d(0,0,1));
+            yaw_small = std::atan2(normal_world.y(), normal_world.x());
+            reproj_small = err;
         }
-        if(center_small.col(0).z() > range.max_high || center_small.col(0).z() < range.min_high ||
-           center_small.col(1).z() > range.max_high || center_small.col(1).z() < range.min_high ||
-           center_small.col(0).norm() > range.max_distence || center_small.col(1).norm() > range.max_distence)
+        if(center_small.z() > range.max_high || center_small.z() < range.min_high ||
+           center_small.norm() > range.max_distence)
             isInRange_small = false;
 
-        // 大装甲板
+        // 解算大装甲板
+        Eigen::Vector3d center_big;
+        double yaw_big, reproj_big;
         {
             std::vector<cv::Mat> rvecs, tvecs;
             std::vector<double> reprojErr;
             cv::solvePnPGeneric(objectBigArmorP, armor.Lightcorners, cameraMatrix, distCoeffs,
                                 rvecs, tvecs, false, cv::SOLVEPNP_IPPE,
                                 cv::noArray(), cv::noArray(), reprojErr);
-            for(int i = 0; i < 2; i++) {
-                cv::Mat R_cv;
-                cv::Rodrigues(rvecs[i], R_cv);
-                Eigen::Matrix3d R_armor;
-                for(int r = 0; r < 3; r++)
-                    for(int c = 0; c < 3; c++)
-                        R_armor(r,c) = R_cv.at<double>(r,c);
-                Eigen::Vector3d T_cam(tvecs[i].at<double>(0), tvecs[i].at<double>(1), tvecs[i].at<double>(2));
-                center_big.col(i) = R_cam2world * T_cam + photocenter_world;
-                Eigen::Vector3d toward_world = R_cam2world * (R_armor * Eigen::Vector3d(1,0,0));
-                yaw_big[i] = std::atan2(toward_world.y(), toward_world.x());
-                reproj_big[i] = reprojErr[i];
-            }
+
+            auto [R_cv, T_cv, err] = disambiguate(rvecs, tvecs, reprojErr);
+
+            cv::Mat P_cam = R_cv * BigArmorCenter + T_cv;
+            Eigen::Vector3d T_cam(P_cam.at<double>(0,0), P_cam.at<double>(1,0), P_cam.at<double>(2,0));
+            center_big = R_cam2world * T_cam + photocenter_world;
+
+            Eigen::Matrix3d R_armor;
+            for(int r = 0; r < 3; r++)
+                for(int c = 0; c < 3; c++)
+                    R_armor(r,c) = R_cv.at<double>(r,c);
+            Eigen::Vector3d normal_world = R_cam2world * (R_armor * Eigen::Vector3d(0,0,1));
+            yaw_big = std::atan2(normal_world.y(), normal_world.x());
+            reproj_big = err;
         }
-        if(center_big.col(0).z() > range.max_high || center_big.col(0).z() < range.min_high ||
-           center_big.col(1).z() > range.max_high || center_big.col(1).z() < range.min_high ||
-           center_big.col(0).norm() > range.max_distence || center_big.col(1).norm() > range.max_distence)
+        if(center_big.z() > range.max_high || center_big.z() < range.min_high ||
+           center_big.norm() > range.max_distence)
             isInRange_big = false;
 
-        std::array<ArmorPosi,2> armor_result;
         if(isInRange_small)
             armor_result[0] = ArmorPosi(center_small, photocenter_world, yaw_small, reproj_small, true);
         if(isInRange_big)

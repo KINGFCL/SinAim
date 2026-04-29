@@ -50,50 +50,38 @@ struct CVArmor{
 };
 
 struct ArmorPosi{
-    //顺时针yaw和逆时针yaw
-    Eigen::Matrix<double, 3, 2> center;
+    Eigen::Vector3d center;
     Eigen::Vector3d photocenter;
-    std::array<double, 2> yaw;
-    std::array<double, 2> yaw_abs;
-    std::array<double, 2> reproj;
-    Eigen::Matrix<double, 3, 2> SCS;    //球坐标系坐标，以相机中心为坐标原点
-    std::array<double, 2> theta;//装甲板中心点方向角
+    double yaw;
+    double yaw_abs;
+    double reproj;
+    Eigen::Vector3d SCS;    //球坐标系坐标，以相机中心为坐标原点
+    double theta;           //装甲板中心点方向角
 
     bool IsInRange; // 是否在有效范围内的标志位
 
     enum class Type : int {base    = 0, hero     = 1, two   = 2,
                            three   = 3, four     = 4, guard = 5,
                            outpost = 6, Unknow = 7} type = Type::Unknow;
-    float confidence = 0; 
+    float confidence = 0;
 
-    ArmorPosi(const Eigen::Matrix<double, 3, 2>& center, 
+    ArmorPosi(const Eigen::Vector3d& center,
               const Eigen::Vector3d& photocenter,
-              std::array<double, 2> yaw, 
-              std::array<double, 2> reproj,
+              double yaw,
+              double reproj,
               bool isInRange):
-              center(center),photocenter(photocenter), yaw(yaw), reproj(reproj), IsInRange(isInRange){
-                Eigen::Vector3d center_0 = this->center.block<3, 1>(0,0) - this->photocenter;
-                Eigen::Vector3d center_1 = this->center.block<3, 1>(0,1) - this->photocenter;
+              center(center), photocenter(photocenter), yaw(yaw), reproj(reproj), IsInRange(isInRange){
+                Eigen::Vector3d center_rel = this->center - this->photocenter;
 
-                this->theta[0] = std::atan2(center(1, 0), center(0, 0));
-                this->theta[1] = std::atan2(center(1, 1), center(0, 1));
+                this->theta = std::atan2(center(1), center(0));
+                this->yaw_abs = std::abs(std::remainder(this->theta - this->yaw, 2 * M_PI));
 
-                this->yaw_abs[0] = std::abs(std::remainder(this->theta[0]-this->yaw[0], 2 * M_PI));
-                this->yaw_abs[1] = std::abs(std::remainder(this->theta[1]-this->yaw[1], 2 * M_PI));
+                this->SCS(0) = center_rel.norm();
+                double distance = center_rel.block<2,1>(0,0).norm();
+                this->SCS(1) = std::asin(distance / this->SCS(0));
+                this->SCS(2) = std::atan2(center_rel(1), center_rel(0));
 
-                this->SCS(0,0) = center_0.norm();
-                double distance0 = center_0.block<2,1>(0,0).norm();
-                this->SCS(1,0) = std::asin(distance0 / this->SCS(0,0));
-                this->SCS(2,0) = std::atan2(center_0(1), center_0(0));
-
-                this->SCS(0,1) = center_1.norm();
-                double distance1 = center_1.block<2,1>(0,0).norm();
-                this->SCS(1,1) = std::asin(distance1 / this->SCS(0,1));
-                this->SCS(2,1) = std::atan2(center_1(1), center_1(0));
-
-                //旋转yaw方向
-                this->yaw[0] = std::remainder(this->yaw[0] + M_PI, 2 * M_PI);
-                this->yaw[1] = std::remainder(this->yaw[1] + M_PI, 2 * M_PI);
+                this->yaw = std::remainder(this->yaw + M_PI, 2 * M_PI);
               }
 
     ArmorPosi():IsInRange(false){}

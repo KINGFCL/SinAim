@@ -120,8 +120,7 @@ int main() {
 
         if(!armors.empty())
         {
-            size_t index = armors[0].reproj[0] < armors[0].reproj[1] ? 0 : 1;
-            viz.show("raw_show_yaw", std::remainder(armors[0].yaw[index]+M_PI,2 * M_PI));
+            viz.show("raw_show_yaw", std::remainder(armors[0].yaw + M_PI, 2 * M_PI));
         }
         // ── 可视化：重投影角点 ────────────────────────────────────────
         {
@@ -183,12 +182,10 @@ int main() {
                 const auto& sm = pair[0];
                 const auto& bg = pair[1];
                 if (sm.IsInRange) {
-                    //drawCorners(sm.center.col(0), std::remainder(sm.yaw[0] + M_PI, 2*M_PI), cv::Scalar(0,   0, 255));
-                    drawCorners(sm.center.col(1), std::remainder(sm.yaw[1] + M_PI, 2*M_PI), cv::Scalar(255, 0,   0));
+                    drawCorners(sm.center, std::remainder(sm.yaw + M_PI, 2*M_PI), cv::Scalar(255, 0, 0));
                 }
                 if (false) {
-                    drawCorners(bg.center.col(0), bg.yaw[0], cv::Scalar(0, 165, 255));
-                    drawCorners(bg.center.col(1), bg.yaw[1], cv::Scalar(128, 0, 128));
+                    drawCorners(bg.center, bg.yaw, cv::Scalar(0, 165, 255));
                 }
             }
 

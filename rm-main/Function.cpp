@@ -410,21 +410,19 @@ cv::Mat rm::DrawSolverArmors(const cv::Mat& image,
         for (int s = 0; s < 2; s++) {
             if (!pair[s].IsInRange) continue;
             double w = (s == 0) ? 13.5 : 23.0;
-            w = 13.5;//调试代码
-            drawRect(pair[s].center.col(0), pair[s].yaw[0], w, cv::Scalar(0, 255, 255), 1);
+            drawRect(pair[s].center, pair[s].yaw, w, cv::Scalar(0, 255, 255), 1);
         }
     }
 
     // 红色粗框：ResNet 识别结果 + 标签
     for (const auto& armor : armors) {
         double w = (armor.type == ArmorPosi::Type::hero || armor.type == ArmorPosi::Type::base) ? 23.0 : 13.5;
-        Eigen::Vector3d cen = armor.center.col(0);
-        drawRect(cen, armor.yaw[0], w, cv::Scalar(0, 0, 255), 2);
+        drawRect(armor.center, armor.yaw, w, cv::Scalar(0, 0, 255), 2);
 
-        cv::Point lp = projectPt(cen);
+        cv::Point lp = projectPt(armor.center);
         char label[48];
         std::snprintf(label, sizeof(label), "%s %.1fm %.2f",
-                      typeName_(armor.type), cen.norm() / 100.0, armor.confidence);
+                      typeName_(armor.type), armor.center.norm() / 100.0, armor.confidence);
         cv::putText(vis, label, {lp.x - 40, lp.y - 14},
                     cv::FONT_HERSHEY_SIMPLEX, 0.55, cv::Scalar(0, 0, 255), 2);
     }

@@ -146,7 +146,6 @@ private:
     struct MatchAns
     {
         size_t id;
-        size_t side;
         double err;
     };
 

@@ -1,9 +1,7 @@
 #ifndef SOLVER_CLASS_INCLUDE
 #define SOLVER_CLASS_INCLUDE
 #include "Armor.hpp"
-#include "string"
 #include <array>
-#include <deque>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <opencv2/core/base.hpp>
@@ -43,12 +41,15 @@ private:
 
     const double reproj_threshold;
 
-    const double w_big   = 23.0;
-    const double w_small = 13.5;
-    const double h       = 5.5;
+    // 角点式物体坐标系，原点在左上角
+    std::vector<cv::Point3f> objectSmallArmorP{
+        {0,0,0},{13.5f,0,0},{13.5f,5.5f,0},{0,5.5f,0}};
+    std::vector<cv::Point3f> objectBigArmorP{
+        {0,0,0},{23.0f,0,0},{23.0f,5.5f,0},{0,5.5f,0}};
 
-    std::vector<cv::Point3f> objectSmallArmorP;
-    std::vector<cv::Point3f> objectBigArmorP;
+    // 装甲板中心在物体坐标系中的位置
+    cv::Mat_<double> SmallArmorCenter = (cv::Mat_<double>(3,1) << 6.75, 2.75, 0.0);
+    cv::Mat_<double> BigArmorCenter   = (cv::Mat_<double>(3,1) << 11.5, 2.75, 0.0);
 
 };
 

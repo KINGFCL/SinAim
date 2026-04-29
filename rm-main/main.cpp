@@ -158,7 +158,7 @@ int main() {
         // 取每对中重投影误差更小的一侧
         std::vector<ArmorPosi> armors_posi;
         for (const auto& pair : armors_2) {
-            armors_posi.push_back(pair[0].reproj[0] < pair[1].reproj[0] ? pair[0] : pair[1]);
+            armors_posi.push_back(pair[0].reproj < pair[1].reproj ? pair[0] : pair[1]);
         }
         // std::cout<<"time: " << (std::chrono::steady_clock::now()-t1_).count() <<"\n";
         // std::cout<<"armors_posi num:" << armors_posi.size() << "\n";
