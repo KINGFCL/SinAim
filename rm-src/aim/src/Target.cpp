@@ -25,18 +25,19 @@
 void Robot::Init(const std::vector<ArmorPosi>& armors)
 {
     if(armors.empty()) return;
-    
+    if(armors.size() == 1) return;
     // 装甲板类型检查
-    if(static_cast<int>(armors[0].type) < 1) return;
+    if(static_cast<int>(armors[0].type) < 1 || static_cast<int>(armors[0].type) > 5) return;
 
     this->type = static_cast<Robot::Type>(static_cast<int>(armors[0].type));
     
     switch (armors.size()) {
         case 1:
         {
-            Eigen::Vector3d center = 0.5*(armors[0].center.block<3,1>(0,0) + armors[0].center.block<3,1>(0,1));
-            Eigen::Vector3d SCS = 0.5*(armors[0].SCS.block<3,1>(0,0) + armors[0].SCS.block<3,1>(0,1));
-            this->InitLKF(center, SCS);
+            size_t idx = armors[0].reproj[0] < armors[0].reproj[1] ? 0 : 1;
+            Eigen::Vector3d center = armors[0].center.block<3,1>(0,idx);
+            Eigen::Vector3d SCS = armors[0].SCS.block<3,1>(0,idx);
+            this->InitLKF(center, SCS);//这里可能有问题的
             break;
         }
         default:
@@ -69,9 +70,9 @@ void Robot::InitEKF(const Eigen::Vector3d& center, const Eigen::Vector3d& SCS, d
     // 初始化 4 块装甲板的内部状态矩阵 [theta, radius, z]^T
     // 角度
     this->Armors(0,0) = yaw;
-    this->Armors(0,1) = std::remainder(yaw + CV_PI/2.0,   CV_PI*2.0);
+    this->Armors(0,1) = std::remainder(yaw + CV_PI*0.5,   CV_PI*2.0);
     this->Armors(0,2) = std::remainder(yaw + CV_PI,       CV_PI*2.0);
-    this->Armors(0,3) = std::remainder(yaw + CV_PI*3.0/2.0, CV_PI*2.0);
+    this->Armors(0,3) = std::remainder(yaw + CV_PI*1.5, CV_PI*2.0);
 
     this->d_theta_1 = CV_PI*0.5;
     this->d_theta_2 = CV_PI;
@@ -105,16 +106,20 @@ void Robot::LKFToEKF(const std::vector<ArmorPosi>& armors)
     if(armors.size()< 2 ) return;
     this->lkfkalman.Init();
 
-    // Side 0 is always the lower-reproj (physically correct) IPPE solution.
-    // Use it directly for initialization; the rotation direction only determines
-    // which of the two detected armors is the better reference.
-    const ArmorPosi& ref = (armors[0].yaw_abs[0]+armors[0].yaw_abs[1] <= armors[1].yaw_abs[0]+armors[1].yaw_abs[1])
-                           ? armors[0] : armors[1];
-    this->InitEKF(ref.center.block<3,1>(0,0), ref.SCS.block<3,1>(0,0), ref.yaw[0]);
+    size_t index = (armors[0].yaw_abs[0]+armors[0].yaw_abs[1] <= armors[1].yaw_abs[0]+armors[1].yaw_abs[1]) ? 0: 1;
+
+    size_t side = ( std::remainder( armors[1-index].theta[0] - armors[index].theta[0], M_PI*2.0 ) < 0.0 ) ? 0 : 1;
+
+    this->InitEKF(armors[index].center.block<3,1>(0,side), armors[index].SCS.block<3,1>(0,side), armors[index].yaw[side]);
 }
 
+void Robot::LKFToEKF(const ArmorPosi& armor, size_t side)
+{
+    this->lkfkalman.Init();
+    this->InitEKF(armor.center.block<3,1>(0,side), armor.SCS.block<3,1>(0,side), armor.yaw[side]);
+}
 
-void Robot::Update(const std::vector<ArmorPosi>& armors, double dt)
+void Robot::Update(const std::vector<ArmorPosi>& armors, const Eigen::Quaterniond& gripper_to_world, double dt)
 {
     if(armors.empty()) return;
 
@@ -132,26 +137,28 @@ void Robot::Update(const std::vector<ArmorPosi>& armors, double dt)
                 this->LKFToEKF(armors);
                 return;
             }
-            Eigen::Vector3d centerPredict = this->center + this->Speed.block<3,1>(0,0) * dt;
 
-            Eigen::Vector3d ViewCenter = (armors[0].center.block<3,1>(0,0) + armors[0].center.block<3,1>(0,1) ) * 0.5;
-            ViewCenter(2) = armors[0].center(2,0);
-
-            double err = this->MatchErrorInLKF(centerPredict, ViewCenter);
+            double err = this->MatchErrorInLKF(armors[0],dt);
 
             //事件：发生跳板
             if(err > this->matcherrthresh)
             {
-                this->LKFToEKF(armors);
+                //先判断方向
+                Eigen::Vector3d predictcenter = (this->center + this->Speed.block<3,1>(0,0) * dt) - armors[0].photocenter;
+                double yaw_center = std::atan2(predictcenter(1), predictcenter(0));
+
+                size_t side = ( std::remainder( yaw_center - armors[0].theta[0], M_PI*2.0)  < 0.0 ) ? 0 : 1;
+                this->LKFToEKF(armors[0],side);
                 return;
             }
-            Eigen::Vector3d SCS = armors[0].SCS.block<3,1>(0,0);
-            SCS(0) = ( armors[0].SCS(0,0) + armors[0].SCS(0,1) ) * 0.5;
+            size_t index = armors[0].reproj[0] < armors[0].reproj[1] ? 0 : 1;
+            Eigen::Vector3d SCS = armors[0].SCS.block<3,1>(0,index);
+            Eigen::Vector3d ViewCenter = armors[0].center.block<3,1>(0,index);
             this->UpdateLKF( ViewCenter, SCS, dt);
             break;
         }
         case KalmanMode::EKF:
-            this->UpdateEKF(armors, dt);
+            this->UpdateEKF(armors,gripper_to_world,dt);
             break;
     }
 }
@@ -168,18 +175,18 @@ void Robot::Update(double dt)
     }
 }
 
-void Robot::UpdateEKF(const std::vector<ArmorPosi>& armors, double dt)
+void Robot::UpdateEKF(const std::vector<ArmorPosi>& armors,const Eigen::Quaterniond& gripper_to_world, double dt)
 {
     if(armors.empty()) return;
 
     if(armors.size() == 1)
     {
-        this->OneArmor(armors[0], dt);
+        this->OneArmor(armors[0],gripper_to_world, dt);
         return;
     }
     else 
     {
-        this->TwoArmor(armors, dt);
+        this->TwoArmor(armors,gripper_to_world, dt);
         return;
     }
 
@@ -244,13 +251,17 @@ void Robot::UpdateLKF(double dt)
     return;
 }
 
-double Robot::MatchErrorInLKF(const Eigen::Vector3d& armorcenter, const Eigen::Vector3d& ViewCenter)
+double Robot::MatchErrorInLKF(const ArmorPosi& armor, double dt)
 {
-    double distance = armorcenter.norm();
+    Eigen::Vector3d centerPredict = this->center + this->Speed.block<3,1>(0,0) * dt;
 
-    double dot = armorcenter.dot(ViewCenter)/(distance*ViewCenter.norm());
+    Eigen::Vector3d ViewCenter = armor.reproj[0] < armor.reproj[1] ? armor.center.col(0) : armor.center.col(1);
 
-    return std::acos(dot)*distance;
+    double distance = this->center.norm();
+
+    double dot = centerPredict.dot(ViewCenter)/(centerPredict.norm()*ViewCenter.norm());
+
+    return std::acos( std::clamp(dot,-1.0,1.0) )*distance;
 }
 
 Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
@@ -259,14 +270,15 @@ Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
     Eigen::Matrix4d ans = this->Predict(dt, robot_center);
 
     std::array<size_t, 3> IDS;
-    std::array<size_t, 3> Side;
+    size_t side;
     size_t ErrId;
     size_t CorrId;
     double distance = -1;
 
+    //找到距离最远的装甲板
     for(size_t i = 0; i < 4; i++)
     {
-        double norm = ans.block<3,1>(0,i).norm();
+        double norm = (ans.block<3,1>(0,i)-armor.photocenter).norm();
 
         if(norm > distance)
         {
@@ -274,39 +286,39 @@ Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
             ErrId = i;
         }
     }
+
+    //找到距离最近的3个装甲板
     IDS[0] = (ErrId+1)%4;
     IDS[1] = (ErrId+2)%4;
     IDS[2] = (ErrId+3)%4;
+    // std::cout << IDS[0] << " " << IDS[1] << " " << IDS[2] << std::endl;
 
     double Err = 1e5;
-    double norm = robot_center.norm();
     
+    const Eigen::Vector3d robot_center_cam = robot_center - armor.photocenter;
+    const Eigen::Vector3d armorcenter_cam = armor.center.col(0) - armor.photocenter;
 
-    const Eigen::Vector3d& photocenter = armor.photocenter;
-    const Eigen::Vector3d robot_center_cam = robot_center - photocenter;
     double robot_center_theta = std::atan2(robot_center_cam(1), robot_center_cam(0));
+    double thetaArmor = std::atan2(armorcenter_cam(1), armorcenter_cam(0));    
     
     //方向判断：
-    for(size_t i = 0; i < 3; i++)
-    {
-        Eigen::Vector3d armorcenter_cam = ans.block<3,1>(0,IDS[i]) - photocenter;
+    side = ( std::remainder( robot_center_theta - thetaArmor, CV_PI*2.0) < 0.0 ) ? 0 : 1;
 
-        double thetaArmor = std::atan2(armorcenter_cam(1), armorcenter_cam(0));
-        
-        Side[i] = ( std::remainder( robot_center_theta - thetaArmor, CV_PI*2.0) < 0.0 ) ? 0 : 1;
-    }
-    
+
+    // std::cout<< Side[0] << " " << Side[1] << " " << Side[2] << std::endl;
     size_t CorrIndx;
     for(size_t i = 0; i<3; i++ )
     {
-        double dot = ans.block<3,1>(0,IDS[i]).dot(armor.center.col(Side[i]))/(ans.block<3,1>(0,IDS[i]).norm()*armor.center.col(Side[i]).norm());
+        double dot = ans.block<3,1>(0,IDS[i]).dot(armor.center.col(side))/(ans.block<3,1>(0,IDS[i]).norm()*armor.center.col(side).norm());
 
         double theta_err = std::acos(std::clamp(dot,-1.0,1.0));
         double yaw = ans(3,IDS[i]);
 
-        double yaw_err = std::abs( armor.yaw[Side[i]] - yaw);
+        double yaw_err = std::abs( std::remainder(armor.yaw[side] - yaw, M_PI*2.0 ));
 
         double err = theta_err + yaw_err;
+
+        // std::cout<<theta_err<<" "<<yaw_err<<" "<<err<<"   ";
         if(err < Err)
         {
             Err = err;
@@ -314,50 +326,92 @@ Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
             CorrIndx = i;
         }
     }
+    // std::cout << "\n";
 
 
-    return MatchAns{CorrId, Side[CorrIndx], Err};
+    return MatchAns{CorrId, side, Err};
 }
 std::pair< Robot::MatchAns, Robot::MatchAns> Robot::MatchErrorInEKF(const std::vector<ArmorPosi>& armors, double dt)
 {
-    // 两个装甲板同时可见时，它们在相机视角里一定是左右相邻的两块板。
-    // 用 yaw_abs 更小（更正对相机）的那块做单板匹配确定 ID，
-    // 另一块的 ID 由相邻关系（+1 mod 4）推导，避免两块匹配到同一 ID。
+    //双板匹配
+    //先把装甲板分为左方右方
+    bool swap = false;
+    ArmorPosi armor_left, armor_right;
+    swap = ( std::remainder(armors[1].theta[0] - armors[0].theta[0], M_PI*2.0) < 0.0 ) ? false : true;
 
-    // 1. 确定哪块更正对相机（yaw_abs 之和更小）
-    int primary = 0, secondary = 1;
-    // if(this->MatchErrorInEKF(armors[0], dt).err > this->MatchErrorInEKF(armors[1], dt).err )
-    //     std::swap(primary, secondary);
+    if(swap)
+    {
+        armor_left = armors[0];
+        armor_right = armors[1];
+    }
+    else
+    {
+        armor_left = armors[1];
+        armor_right = armors[0];
+    }
 
-    // 2. 对 primary 做单板匹配
-    MatchAns primaryAns = this->MatchErrorInEKF(armors[primary], dt);
+    //由于id一定是逆时针的，所以只有两种可能
+    Eigen::Matrix4d ans = this->Predict(dt);
+    std::array<size_t, 3> IDS;
+    size_t ErrId;
+    size_t CorrId_left,CorrId_right;
+    double distance = -1;
 
-    // 3. secondary 的 ID 由 theta 相对顺序决定：
-    //    若 secondary 在 primary 的逆时针方向（theta 差 > 0），则 secondary ID = (primary+1)%4
-    //    否则 secondary ID = (primary+3)%4（即 -1 mod 4）
-    double dtheta = std::remainder(armors[secondary].theta[0] - armors[primary].theta[0], 2*CV_PI);
-    size_t secondaryId = (dtheta < 0) ? (primaryAns.id + 1) % 4 : (primaryAns.id + 3) % 4;
+    //找到距离最远的装甲板
+    for(size_t i = 0; i < 4; i++)
+    {
+        double norm = (ans.block<3,1>(0,i)- armors[0].photocenter).norm();
 
-    // 4. secondary 的 side：同样用 theta 相对关系判断（与 LKFToEKF 逻辑一致）
-    //    robot_center 在 secondary 装甲板的哪侧决定取哪个 PnP 解
-    Eigen::Vector3d robot_center_pred;
-    Eigen::Matrix4d pred = this->Predict(dt, robot_center_pred);
-    Eigen::Vector3d armorCenter_sec_cam = pred.block<3,1>(0, secondaryId) - armors[secondary].photocenter;
-    double thetaArmor_sec = std::atan2(armorCenter_sec_cam(1), armorCenter_sec_cam(0));
-    Eigen::Vector3d robot_center_cam = robot_center_pred - armors[secondary].photocenter;
-    double robot_theta_sec = std::atan2(robot_center_cam(1), robot_center_cam(0));
-    size_t secondarySide = (std::remainder(robot_theta_sec - thetaArmor_sec, CV_PI*2.0) < 0.0) ? 0 : 1;
+        if(norm > distance)
+        {
+            distance = norm;
+            ErrId = i;
+        }
+    }
 
-    MatchAns secondaryAns{secondaryId, secondarySide, 0.0};
+    //找到距离最近的3个装甲板
+    IDS[0] = (ErrId+1)%4;
+    IDS[1] = (ErrId+2)%4;
+    IDS[2] = (ErrId+3)%4;
 
-    std::pair<MatchAns, MatchAns> ans;
-    if(primary == 0) { ans.first = primaryAns;   ans.second = secondaryAns; }
-    else             { ans.first = secondaryAns; ans.second = primaryAns;   }
-    return ans;
+    //匹配
+    double Errleft = 1e5, Errright = 1e5;
+    //只有两种可能
+    {
+        double yaw_errleft = std::abs( std::remainder(armor_left.yaw[0] - ans(3,IDS[0]), M_PI*2.0 ));
+        double yaw_errright = std::abs( std::remainder(armor_right.yaw[1] - ans(3,IDS[1]), M_PI*2.0 ));
+        Errleft = yaw_errleft + yaw_errright;
+    }
+    {
+        double yaw_errleft = std::abs( std::remainder(armor_left.yaw[0] - ans(3,IDS[1]), M_PI*2.0 ));
+        double yaw_errright = std::abs( std::remainder(armor_right.yaw[1] - ans(3,IDS[2]), M_PI*2.0 ));
+        Errright = yaw_errleft + yaw_errright;
+    }
+
+    if(Errleft < Errright)
+    {
+        CorrId_left = IDS[0];
+        CorrId_right = IDS[1];
+    }
+    else
+    {
+        CorrId_left = IDS[1];
+        CorrId_right = IDS[2];
+    }
+
+    //返回结果
+    if(swap)
+    {
+        return std::make_pair(MatchAns{CorrId_right, 1, Errright}, MatchAns{CorrId_left, 0, Errleft});
+    }
+    else
+    {
+        return std::make_pair(MatchAns{CorrId_left, 0, Errleft}, MatchAns{CorrId_right, 1, Errright});
+    }
 }
 
 
-void Robot::OneArmor(const ArmorPosi& armor, double dt)
+void Robot::OneArmor(const ArmorPosi& armor, const Eigen::Quaterniond& gripper_to_world, double dt)
 {
     //装甲板匹配
     MatchAns matchAns = this->MatchErrorInEKF(armor, dt);
@@ -386,7 +440,7 @@ void Robot::OneArmor(const ArmorPosi& armor, double dt)
     State(12,0) = this->d_theta_2;
     State(13,0) = this->d_theta_3;
 
-    Eigen::Matrix<double, 14, 1> ans = this->ekfkalman(State, armorView, armor.SCS.block<3,1>(0,side), armor.yaw_abs[side], ID,dt);
+    Eigen::Matrix<double, 14, 1> ans = this->ekfkalman(State, armorView,  armor.SCS.block<3,1>(0,side),gripper_to_world, armor.yaw_abs[side], ID,dt);
     
     //更新l,h
     this->l_diff = ans(9,0);
@@ -419,7 +473,7 @@ void Robot::OneArmor(const ArmorPosi& armor, double dt)
     this->Armors(0,3) = std::remainder(ans(6,0) + ans(13,0), CV_PI*2.0);
 }
 
-void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
+void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, const Eigen::Quaterniond& gripper_to_world, double dt)
 {
     std::array< Eigen::Matrix<double, 4, 1>, 2 > ArmorStates;
     std::array<size_t, 2> IDS;
@@ -506,7 +560,7 @@ void Robot::TwoArmor(const std::vector<ArmorPosi>& armors, double dt)
     StateViews(8,0) = ArmorStates[1](2,0) - ArmorStates[0](2,0);
     StateViews(9,0) = std::remainder(ArmorStates[1](3,0) - ArmorStates[0](3,0), 2*CV_PI);
 
-    Eigen::Matrix<double, 14, 1> ans = this->ekfkalman(State, StateViews, SCSs[0], SCSs[1], yaws[0], yaws[1], IDS[0], dt);
+    Eigen::Matrix<double, 14, 1> ans = this->ekfkalman(State, StateViews, SCSs[0], SCSs[1],gripper_to_world, yaws[0], yaws[1], IDS[0], dt);
     
     // 更新 l, h
     this->l_diff = ans(9,0);

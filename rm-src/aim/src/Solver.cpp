@@ -1,6 +1,7 @@
 #include "Solver.hpp"
 #include "Armor.hpp"
 #include "eigen3/Eigen/Dense"
+#include "iostream"
 #include <array>
 #include <cmath>
 #include <opencv2/core.hpp>
@@ -40,9 +41,6 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
     Eigen::Matrix3d R_cam2world = R_gripper_to_world * this->R_Cam_to_gripper;
     Eigen::Vector3d photocenter_world = R_gripper_to_world * this->T_Cam_to_gripper;
 
-    // 相机 Z 轴（视线向量）在世界坐标系中的方向，投影到 XY 平面用于判断装甲板yaw的方向
-    Eigen::Vector3d cam_z_world = R_cam2world.col(2);
-
     for(const auto& armor : armors)
     {
         Eigen::Matrix<double,3,2> center_small, center_big, center_cam_small, center_cam_big;
@@ -66,7 +64,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 // 2D 叉积判断法向量在视线左/右侧：
                 // cross2d < 0 → 法向量在视线右侧
                 // cross2d > 0 → 法向量在视线左侧
-                double cross2d = cam_z_world.x() * toward_world.y() - cam_z_world.y() * toward_world.x();
+                double cross2d = T_cam.x() * R_arm2cam(1,2) - T_cam.y() * R_arm2cam(0,2);
                 int idx = (cross2d > 0) ? 0 : 1;
                 center_cam_small.col(idx) = T_cam;
                 center_small.col(idx) = R_cam2world * T_cam + photocenter_world;
@@ -94,7 +92,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 Eigen::Vector3d T_cam(Eigen::Map<Eigen::Vector3d>(tvecs[s].ptr<double>()));
 
                 Eigen::Vector3d toward_world = R_cam2world * R_arm2cam.col(2);
-                double cross2d = cam_z_world.x() * toward_world.y() - cam_z_world.y() * toward_world.x();
+                double cross2d = T_cam.x() * R_arm2cam(1,2) - T_cam.y() * R_arm2cam(0,2);
                 int idx = (cross2d > 0) ? 0 : 1;
                 center_cam_big.col(idx) = T_cam;
                 center_big.col(idx) = R_cam2world * T_cam + photocenter_world;

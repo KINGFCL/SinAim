@@ -104,7 +104,7 @@ std::vector<ArmorPosi> MlpNumClassifier::operator()(std::vector< std::array<Armo
             }
 
             // 3. 过滤掉无效目标
-            if (final_type == ArmorPosi::Type::Unknow) continue;
+            if (final_type == ArmorPosi::Type::Unknow || (!armors[i][target_idx].IsInRange)) continue;
 
             // 4. 压入结果
             result.emplace_back(armors[i][target_idx]);

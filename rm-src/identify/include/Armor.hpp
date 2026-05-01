@@ -50,12 +50,11 @@ struct CVArmor{
 };
 
 struct ArmorPosi{
-    //顺时针yaw和逆时针yaw
-    Eigen::Matrix<double, 3, 2> center;
-    Eigen::Vector3d photocenter;
+    Eigen::Matrix<double, 3, 2> center;//装甲板中心点
+    Eigen::Vector3d photocenter;//相机光心在世界坐标系下的坐标
     std::array<double, 2> yaw;
     std::array<double, 2> reproj;
-    std::array<double, 2> theta;//装甲板中心点方向角
+    std::array<double, 2> theta;//装甲板中心点在以相机为原点的世界系方向角
     std::array<double, 2> yaw_abs;
     Eigen::Matrix<double, 3, 2> SCS;    //球坐标系坐标，以相机系为坐标系
 
@@ -74,8 +73,10 @@ struct ArmorPosi{
               bool isInRange):
               center(center), photocenter(photocenter), yaw(yaw), reproj(reproj), IsInRange(isInRange){
 
-                this->theta[0] = std::atan2(this->center(1, 0), this->center(0, 0));
-                this->theta[1] = std::atan2(this->center(1, 1), this->center(0, 1));
+                Eigen::Matrix<double, 3, 2> center_cam_o = this->center.colwise() - this->photocenter;//以相机光心为原点的世界坐标系
+
+                this->theta[0] = std::atan2(center_cam_o(1, 0), center_cam_o(0, 0));
+                this->theta[1] = std::atan2(center_cam_o(1, 1), center_cam_o(0, 1));
 
                 this->yaw_abs[0] = std::abs( std::remainder(this->yaw[0] + M_PI - this->theta[0], M_PI*2.0) );
                 this->yaw_abs[1] = std::abs( std::remainder(this->yaw[1] + M_PI - this->theta[1], M_PI*2.0) );

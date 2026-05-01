@@ -1,4 +1,5 @@
 #include "Tracker.hpp"
+#include <Eigen/src/Geometry/Quaternion.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -120,7 +121,7 @@ void Tracker::handleSearching(std::vector<ArmorPosi>& armors_posi,
             for (size_t j = 1; j < this->search_data_buffers[i].size(); ++j)
             {
                 // i 是外部循环已经确定的目标类型索引，j 是帧序列号
-                current_robot->Update(this->search_data_buffers[i][j], this->search_time_buffers[i][j]);
+                current_robot->Update(this->search_data_buffers[i][j],Eigen::Quaterniond(gripper_to_world.w,gripper_to_world.x,gripper_to_world.y,gripper_to_world.z), this->search_time_buffers[i][j]);
             }
 
             // 进入追踪模式，只有可能因为丢失而进入丢失状态
@@ -165,7 +166,7 @@ void Tracker::handleTracking(std::vector<ArmorPosi>& armors_posi,
         // 更新机器人状态
         if (current_robot)
         {
-            current_robot->Update(target_armors, dt);
+            current_robot->Update(target_armors,Eigen::Quaterniond(gripper_to_world.w, gripper_to_world.x, gripper_to_world.y, gripper_to_world.z), dt);
         }
 
         // 检查是否有新目标持续出现在中心
@@ -261,7 +262,7 @@ void Tracker::handleTempLost(std::vector<ArmorPosi>& armors_posi,
         // 更新机器人状态
         if (current_robot)
         {
-            current_robot->Update(target_armors, dt);
+            current_robot->Update(target_armors,Eigen::Quaterniond(gripper_to_world.w, gripper_to_world.x, gripper_to_world.y, gripper_to_world.z), dt);
         }
     }
 }
