@@ -71,7 +71,7 @@ struct ArmorPosi{
               std::array<double, 2> yaw, 
               std::array<double, 2> reproj,
               bool isInRange):
-              center(center),photocenter(photocenter), yaw({ std::remainder(yaw[0] + 0.5*M_PI, M_PI*2), std::remainder(yaw[1] + 0.5*M_PI, M_PI*2)} ), reproj(reproj), IsInRange(isInRange){
+              center(center),photocenter(photocenter), yaw({ std::remainder(yaw[0] + 0.0*M_PI, M_PI*2), std::remainder(yaw[1] + 0.0*M_PI, M_PI*2)} ), reproj(reproj), IsInRange(isInRange){
                 Eigen::Vector3d center_0 = this->center.block<3, 1>(0,0) - this->photocenter;
                 Eigen::Vector3d center_1 = this->center.block<3, 1>(0,1) - this->photocenter;
 

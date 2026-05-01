@@ -107,6 +107,7 @@ int main() {
 
         // ── 分类 ────────────────────────────────────────────────
         std::vector<ArmorPosi> armors = resnet(armors_2, armors_pattern);
+        std::cout<<"分类后的装甲板数量: "<<armors.size()<<"\n";
         // std::cout<<"----------------------------------\n一帧的数据: ";
         // for(auto armor_:armors)
         // {
@@ -134,13 +135,14 @@ int main() {
             // 与旧 solveRectanglePose 的法线yaw不同，这里直接用宽度方向重建旋转矩阵
             auto ArmorPosiToCam = [](double yaw, Eigen::Matrix3d R_cam2world, Eigen::Vector3d center) -> Eigen::Matrix<double,3,4>
             {
-                // 装甲板X轴（宽度方向）
-                Eigen::Vector3d x_w(std::cos(yaw), std::sin(yaw), 0.0);
-                // 世界Z轴（竖直向上）在装甲板X轴垂直平面内的分量作为Y轴（高度方向）
+                // yaw 是装甲板法线在世界 XY 平面的朝向角（与 Solver.cpp 一致）
+                // 局部 Z 轴 = 法线方向
+                Eigen::Vector3d z_w(std::cos(yaw), std::sin(yaw), 0.0);
+                // 局部 Y 轴（高度方向）= 世界 Z 轴去掉沿法线的分量后归一化
                 Eigen::Vector3d z_up(0.0, 0.0, 1.0);
-                Eigen::Vector3d y_w = (z_up - z_up.dot(x_w) * x_w).normalized();
-                // Z轴 = 法线方向
-                Eigen::Vector3d z_w = x_w.cross(y_w);
+                Eigen::Vector3d y_w = (z_up - z_up.dot(z_w) * z_w).normalized();
+                // 局部 X 轴（宽度方向）= Y 叉乘 Z，右手系，与 solvePnP object points 一致
+                Eigen::Vector3d x_w = y_w.cross(z_w);
                 Eigen::Matrix3d R_world2base;
                 R_world2base.col(0) = x_w;
                 R_world2base.col(1) = y_w;

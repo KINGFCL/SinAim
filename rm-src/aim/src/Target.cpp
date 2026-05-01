@@ -364,8 +364,8 @@ void Robot::OneArmor(const ArmorPosi& armor, double dt)
     size_t ID = matchAns.id;
     size_t side = matchAns.side;
     
-    // 计算装甲板状态
-    Eigen::Matrix<double, 4, 1> armorView {armor.center(0), armor.center(1), armor.center(2), armor.yaw[side]};
+    // 计算装甲板状态（位置和 yaw 必须来自同一个 IPPE 解）
+    Eigen::Matrix<double, 4, 1> armorView {armor.center(0,side), armor.center(1,side), armor.center(2,side), armor.yaw[side]};
 
     //更新视角
     this->View[(ID+1)%4] = this->View[(ID+2)%4] = this->View[(ID+3)%4] = ArmorView::Invisual;

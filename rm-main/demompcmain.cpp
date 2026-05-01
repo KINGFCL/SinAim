@@ -1,5 +1,6 @@
 #include "Demo.hpp"
 #include "Config.hpp"
+#include "MlpNumClassifier.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -60,7 +61,7 @@ std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::no
 
 DemoReader demo("../../demo/damo.avi");
 CVDetector detect(Light::Color::Blue);
-ResNetNumClassifier resnet("../../model/tiny_resnet.onnx");
+MlpNumClassifier mlp("../../model/mlp.onnx");
 Solver::SolverConfig solver_config = LoadSolverConfig("../../config/solver.yaml");
 Solver Sov(solver_config);
 Tracker track;
@@ -104,13 +105,13 @@ int main() {
 
         // ── 检测 ────────────────────────────────────────────────
         std::vector<cv::Mat> armors_pattern;
-        auto opencv_armors = detect(frame.image, armors_pattern);
+        auto opencv_armors = detect(frame.image, armors_pattern, CVDetector::ROIType::MLP);
 
         Eigen::Quaterniond gripper_to_world{frame.quat.w, frame.quat.x, frame.quat.y, frame.quat.z};
         std::vector<std::array<ArmorPosi, 2>> armors_2 = Sov(opencv_armors, gripper_to_world);
 
         // ── 分类 ────────────────────────────────────────────────
-        std::vector<ArmorPosi> armors = resnet(armors_2, armors_pattern);
+        std::vector<ArmorPosi> armors = mlp(armors_2, armors_pattern);
         // std::cout<<"----------------------------------\n一帧的数据: ";
         // for(auto armor_:armors)
         // {

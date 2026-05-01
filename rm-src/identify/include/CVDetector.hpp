@@ -7,6 +7,7 @@
 #include <opencv2/core/types.hpp>
 #include <vector>
 class CVDetector {
+public:
     enum class ROIType : int { ResNet = 0, MLP = 1 };
 
 public:

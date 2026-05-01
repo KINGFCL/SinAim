@@ -47,8 +47,8 @@ private:
     const double w_small = 13.5;
     const double h       = 5.5;
 
-    std::vector<cv::Point3f> objectSmallArmorP;
-    std::vector<cv::Point3f> objectBigArmorP;
+    std::vector<cv::Point3d> objectSmallArmorP;
+    std::vector<cv::Point3d> objectBigArmorP;
 
 };
 
