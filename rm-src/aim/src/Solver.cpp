@@ -45,7 +45,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
 
     for(const auto& armor : armors)
     {
-        Eigen::Matrix<double,3,2> center_small, center_big;
+        Eigen::Matrix<double,3,2> center_small, center_big, center_cam_small, center_cam_big;
         std::array<double,2> yaw_small, yaw_big, reproj_small, reproj_big;
         bool isInRange_small = true, isInRange_big = true;
 
@@ -68,6 +68,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 // cross2d > 0 → 法向量在视线左侧
                 double cross2d = cam_z_world.x() * toward_world.y() - cam_z_world.y() * toward_world.x();
                 int idx = (cross2d > 0) ? 0 : 1;
+                center_cam_small.col(idx) = T_cam;
                 center_small.col(idx) = R_cam2world * T_cam + photocenter_world;
                 yaw_small[idx] = std::atan2(-toward_world.y(), -toward_world.x());
                 reproj_small[idx] = reprojErr[s];
@@ -95,6 +96,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 Eigen::Vector3d toward_world = R_cam2world * R_arm2cam.col(2);
                 double cross2d = cam_z_world.x() * toward_world.y() - cam_z_world.y() * toward_world.x();
                 int idx = (cross2d > 0) ? 0 : 1;
+                center_cam_big.col(idx) = T_cam;
                 center_big.col(idx) = R_cam2world * T_cam + photocenter_world;
                 yaw_big[idx] = std::atan2(-toward_world.y(), -toward_world.x());
                 reproj_big[idx] = reprojErr[s];
@@ -108,9 +110,9 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
 
         std::array<ArmorPosi,2> armor_result;
         if(isInRange_small)
-            armor_result[0] = ArmorPosi(center_small, photocenter_world, yaw_small, reproj_small, true);
+            armor_result[0] = ArmorPosi(center_small, center_cam_small, photocenter_world, yaw_small, reproj_small, true);
         if(isInRange_big)
-            armor_result[1] = ArmorPosi(center_big, photocenter_world, yaw_big, reproj_big, true);
+            armor_result[1] = ArmorPosi(center_big, center_cam_big, photocenter_world, yaw_big, reproj_big, true);
         results.push_back(armor_result);
     }
 
