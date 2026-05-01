@@ -31,6 +31,12 @@ public:
     const double Threshold_Angle_diff = 0.2; // 角度差误差容忍阈值 (单位: rad)
     //观测噪声
     const double Var_r = 1000.0, Var_yaw = 0.01, Var_dtheta = 0.01; // 观测yaw值方差
+
+    Eigen::Matrix3d RCamera2Grip{
+        {-0.009549480539577278, -0.01953893000739315, 0.9997634908495061},
+        {-0.9999090215267193, -0.009338627954961053, -0.009733380573965271},
+        {0.009526599125766769, -0.9997654826218425, -0.01944797333944928}
+    };
     
     // 过程噪声参数
     const double Var_a_xy = 10000.0,  Var_a_z = 10.0, Var_alpha = 10;
@@ -60,6 +66,7 @@ public:
         const Eigen::Matrix<double, 14, 1>& State,
         const Eigen::Matrix<double, 4, 1>& View, 
         const Eigen::Vector3d& SCS,
+        const Eigen::Quaterniond& gripper_to_world,
         double delta_angle,
         size_t armor_id,                           
         double dt);
@@ -74,6 +81,7 @@ public:
         const Eigen::Matrix<double, 10, 1>& Views,
         const Eigen::Vector3d& SCS1,
         const Eigen::Vector3d& SCS2,
+        const Eigen::Quaterniond& gripper_to_world,
         double delta_angle1,
         double delta_angle2,
         size_t armor_id,                        
@@ -90,12 +98,12 @@ public:
         
     Eigen::Matrix<double, 3, 3> getJacobianSphericalToCartesian(const Eigen::Vector3d& SCS);
 
-    Eigen::Matrix<double, 4, 14> getStateToViewJacobian(const Eigen::Matrix<double, 14, 1>& X_predict,int armor_id);
+    Eigen::Matrix<double, 4, 14> getStateToViewJacobian(const Eigen::Matrix<double, 14, 1>& X_predict, size_t armor_id);
     
     /*
     观测向量 View 为 8 维: [x_i, y_i, z_i, yaw_i, x_i+1, y_i+1, z_i+1, yaw_i+1, h , (d_theta_i+1 - d_theta_i)]
     */
-    Eigen::Matrix<double, 10, 14> getStateToViewsJacobian(const Eigen::Matrix<double, 14, 1>& X_predict,int armor_id);
+    Eigen::Matrix<double, 10, 14> getStateToViewsJacobian(const Eigen::Matrix<double, 14, 1>& X_predict, size_t armor_id);
 
     Eigen::Matrix<double, 14, 14> CovState;
 

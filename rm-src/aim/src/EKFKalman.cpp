@@ -3,9 +3,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
-#include <eigen3/Eigen/Core>
-#include <eigen3/Eigen/Geometry>
-#include <eigen3/Eigen/src/Geometry/Quaternion.h>
 #include <opencv2/core/types.hpp>
 #include <algorithm>
 #include <iostream>
@@ -27,6 +24,7 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     const Eigen::Matrix<double, 14, 1>& State,
     const Eigen::Matrix<double, 4, 1>& View,
     const Eigen::Vector3d& SCS,
+    const Eigen::Quaterniond& gripper_to_world,
     double delta_angle, 
     size_t armor_id,
     double dt)
@@ -38,7 +36,11 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     this->CovViewCamera(0,0) = ( log(std::abs(delta_angle) + 1) + 1 )*this->Var_r;
 
     Eigen::Matrix3d JacobianS2C = this->getJacobianSphericalToCartesian(SCS);
-    this->CovView.block<3,3>(0,0) = JacobianS2C * this->CovViewCamera * JacobianS2C.transpose(); // 相机坐标系下的观测噪声
+    Eigen::Matrix3d CovViewCameraCCS = JacobianS2C * this->CovViewCamera * JacobianS2C.transpose(); // 相机坐标系下的观测噪声
+    Eigen::Matrix3d R_cam2world = gripper_to_world.toRotationMatrix() * this->RCamera2Grip; // 从相机坐标系到世界坐标系的旋转矩阵
+
+    this->CovView.block<3,3>(0,0) = 
+        R_cam2world * CovViewCameraCCS * R_cam2world.transpose(); // 将相机观测噪声转换到世界坐标系
     
     double yaw_var_standard = ( log ( std::max( (View.block<3,1>(0,0).norm() / 100) - 3, 0.0 ) + 1 ) + 1.0 ) * this->Var_yaw; // yaw 观测噪声
     this->CovView(3,3) = exp(std::abs(delta_angle) - (CV_PI/4) ) * yaw_var_standard;
@@ -84,7 +86,7 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     this->CovState = F * this->CovState * F.transpose() + Q;
 
     //更新状态
-    const size_t& id = armor_id;
+    size_t& id = armor_id;
     const double& pred_xc = X_curr(0);
     const double& pred_yc = X_curr(1);
     const double& pred_zc = X_curr(2);
@@ -146,6 +148,7 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     const Eigen::Matrix<double, 10, 1>& Views,
     const Eigen::Vector3d& SCS1,
     const Eigen::Vector3d& SCS2,
+    const Eigen::Quaterniond& gripper_to_world,
     double delta_angle1,
     double delta_angle2, 
     size_t armor_id,
@@ -160,11 +163,18 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
     Eigen::Matrix3d JacobianS2C2 = this->getJacobianSphericalToCartesian(SCS2);
 
     this->CovViewCamera(0,0) = ( log(std::abs(delta_angle1) + 1) + 1 )*this->Var_r;
-    this->CovViews.block<3,3>(0,0) = JacobianS2C1 * this->CovViewCamera * JacobianS2C1.transpose(); // 相机坐标系下的观测噪声
+    Eigen::Matrix3d CovViewCameraCCS1 = JacobianS2C1 * this->CovViewCamera * JacobianS2C1.transpose(); // 相机坐标系下的观测噪声
     
     this->CovViewCamera(0,0) = ( log(std::abs(delta_angle2) + 1) + 1 )*this->Var_r;
-    this->CovViews.block<3,3>(4,4) = JacobianS2C2 * this->CovViewCamera * JacobianS2C2.transpose(); // 相机坐标系下的观测噪声
+    Eigen::Matrix3d CovViewCameraCCS2 = JacobianS2C2 * this->CovViewCamera * JacobianS2C2.transpose(); // 相机坐标系下的观测噪声
+    
+    Eigen::Matrix3d R_cam2world = gripper_to_world.toRotationMatrix() * this->RCamera2Grip; // 从相机坐标系到世界坐标系的旋转矩阵
 
+    this->CovViews.block<3,3>(0,0) = 
+        R_cam2world * CovViewCameraCCS1 * R_cam2world.transpose(); // 将相机观测噪声转换到世界坐标系
+
+    this->CovViews.block<3,3>(4,4) = 
+        R_cam2world * CovViewCameraCCS2 * R_cam2world.transpose();
     
     double yaw_var_standard = ( log( std::max( ( ( Views.block<3,1>(0,0).norm() + Views.block<3,1>(4,0).norm() )/200 )-3, 0.0) + 1 ) + 1.0) * this->Var_yaw; // yaw 观测噪声
     this->CovViews(3,3) = exp(std::abs(delta_angle1) - (CV_PI/4) ) * yaw_var_standard;
@@ -367,7 +377,6 @@ Eigen::Matrix<double, 14, 1> EKFKalman::operator()(
 
 
 
-
 /**
  * @brief 计算从相机球坐标系到笛卡尔坐标系的雅可比矩阵
  * * @param SCS 球坐标点 (x: 半径 r, y: 极角 theta, z: 方位角 phi)
@@ -407,7 +416,7 @@ Eigen::Matrix<double, 3, 3> EKFKalman::getJacobianSphericalToCartesian(const Eig
     return J;
 }
 
-Eigen::Matrix<double, 4, 14> EKFKalman::getStateToViewJacobian(const Eigen::Matrix<double, 14, 1>& X_predict, int armor_id)
+Eigen::Matrix<double, 4, 14> EKFKalman::getStateToViewJacobian(const Eigen::Matrix<double, 14, 1>& X_predict, size_t armor_id)
 {
     Eigen::Matrix<double, 4, 14> H = Eigen::Matrix<double, 4, 14>::Zero();
 
@@ -444,12 +453,12 @@ Eigen::Matrix<double, 4, 14> EKFKalman::getStateToViewJacobian(const Eigen::Matr
     return H;
 }
 
-Eigen::Matrix<double, 10, 14> EKFKalman::getStateToViewsJacobian(const Eigen::Matrix<double, 14, 1>& X_predict, int armor_id)
+Eigen::Matrix<double, 10, 14> EKFKalman::getStateToViewsJacobian(const Eigen::Matrix<double, 14, 1>& X_predict, size_t armor_id)
 {
     Eigen::Matrix<double, 10, 14> H2 = Eigen::Matrix<double, 10, 14>::Zero();
 
-    int id1 = armor_id;
-    int id2 = (armor_id + 1)%4;
+    size_t id1 = armor_id;
+    size_t id2 = (armor_id + 1)%4;
     H2.block<4, 14>(0, 0) = this->getStateToViewJacobian(X_predict, id1);
     H2.block<4, 14>(4, 0) = this->getStateToViewJacobian(X_predict, id2);
     
