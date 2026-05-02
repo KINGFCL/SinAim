@@ -318,7 +318,7 @@ Robot::MatchAns Robot::MatchErrorInEKF(const ArmorPosi& armor, double dt)
 
         double err = theta_err + yaw_err;
 
-        // std::cout<<theta_err<<" "<<yaw_err<<" "<<err<<"   ";
+        // std::cerr<<theta_err<<" "<<yaw_err<<" "<<err<<"   ";
         if(err < Err)
         {
             Err = err;
@@ -341,13 +341,13 @@ std::pair< Robot::MatchAns, Robot::MatchAns> Robot::MatchErrorInEKF(const std::v
 
     if(swap)
     {
-        armor_left = armors[0];
-        armor_right = armors[1];
+        armor_left = armors[1];
+        armor_right = armors[0];
     }
     else
     {
-        armor_left = armors[1];
-        armor_right = armors[0];
+        armor_left = armors[0];
+        armor_right = armors[1];
     }
 
     //由于id一定是逆时针的，所以只有两种可能
@@ -440,7 +440,7 @@ void Robot::OneArmor(const ArmorPosi& armor, const Eigen::Quaterniond& gripper_t
     State(12,0) = this->d_theta_2;
     State(13,0) = this->d_theta_3;
 
-    Eigen::Matrix<double, 14, 1> ans = this->ekfkalman(State, armorView,  armor.SCS.block<3,1>(0,side),gripper_to_world, armor.yaw_abs[side], ID,dt);
+    Eigen::Matrix<double, 14, 1> ans = this->ekfkalman(State, armorView, armor.SCS.col(side),gripper_to_world, armor.yaw_abs[side], ID,dt);
     
     //更新l,h
     this->l_diff = ans(9,0);

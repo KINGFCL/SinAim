@@ -1,6 +1,7 @@
 #include "Demo.hpp"
 #include "Config.hpp"
 #include "MlpNumClassifier.hpp"
+#include "Target.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -64,7 +65,7 @@ CVDetector detect(Light::Color::Blue);
 MlpNumClassifier mlp("../../model/mlp.onnx");
 Solver::SolverConfig solver_config = LoadSolverConfig("../../config/solver.yaml");
 Solver Sov(solver_config);
-Tracker track;
+Tracker track(1);
 Shooter shoot(0.005, 0.050);
 Test test;
 
@@ -162,7 +163,8 @@ int main() {
 
         #ifdef MainDebug
         if (current_robot != nullptr)
-            viz.update(*current_robot, current_robot->Predict(0), dt, Gun);
+            if(current_robot->GetMode() == Robot::KalmanMode::EKF)
+                viz.update(*current_robot, current_robot->Predict(0), dt, Gun);
         #endif
 
         ++frame_count;
