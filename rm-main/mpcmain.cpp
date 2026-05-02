@@ -161,6 +161,8 @@ int main() {
         {
             // 没有追踪到目标，跳过
             robotStates.push(nullptr);
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            rm::SendMessageToRobot(ser, 0.0, 0.0, false);
             continue;
         }
 
