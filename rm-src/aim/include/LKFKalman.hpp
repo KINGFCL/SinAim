@@ -2,6 +2,8 @@
 
 #include <Eigen/Core>
 #include <Eigen/Dense> 
+#include <Eigen/src/Core/Matrix.h>
+#include <Eigen/src/Geometry/Quaternion.h>
 #include <cmath>
 
 /**
@@ -21,7 +23,12 @@ private:
         100, 100, 100,       // xc, yc, zc 位置方差 (单位: cm^2)
         10000, 10000, 10000  // vxc, vyc, vzc 速度方差 (单位: (cm/s)^2)
     ).finished().asDiagonal();
-
+    
+    Eigen::Matrix3d RCamera2Grip{
+        {-0.009549480539577278, -0.01953893000739315, 0.9997634908495061},
+            {-0.9999090215267193, -0.009338627954961053, -0.009733380573965271},
+            {0.009526599125766769, -0.9997654826218425, -0.01944797333944928}
+    };
     // ================== 观测噪声参数 ==================
     const double Var_r = 100.0;       ///< 测距方差 (单位: cm^2)
     const double Var_dtheta = 0.0001; ///< 测角方差 (单位: rad^2)
@@ -54,8 +61,9 @@ public:
      * @return Eigen::Matrix<double, 6, 1> 更新后的后验最优状态估计向量
      */
     Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 6, 1>& State, 
-                                           const Eigen::Vector3d View, 
-                                           const Eigen::Vector3d& SCS, 
+                                           const Eigen::Vector3d& View, 
+                                           const Eigen::Vector3d& SCS,
+                                           const Eigen::Quaterniond& gripper_to_world, 
                                            double dt);
 
     Eigen::Matrix<double, 6, 1> operator()(const Eigen::Matrix<double, 6, 1>& State,double dt);

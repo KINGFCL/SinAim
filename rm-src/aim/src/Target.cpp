@@ -2,6 +2,7 @@
 #include "Armor.hpp"
 #include "EKFKalman.hpp"
 
+#include <Eigen/src/Geometry/Quaternion.h>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -25,7 +26,6 @@
 void Robot::Init(const std::vector<ArmorPosi>& armors)
 {
     if(armors.empty()) return;
-    if(armors.size() == 1) return;
     // 装甲板类型检查
     if(static_cast<int>(armors[0].type) < 1 || static_cast<int>(armors[0].type) > 5) return;
 
@@ -154,7 +154,7 @@ void Robot::Update(const std::vector<ArmorPosi>& armors, const Eigen::Quaternion
             size_t index = armors[0].reproj[0] < armors[0].reproj[1] ? 0 : 1;
             Eigen::Vector3d SCS = armors[0].SCS.block<3,1>(0,index);
             Eigen::Vector3d ViewCenter = armors[0].center.block<3,1>(0,index);
-            this->UpdateLKF( ViewCenter, SCS, dt);
+            this->UpdateLKF( ViewCenter, SCS, gripper_to_world, dt);
             break;
         }
         case KalmanMode::EKF:
@@ -223,13 +223,13 @@ void Robot::UpdateEKF(double dt)
 
 
 
-void Robot::UpdateLKF(const Eigen::Vector3d& armorcenter, const Eigen::Vector3d& SCS, double dt)
+void Robot::UpdateLKF(const Eigen::Vector3d& armorcenter, const Eigen::Vector3d& SCS, const Eigen::Quaterniond& gripper_to_world, double dt)
 {
     Eigen::Matrix<double, 6, 1> State;
     State.block<3,1>(0,0) = this->center;
     State.block<3,1>(3,0) = this->Speed.block<3,1>(0,0);
 
-    Eigen::Matrix<double, 6, 1> ans = this->lkfkalman( State, armorcenter, SCS, dt );
+    Eigen::Matrix<double, 6, 1> ans = this->lkfkalman( State, armorcenter, SCS, gripper_to_world, dt );
 
     this->center = ans.block<3,1>(0,0);
     this->Speed.block<3,1>(0,0) = ans.block<3,1>(3,0);

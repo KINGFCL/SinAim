@@ -1,4 +1,6 @@
 #include "LKFKalman.hpp"
+#include <Eigen/src/Core/Matrix.h>
+#include <Eigen/src/Geometry/Quaternion.h>
 
 
 void LKFKalman::Init() {
@@ -37,11 +39,15 @@ Eigen::Matrix<double, 6, 1> LKFKalman::operator()(const Eigen::Matrix<double, 6,
 }
 
 
-Eigen::Matrix<double, 6, 1> LKFKalman::operator()(const Eigen::Matrix<double, 6, 1>& State, const Eigen::Vector3d View, const Eigen::Vector3d& SCS, double dt) {
+Eigen::Matrix<double, 6, 1> LKFKalman::operator()(const Eigen::Matrix<double, 6, 1>& State, const Eigen::Vector3d& View, const Eigen::Vector3d& SCS, const Eigen::Quaterniond& gripper_to_world, double dt) {
     
     // 计算观测噪声矩阵
     Eigen::Matrix<double, 3, 3> J = this->getJacobianSphericalToCartesian(SCS);
     this->CovView.noalias() = J * this->CovViewSrc * J.transpose();
+
+    Eigen::Matrix3d R_cam2world = gripper_to_world.toRotationMatrix() * this->RCamera2Grip; // 从相机坐标系到世界坐标系的旋转矩阵
+
+    this->CovView = R_cam2world * this->CovView * R_cam2world.transpose();
 
     // 计算预测矩阵
     this->F(0, 3) = dt; // X轴：位置 += 速度_x * dt

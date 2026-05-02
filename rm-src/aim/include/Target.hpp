@@ -85,7 +85,7 @@ public:
     void Update(const std::vector<ArmorPosi>& armors,const Eigen::Quaterniond& gripper_to_world,double dt);
     void Update(double dt);
 
-    void UpdateLKF(const Eigen::Vector3d& armorcenter, const Eigen::Vector3d& SCS, double dt);//这里得改
+    void UpdateLKF(const Eigen::Vector3d& armorcenter, const Eigen::Vector3d& SCS, const Eigen::Quaterniond& gripper_to_world, double dt);//这里得改
     // void UpdateLKF(const Eigen::Vector3d& armorcenter, const Eigen::Vector3d& SCS,const Eigen::Quaterniond& gripper_to_world, double dt);
     void UpdateLKF(double dt);
 
