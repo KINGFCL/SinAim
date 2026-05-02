@@ -2,6 +2,7 @@
 #include "Armor.hpp"
 #include "eigen3/Eigen/Dense"
 #include "iostream"
+#include <Eigen/src/Core/Matrix.h>
 #include <array>
 #include <cmath>
 #include <opencv2/core.hpp>
@@ -64,8 +65,9 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 // 2D 叉积判断法向量在视线左/右侧：
                 // cross2d < 0 → 法向量在视线右侧
                 // cross2d > 0 → 法向量在视线左侧
-                double cross2d = T_cam.x() * R_arm2cam(1,2) - T_cam.y() * R_arm2cam(0,2);
-                int idx = (cross2d > 0) ? 0 : 1;
+                Eigen::Vector3d T_base = R_cam2world * T_cam;
+                double cross2d = T_base(0) * toward_world(1) - T_base(1) * toward_world(0);
+                int idx = (cross2d < 0) ? 0 : 1;
                 center_cam_small.col(idx) = T_cam;
                 center_small.col(idx) = R_cam2world * T_cam + photocenter_world;
                 yaw_small[idx] = std::atan2(-toward_world.y(), -toward_world.x());
@@ -92,8 +94,9 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 Eigen::Vector3d T_cam(Eigen::Map<Eigen::Vector3d>(tvecs[s].ptr<double>()));
 
                 Eigen::Vector3d toward_world = R_cam2world * R_arm2cam.col(2);
-                double cross2d = T_cam.x() * R_arm2cam(1,2) - T_cam.y() * R_arm2cam(0,2);
-                int idx = (cross2d > 0) ? 0 : 1;
+                Eigen::Vector3d T_base = R_cam2world * T_cam;
+                double cross2d = T_base(0) * toward_world(1) - T_base(1) * toward_world(0);
+                int idx = (cross2d < 0) ? 0 : 1;
                 center_cam_big.col(idx) = T_cam;
                 center_big.col(idx) = R_cam2world * T_cam + photocenter_world;
                 yaw_big[idx] = std::atan2(-toward_world.y(), -toward_world.x());
