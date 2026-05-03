@@ -239,7 +239,7 @@ std::vector<CVArmor> CVDetector::FindArmor(const std::deque<Light> & lights)
 
         //距离匹配
         double distance = cv::norm(L1ToL2vec);
-        if(distance>(3*biglen)||distance<(smalen*0.2)) return false;
+        if(distance>(6*biglen)||distance<(smalen*0.2)) return false;
 
         //匹配成功
         return true;
