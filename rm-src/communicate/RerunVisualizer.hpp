@@ -30,6 +30,24 @@ public:
         rec.spawn(spawn_opts).exit_on_failure();
     }
 
+    explicit RerunVisualizer(bool isconnect,
+                             const std::string& connect = "10.42.0.1",
+                             const std::string& app_name = "RoboMaster_AutoAim") 
+    : rec(app_name) 
+    {
+        // 1. 使用 connect_grpc 连接到局域网 IP
+        auto status = this->rec.connect_grpc("rerun+http://10.42.0.1:9876/proxy");
+    
+        // 2. 修复 C++ API 字段：使用 .description 而不是 .message
+        if (status.is_err()) {
+            std::cerr << "Rerun 连接失败: " << status.description << std::endl;
+            exit(EXIT_FAILURE); 
+        }
+
+        std::cout << "成功连接到远程 Rerun Viewer "<< connect << " 开始发送数据..." << std::endl;
+
+    }
+
     // 析构函数
     ~RerunVisualizer() = default;
 
