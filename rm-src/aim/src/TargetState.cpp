@@ -44,7 +44,8 @@ Eigen::Matrix<double, 4, 4> RobotState::Predict(double dt)const
     ans.block<3,1>(0,2) += move;
     ans.block<3,1>(0,3) += move;
 
-    return ans*0.01;// 转换为米单位
+    ans.block<3,4>(0,0) = ans.block<3,4>(0,0) * 0.01;// 转换为米单位
+    return ans;
 }
 
 // 补全缺失的根据时间点推演方法
