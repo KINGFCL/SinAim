@@ -1,5 +1,8 @@
 #pragma once
 #include <string>
+#include "MvObsoleteInterfaces.h"
+#include "Shooter.hpp"
+#include "planner.hpp"
 #include "yaml.hpp"
 #include "Aim"  // for Solver::SolverConfig
 
@@ -28,6 +31,42 @@ inline Solver::SolverConfig LoadSolverConfig(const std::string& config_path)
 
     if (yaml["reproj_threshold"])
         cfg.reproj_threshold = yaml["reproj_threshold"].as<double>();
+
+    return cfg;
+}
+
+inline MPC::Planner::PlannerConfig LoadPlannerConfig(const std::string& config_path)
+{
+    YAML::Node yaml = tools::load(config_path);
+
+    MPC::Planner::PlannerConfig cfg;
+
+    cfg.yaw_offset_ = tools::read<double>(yaml, "yaw_offset") / 180.0 * M_PI;
+    cfg.pitch_offset_ = tools::read<double>(yaml, "pitch_offset") / 180.0 * M_PI;
+    cfg.fire_thresh_ = tools::read<double>(yaml, "fire_thresh");
+    cfg.decision_speed_ = tools::read<double>(yaml, "decision_speed");
+    cfg.high_speed_delay_time_ = tools::read<double>(yaml, "high_speed_delay_time");
+    cfg.low_speed_delay_time_ = tools::read<double>(yaml, "low_speed_delay_time");
+
+    cfg.max_yaw_acc_ = tools::read<double>(yaml, "max_yaw_acc");
+    cfg.Q_yaw_ = tools::read<std::vector<double>>(yaml, "Q_yaw");
+    cfg.R_yaw_ = tools::read<std::vector<double>>(yaml, "R_yaw");
+
+    cfg.max_pitch_acc_ = tools::read<double>(yaml, "max_pitch_acc");
+    cfg.Q_pitch_ = tools::read<std::vector<double>>(yaml, "Q_pitch");
+    cfg.R_pitch_ = tools::read<std::vector<double>>(yaml, "R_pitch");
+
+    return cfg;
+}
+
+inline Shooter::ShooterConfig LoadShooterConfig(const std::string& config_path)
+{
+    YAML::Node yaml = tools::load(config_path);
+
+    Shooter::ShooterConfig cfg;
+
+    cfg.toward_yaw = tools::read<double>(yaml, "yaw_offset") / 180.0 * M_PI;
+    cfg.toward_pitch = tools::read<double>(yaml, "pitch_offset") / 180.0 * M_PI;
 
     return cfg;
 }

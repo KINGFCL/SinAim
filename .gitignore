@@ -7,3 +7,4 @@ Visualisation/rerun_viewer/rerun
 .cache/
 .png/
 demo/
+compile_commands.json

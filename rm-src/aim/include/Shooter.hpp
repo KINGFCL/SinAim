@@ -15,34 +15,17 @@ private:
 
 const Eigen::Matrix<double, 3, 1> toward;
 const double toward_pitch,toward_yaw;
-const double a = 0.00024383, b = -0.00018171, c = 0.00020150;
 const double GRAVITY =  9.8, BULLET_SPEED  = 22.3; //重力加速度9.8m/s^2 弹速 22.8m/s;
 const double BULLET_SPEED_2 = 2.0 * BULLET_SPEED * BULLET_SPEED;
 
-// ================= 空气动力学物理参数配置 =================
-// 可通过微调以下物理量来直接改变空气阻力常数 K，适应不同场地和弹种
 
-// 1. 空气密度 (kg/m^3)：在标准大气压、15°C 环境下约为 1.225 (冬天或高海拔可微调)
-static constexpr double RHO = 1.225; 
-
-// 2. 风阻系数：标准的完美球体在亚音速下的风阻系数约为 0.47 
-// (若弹丸磨损严重或带有强烈的马格努斯效应旋转，可微调此项作为拟合参数 0.45~0.55)
-static constexpr double C_D = 0.47;
-
-// 3. 弹丸半径 (m)：17mm 弹丸的半径为 0.0085m (若是英雄 42mm 弹丸则改为 0.021m)
-static constexpr double R_BULLET = 0.0085;
-
-// 4. 迎风面积 (m^2)：A = PI * r^2
-static constexpr double AREA = M_PI * R_BULLET * R_BULLET;
-
-// 5. 弹丸质量 (kg)：标准 17mm 弹丸重量约为 3.2g = 0.0032kg (英雄弹约为 0.041kg)
-static constexpr double M_BULLET = 0.0032;
-
-// 综合计算空气阻力常数 K = (0.5 * rho * C_d * Area) / m
-// 默认 17mm, 3.2g 步兵弹丸计算结果约为 0.0204
-static constexpr double K = (0.5 * RHO * C_D * AREA) / M_BULLET;
 
 public:
+    struct ShooterConfig
+    {
+        double toward_yaw, toward_pitch;
+    };
+
     Shooter(const Eigen::Matrix<double, 3, 1>& Vector):
             toward(Vector.normalized()), 
             toward_pitch(std::asin(toward(2,0))),
@@ -54,7 +37,11 @@ public:
     toward_pitch(toward_pitch),
     toward_yaw(toward_yaw){};
 
-
+    Shooter(const ShooterConfig& config):
+    toward( std::cos(config.toward_pitch)*std::cos(config.toward_yaw), std::cos(config.toward_pitch)*std::sin(config.toward_yaw) , std::sin(config.toward_pitch) ),
+    toward_pitch(config.toward_pitch),
+    toward_yaw(config.toward_yaw){};
+    
     /**
     @brief 计算射击目标，枪口需要转动的pitch和yaw(单位：rad)
     @param ShootPosi 射击位置的坐标(单位：cm)
@@ -92,9 +79,7 @@ public:
             ideal_pitch_rad = std::atan2(high, distance);
         }
 
-        // 3. 计算空气阻力补偿量 (弧度)
-        double air_comp_rad = this->a * distance_2 + this->b * distance + this->c;
-        double shoot_pitch = air_comp_rad + ideal_pitch_rad;
+        double shoot_pitch = ideal_pitch_rad;
 
         // 3. 计算差值 (需要的旋转量)
         double delta_yaw   = shoot_yaw - this->toward_yaw;
@@ -146,7 +131,7 @@ public:
         if (cos_theta < 0.01) cos_theta = 0.01; 
 
         // 套用降维后的平射时间解析解
-        double t = (std::exp(this->K * distance) - 1.0) / (this->K * BULLET_SPEED * cos_theta);
+        double t = distance / (this->BULLET_SPEED * cos_theta);
         
         return t;
     }

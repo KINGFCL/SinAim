@@ -11,8 +11,8 @@ namespace MPC
 Planner::Planner(const std::string & config_path)
 {
   auto yaml = tools::load(config_path);
-  yaw_offset_ = tools::read<double>(yaml, "yaw_offset") / 57.3;
-  pitch_offset_ = tools::read<double>(yaml, "pitch_offset") / 57.3;
+  yaw_offset_ = tools::read<double>(yaml, "yaw_offset") / 180.0 * M_PI;
+  pitch_offset_ = tools::read<double>(yaml, "pitch_offset") / 180.0 * M_PI;
   fire_thresh_ = tools::read<double>(yaml, "fire_thresh");
   decision_speed_ = tools::read<double>(yaml, "decision_speed");
   high_speed_delay_time_ = tools::read<double>(yaml, "high_speed_delay_time");
@@ -20,6 +20,18 @@ Planner::Planner(const std::string & config_path)
 
   setup_yaw_solver(config_path);
   setup_pitch_solver(config_path);
+}
+
+Planner::Planner(const PlannerConfig& config) {
+  this->yaw_offset_ = config.yaw_offset_;
+  this->pitch_offset_ = config.pitch_offset_;
+  this->fire_thresh_ = config.fire_thresh_;
+  this->decision_speed_ = config.decision_speed_;
+  this->high_speed_delay_time_ = config.high_speed_delay_time_;
+  this->low_speed_delay_time_ = config.low_speed_delay_time_;
+
+  setup_yaw_solver(config.max_yaw_acc_,config.Q_yaw_, config.R_yaw_);
+  setup_pitch_solver(config.max_pitch_acc_,config.Q_pitch_, config.R_pitch_);
 }
 
 Plan Planner::plan(RobotState& target, double bullet_speed)
@@ -125,6 +137,27 @@ void Planner::setup_yaw_solver(const std::string & config_path)
   yaw_solver_->settings->max_iter = 10;
 }
 
+
+void Planner::setup_yaw_solver(double max_yaw_acc,const std::vector<double>& Q_yaw, const std::vector<double>& R_yaw )
+{
+
+  Eigen::MatrixXd A{{1, DT}, {0, 1}};
+  Eigen::MatrixXd B{{0}, {DT}};
+  Eigen::VectorXd f{{0, 0}};
+  Eigen::Matrix<double, 2, 1> Q(Q_yaw.data());
+  Eigen::Matrix<double, 1, 1> R(R_yaw.data());
+  tiny_setup(&yaw_solver_, A, B, f, Q.asDiagonal(), R.asDiagonal(), 1.0, 2, 1, HORIZON, 0);
+
+  Eigen::MatrixXd x_min = Eigen::MatrixXd::Constant(2, HORIZON, -1e17);
+  Eigen::MatrixXd x_max = Eigen::MatrixXd::Constant(2, HORIZON, 1e17);
+  Eigen::MatrixXd u_min = Eigen::MatrixXd::Constant(1, HORIZON - 1, -max_yaw_acc);
+  Eigen::MatrixXd u_max = Eigen::MatrixXd::Constant(1, HORIZON - 1, max_yaw_acc);
+  tiny_set_bound_constraints(yaw_solver_, x_min, x_max, u_min, u_max);
+
+  yaw_solver_->settings->max_iter = 10;
+}
+
+
 void Planner::setup_pitch_solver(const std::string & config_path)
 {
   auto yaml = tools::load(config_path);
@@ -148,6 +181,26 @@ void Planner::setup_pitch_solver(const std::string & config_path)
   pitch_solver_->settings->max_iter = 10;
 }
 
+
+void Planner::setup_pitch_solver(double max_pitch_acc,const std::vector<double>& Q_pitch, const std::vector<double>& R_pitch )
+{
+  Eigen::MatrixXd A{{1, DT}, {0, 1}};
+  Eigen::MatrixXd B{{0}, {DT}};
+  Eigen::VectorXd f{{0, 0}};
+  Eigen::Matrix<double, 2, 1> Q(Q_pitch.data());
+  Eigen::Matrix<double, 1, 1> R(R_pitch.data());
+  tiny_setup(&pitch_solver_, A, B, f, Q.asDiagonal(), R.asDiagonal(), 1.0, 2, 1, HORIZON, 0);
+
+  Eigen::MatrixXd x_min = Eigen::MatrixXd::Constant(2, HORIZON, -1e17);
+  Eigen::MatrixXd x_max = Eigen::MatrixXd::Constant(2, HORIZON, 1e17);
+  Eigen::MatrixXd u_min = Eigen::MatrixXd::Constant(1, HORIZON - 1, -max_pitch_acc);
+  Eigen::MatrixXd u_max = Eigen::MatrixXd::Constant(1, HORIZON - 1, max_pitch_acc);
+  tiny_set_bound_constraints(pitch_solver_, x_min, x_max, u_min, u_max);
+
+  pitch_solver_->settings->max_iter = 10;
+}
+
+
 Eigen::Matrix<double, 2, 1> Planner::aim(const Eigen::Matrix<double, 4, 4>& armors_posi, double bullet_speed)
 {
   Eigen::Vector3d xyz;
@@ -170,7 +223,7 @@ Eigen::Matrix<double, 2, 1> Planner::aim(const Eigen::Matrix<double, 4, 4>& armo
   auto bullet_traj = Bullet::Trajectory(bullet_speed, min_dist, xyz.z());
   if (bullet_traj.unsolvable) throw std::runtime_error("Unsolvable bullet trajectory!");
 
-  return {std::remainder(azim + yaw_offset_, 2 * M_PI), -bullet_traj.pitch - pitch_offset_};
+  return {std::remainder(azim - this->yaw_offset_, 2 * M_PI), std::remainder(bullet_traj.pitch - this->pitch_offset_, 2 * M_PI)};
 }
 
 Trajectory Planner::get_trajectory(const RobotState & target, double yaw0, double bullet_speed)
