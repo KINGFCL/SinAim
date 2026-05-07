@@ -55,6 +55,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
             cv::solvePnPGeneric(objectSmallArmorP, armor.Lightcorners, cameraMatrix, distCoeffs,
                                 rvecs, tvecs, false, cv::SOLVEPNP_IPPE,
                                 cv::noArray(), cv::noArray(), reprojErr);
+            int idx = 3;
             for(int s = 0; s < 2; s++) {
                 cv::Mat R_cv;
                 cv::Rodrigues(rvecs[s], R_cv);
@@ -67,7 +68,9 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 // cross2d > 0 → 法向量在视线左侧
                 Eigen::Vector3d T_base = R_cam2world * T_cam;
                 double cross2d = T_base(0) * toward_world(1) - T_base(1) * toward_world(0);
-                int idx = (cross2d < 0) ? 0 : 1;
+
+                if(idx == 3) idx = (cross2d < 0) ? 0 : 1;
+                else{ idx = 1-idx; }
                 center_cam_small.col(idx) = T_cam;
                 center_small.col(idx) = R_cam2world * T_cam + photocenter_world;
                 yaw_small[idx] = std::atan2(-toward_world.y(), -toward_world.x());
@@ -87,6 +90,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
             cv::solvePnPGeneric(objectBigArmorP, armor.Lightcorners, cameraMatrix, distCoeffs,
                                 rvecs, tvecs, false, cv::SOLVEPNP_IPPE,
                                 cv::noArray(), cv::noArray(), reprojErr);
+            int idx = 3;
             for(int s = 0; s < 2; s++) {
                 cv::Mat R_cv;
                 cv::Rodrigues(rvecs[s], R_cv);
@@ -96,7 +100,8 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 Eigen::Vector3d toward_world = R_cam2world * R_arm2cam.col(2);
                 Eigen::Vector3d T_base = R_cam2world * T_cam;
                 double cross2d = T_base(0) * toward_world(1) - T_base(1) * toward_world(0);
-                int idx = (cross2d < 0) ? 0 : 1;
+                if(idx == 3) idx = (cross2d < 0) ? 0 : 1;
+                else{ idx = 1-idx; }
                 center_cam_big.col(idx) = T_cam;
                 center_big.col(idx) = R_cam2world * T_cam + photocenter_world;
                 yaw_big[idx] = std::atan2(-toward_world.y(), -toward_world.x());
