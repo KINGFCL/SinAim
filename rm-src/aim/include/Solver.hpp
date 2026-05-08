@@ -27,6 +27,7 @@ public:
 
     //解算传入的所有装甲板并返回世界坐标系下的结果
     std::vector< std::array<ArmorPosi,2> > operator () (const std::vector<CVArmor>& armors, const Eigen::Quaterniond& gripper_to_world);
+    std::vector<ArmorPosi> operator () (const std::vector<YoloArmor>& armors, const Eigen::Quaterniond& gripper_to_world);
 
 private:
     cv::Mat cameraMatrix;

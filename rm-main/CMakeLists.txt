@@ -42,18 +42,9 @@ add_subdirectory(${RM_SRC_DIR}/identify    ${CMAKE_CURRENT_BINARY_DIR}/identify)
 add_subdirectory(${RM_SRC_DIR}/aim         ${CMAKE_CURRENT_BINARY_DIR}/aim)
 
 # ==========================================
-# 主程序
+# 主程序：只保留三种识别器版本
 # ==========================================
-add_executable(main main.cpp Function.cpp)
-
-
-target_include_directories(main PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${RM_SRC_DIR}
-    ${MVS_INCLUDE_DIRS}
-)
-
-target_link_libraries(main PRIVATE
+set(AUTOAIM_MAIN_LIBS
     rm_aim
     rm_identify
     rm_communicate
@@ -67,112 +58,18 @@ target_link_libraries(main PRIVATE
     ${OpenCV_LIBS}
 )
 
-add_executable(smallmain smallmain.cpp Function.cpp)
+function(add_autoaim_main target source)
+    add_executable(${target} ${source} Function.cpp)
 
-target_include_directories(smallmain PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${RM_SRC_DIR}
-    ${MVS_INCLUDE_DIRS}
-)    
+    target_include_directories(${target} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${RM_SRC_DIR}
+        ${MVS_INCLUDE_DIRS}
+    )
 
-target_link_libraries(smallmain PRIVATE
-    rm_aim
-    rm_identify
-    rm_communicate
-    rm_hikcamera
-    yaml-cpp
-    fmt::fmt
-    spdlog::spdlog
-    openvino::runtime
-    rerun_sdk
-    Eigen3::Eigen
-    ${OpenCV_LIBS}
-)
+    target_link_libraries(${target} PRIVATE ${AUTOAIM_MAIN_LIBS})
+endfunction()
 
-add_executable(mpcmain mpcmain.cpp Function.cpp)
-
-target_include_directories(mpcmain PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${RM_SRC_DIR}
-    ${MVS_INCLUDE_DIRS}
-)
-
-target_link_libraries(mpcmain PRIVATE
-    rm_aim
-    rm_identify
-    rm_communicate
-    rm_hikcamera
-    yaml-cpp
-    fmt::fmt
-    spdlog::spdlog
-    openvino::runtime
-    rerun_sdk
-    Eigen3::Eigen
-    ${OpenCV_LIBS}
-)
-
-add_executable(solvermain solvertest.cpp Function.cpp)
-
-target_include_directories(solvermain PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${RM_SRC_DIR}
-    ${MVS_INCLUDE_DIRS}
-)
-
-target_link_libraries(solvermain PRIVATE
-    rm_aim
-    rm_identify
-    rm_communicate
-    rm_hikcamera
-    yaml-cpp
-    fmt::fmt
-    spdlog::spdlog
-    openvino::runtime
-    rerun_sdk
-    Eigen3::Eigen
-    ${OpenCV_LIBS}
-)
-
-add_executable(mpcmain2 mpcmain2.cpp Function.cpp)
-
-target_include_directories(mpcmain2 PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${RM_SRC_DIR}
-    ${MVS_INCLUDE_DIRS}
-)
-
-target_link_libraries(mpcmain2 PRIVATE
-    rm_aim
-    rm_identify
-    rm_communicate
-    rm_hikcamera
-    yaml-cpp
-    fmt::fmt
-    spdlog::spdlog
-    openvino::runtime
-    rerun_sdk
-    Eigen3::Eigen
-    ${OpenCV_LIBS}
-)
-
-add_executable(demompcmain demompcmain.cpp Function.cpp)
-
-target_include_directories(demompcmain PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${RM_SRC_DIR}
-    ${MVS_INCLUDE_DIRS}
-)
-
-target_link_libraries(demompcmain PRIVATE
-    rm_aim
-    rm_identify
-    rm_communicate
-    rm_hikcamera
-    yaml-cpp
-    fmt::fmt
-    spdlog::spdlog
-    openvino::runtime
-    rerun_sdk
-    Eigen3::Eigen
-    ${OpenCV_LIBS}
-)
+add_autoaim_main(mlpmain mlpmain.cpp)
+add_autoaim_main(resetmain resetmain.cpp)
+add_autoaim_main(yolomain yolomain.cpp)
