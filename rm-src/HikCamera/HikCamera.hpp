@@ -24,9 +24,18 @@ public:
         cv::Mat image;
         std::chrono::steady_clock::time_point time;
     };
-    HikCamera(double exposure_ms, 
+
+    struct HikCameraConfig
+    {
+        double exposure_ms;
+        double gain;
+        bool   autocap = true;
+    };
+
+    HikCamera(double exposure_ms,
               double gain,
               bool autocap=true);
+    explicit HikCamera(const HikCameraConfig& config);
 
     void read(ImageData& imgdata);
     void continueCap(size_t MaxframeNum);

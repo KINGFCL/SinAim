@@ -5,7 +5,6 @@
 #include <eigen3/Eigen/Geometry>
 #include <array>
 #include <cmath>
-#include <eigen3/Eigen/src/Core/Matrix.h>
 #include "iostream"
 
 class Shooter
@@ -37,7 +36,7 @@ public:
     toward_pitch(toward_pitch),
     toward_yaw(toward_yaw){};
 
-    Shooter(const ShooterConfig& config):
+    explicit Shooter(const ShooterConfig& config):
     toward( std::cos(config.toward_pitch)*std::cos(config.toward_yaw), std::cos(config.toward_pitch)*std::sin(config.toward_yaw) , std::sin(config.toward_pitch) ),
     toward_pitch(config.toward_pitch),
     toward_yaw(config.toward_yaw){};

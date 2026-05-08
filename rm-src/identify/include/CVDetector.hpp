@@ -10,8 +10,15 @@ class CVDetector {
 public:
     enum class ROIType : int { ResNet = 0, MLP = 1 };
 
+    struct CVDetectorConfig {
+        int color;                // Red = 0, Blue = 1
+        int roi_width  = 32;
+        int roi_height = 32;
+    };
+
 public:
     explicit CVDetector(Light::Color color, cv::Size ROISize = cv::Size(32, 32));
+    explicit CVDetector(const CVDetectorConfig& config);
 
     
     std::vector<CVArmor> operator () (cv::Mat& frame, std::vector<cv::Mat>& armors_pattern);

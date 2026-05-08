@@ -5,7 +5,7 @@
 
 namespace io
 {
-HikCamera::HikCamera(double exposure_ms, 
+HikCamera::HikCamera(double exposure_ms,
                      double gain,
                      bool autocap)
                      :HikState(Hik::Stopped)
@@ -17,6 +17,11 @@ HikCamera::HikCamera(double exposure_ms,
 
     this->capture_init();
     this->ProtectRunning();
+}
+
+HikCamera::HikCamera(const HikCameraConfig& config)
+    : HikCamera(config.exposure_ms, config.gain, config.autocap)
+{
 }
 
 HikCamera::~HikCamera()

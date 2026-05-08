@@ -10,9 +10,14 @@
 // #define detectorDebug
 //Debug
 
-CVDetector::CVDetector(Light::Color color, cv::Size ROISize): 
+CVDetector::CVDetector(Light::Color color, cv::Size ROISize):
                     color(color),
                     ROISize(ROISize)
+                   {}
+
+CVDetector::CVDetector(const CVDetectorConfig& config):
+                    color(static_cast<Light::Color>(config.color)),
+                    ROISize(cv::Size(config.roi_width, config.roi_height))
                    {}
 
 /**

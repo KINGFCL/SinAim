@@ -3,6 +3,7 @@
 #include "readerwriterqueue.h"
 #include <stdexcept>
 #include <cstddef>
+#include <chrono>
 
 /// FastQueue —— 基于 moodycamel::ReaderWriterQueue 的封装
 ///
@@ -38,6 +39,19 @@ public:
     bool pop(T& dst)
     {
         return queue_.try_dequeue(dst);
+    }
+
+    /// 阻塞弹出队首元素到 dst，队列为空时阻塞直到有元素可用
+    void wait_pop(T& dst)
+    {
+        this->queue_.wait_dequeue(dst);
+    }
+
+    /// 阻塞弹出队首元素到 dst，超时返回 false
+    template <typename Rep, typename Period>
+    bool wait_pop(T& dst, const std::chrono::duration<Rep, Period>& timeout)
+    {
+        return this->queue_.wait_dequeue_timed(dst, timeout);
     }
 
     /// 弹出队首元素（不获取值），队列为空时返回 false
@@ -91,7 +105,7 @@ public:
 
 
 private:
-    moodycamel::ReaderWriterQueue<T> queue_;
+    moodycamel::BlockingReaderWriterQueue<T> queue_;
 };
 
 

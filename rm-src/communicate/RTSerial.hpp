@@ -67,7 +67,14 @@ class RTSerial
 public:
     using timePoint = std::chrono::steady_clock::time_point;
 
+    struct RTSerialConfig
+    {
+        size_t  buffSize = 3;
+        uint8_t head     = 0xA5;
+    };
+
     RTSerial    (size_t buffSize = 3, uint8_t head = 0xA5);
+    explicit RTSerial(const RTSerialConfig& config);
 
     // Destructor
     ~RTSerial   ();
@@ -206,6 +213,12 @@ template<typename Packet>
 RTSerial<Packet>::RTSerial(size_t buffSize,uint8_t head): fd(-1), buffSize( buffSize + 1 ), header(head)
 {
     this->buffer = std::make_unique<buffdata[]>(this->buffSize);
+}
+
+template<typename Packet>
+RTSerial<Packet>::RTSerial(const RTSerialConfig& config)
+    : RTSerial(config.buffSize, config.head)
+{
 }
 
 
