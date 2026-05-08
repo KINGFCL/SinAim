@@ -46,13 +46,13 @@ static FastQueue<std::unique_ptr<RobotState>> RobotStates(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-io::HikCamera Hik(1, 16);
 io::RTSerial<Packet> ser(50);
-
 YOLODetector yolo(kModelPath, YOLODetector::Camp::Blue);
+io::HikCamera Hik(LoadHikCameraConfig(kConfigPath));
+
 
 Solver Sov(LoadSolverConfig(kConfigPath));
-Tracker track;
+Tracker track(LoadRobotConfig(kConfigPath));
 Shooter shoot(LoadShooterConfig(kConfigPath));
 MPC::Planner planner(LoadPlannerConfig(kConfigPath));
 Test test;

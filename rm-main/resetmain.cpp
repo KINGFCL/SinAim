@@ -46,14 +46,14 @@ static FastQueue<std::unique_ptr<RobotState>> RobotStates(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-io::HikCamera Hik(1, 16);
 io::RTSerial<Packet> ser(50);
+io::HikCamera Hik(LoadHikCameraConfig(kConfigPath));
 
-CVDetector detect(Light::Color::Blue);
+CVDetector detect(LoadCVDetectorConfig(kConfigPath));
 ResNetNumClassifier resnet(kModelPath);
 
 Solver Sov(LoadSolverConfig(kConfigPath));
-Tracker track;
+Tracker track(LoadRobotConfig(kConfigPath));
 Shooter shoot(LoadShooterConfig(kConfigPath));
 MPC::Planner planner(LoadPlannerConfig(kConfigPath));
 Test test;

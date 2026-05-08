@@ -16,19 +16,12 @@
 #define MainDebug
 #ifdef MainDebug
 #include "communicate/RerunVisualizer.hpp"
-RerunVisualizer viz("RoboMaster_AutoAim");
+RerunVisualizer viz;
 double R_sum = 0.0;
 int R_count = 0;
 #endif
 
-struct Test
-{
-    int num = 0;
-    std::chrono::nanoseconds total{0};
-    void count(const std::chrono::nanoseconds& time);
-    void clear();
-    void show();
-};
+
 
 // ── 辅助：枚举转字符串 ──────────────────────────────────────────
 static const char* typeName(ArmorPosi::Type t) {
@@ -56,18 +49,62 @@ static const char* modeName(Robot::KalmanMode m) {
     return m == Robot::KalmanMode::EKF ? "EKF" : "LKF";
 }
 
+DemoReader demo("../../demo/damo.avi");
 // ── 全局对象 ────────────────────────────────────────────────────
+namespace
+{
+constexpr const char* kConfigPath = "../../config/config.yaml";
+constexpr const char* kModelPath = "../../model/mlp.onnx";
+constexpr const char* kSerialDevice = "/dev/ttyACM0";
+constexpr unsigned int kSerialBaud = 460800;
+
+struct Test
+{
+    int num = 0;
+    std::chrono::nanoseconds total{0};
+
+    void count(const std::chrono::nanoseconds& time)
+    {
+        ++num;
+        total += time;
+    }
+
+    void clear()
+    {
+        num = 0;
+        total = std::chrono::nanoseconds(0);
+    }
+
+    void show() const
+    {
+        std::cout << num / (static_cast<double>(total.count()) * 1e-9) << "Hz\n";
+    }
+};
+
 static FastQueue<FrameData> Frames(10);
+static FastQueue<std::unique_ptr<RobotState>> RobotStates(10);
+
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-DemoReader demo("../../demo/damo.avi");
-CVDetector detect(Light::Color::Blue);
-MlpNumClassifier mlp("../../model/mlp.onnx");
-Solver::SolverConfig solver_config = LoadSolverConfig("../../config/solver.yaml");
-Solver Sov(solver_config);
-Tracker track(1);
-Shooter shoot(0.005, 0.050);
+io::RTSerial<Packet> ser(50);
+
+CVDetector detect(LoadCVDetectorConfig(kConfigPath));
+MlpNumClassifier mlp(kModelPath);
+
+Solver Sov(LoadSolverConfig(kConfigPath));
+Tracker track(LoadRobotConfig(kConfigPath));
+Shooter shoot(LoadShooterConfig(kConfigPath));
+MPC::Planner planner(LoadPlannerConfig(kConfigPath));
 Test test;
+
+std::vector<ArmorPosi> DetectArmors(cv::Mat& image, const Eigen::Quaterniond& gripper_to_world)
+{
+    std::vector<cv::Mat> armors_pattern;
+    auto opencv_armors = detect(image, armors_pattern, CVDetector::ROIType::MLP);
+    auto armors_2 = Sov(opencv_armors, gripper_to_world);
+    return mlp(armors_2, armors_pattern);
+}
+}  // namespace
 
 int main() {
     #ifdef EKFKalmanDebug
@@ -174,6 +211,4 @@ int main() {
     return 0;
 }
 
-void Test::count(const std::chrono::nanoseconds& time) { num++; total += time; }
-void Test::clear() { num = 0; total = std::chrono::nanoseconds(0); }
-void Test::show() { std::cout << num / ((double)total.count() * 1e-9) << "Hz\n"; }
+
