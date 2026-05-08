@@ -95,9 +95,9 @@ int main() {
 
         while (!Frames.empty())
         {
-            Frames.pop(frame);
+            Frames.wait_pop(frame);
         }
-        if(frame.image.empty()) {std::this_thread::sleep_for(std::chrono::microseconds(100));continue;}
+        if(frame.image.empty()) {continue;}
 
         // cv::imshow("frame", frame.image);
         // cv::waitKey(1);
