@@ -1,7 +1,11 @@
 #pragma once
 #include <string>
+#include "Armor.hpp"
+#include "CVDetector.hpp"
+#include "HikCamera.hpp"
 #include "MvObsoleteInterfaces.h"
 #include "Shooter.hpp"
+#include "Target.hpp"
 #include "planner.hpp"
 #include "yaml.hpp"
 #include "Aim"  // for Solver::SolverConfig
@@ -70,3 +74,40 @@ inline Shooter::ShooterConfig LoadShooterConfig(const std::string& config_path)
 
     return cfg;
 }
+
+inline CVDetector::CVDetectorConfig LoadCVDetectorConfig(const std::string& config_path)
+{
+    YAML::Node yaml = tools::load(config_path);
+
+    CVDetector::CVDetectorConfig cfg;
+
+    cfg.color = tools::read<int>(yaml, "color") ;
+    cfg.roi_width = tools::read<int>(yaml, "roi_width");
+    cfg.roi_height = tools::read<int>(yaml, "roi_height");
+
+    return cfg;
+}
+
+inline io::HikCamera::HikCameraConfig LoadHikCameraConfig(const std::string& config_path)
+{
+    YAML::Node yaml = tools::load(config_path);
+
+    io::HikCamera::HikCameraConfig cfg;
+
+    cfg.exposure_ms = tools::read<int>(yaml, "exposure_ms");
+    cfg.gain = tools::read<int>(yaml, "gain");
+    cfg.autocap = tools::read<bool>(yaml, "autocap");
+
+    return cfg;
+}
+inline Robot::RobotConfig LoadRobotConfig(const std::string& config_path)
+{
+    YAML::Node yaml = tools::load(config_path);
+
+    Robot::RobotConfig cfg;
+
+    cfg.gripper_to_world_matrix = tools::read<std::array<double, 9>>(yaml, "R_Cam_to_gripper");
+
+    return cfg;
+}
+

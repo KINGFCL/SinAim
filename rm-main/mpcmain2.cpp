@@ -50,7 +50,7 @@ ResNetNumClassifier resnet("../../model/tiny_resnet.onnx");
 Solver Sov(LoadSolverConfig("../../config/config.yaml"));
 
 // 追踪器
-Tracker track;
+Tracker track(LoadRobotConfig("../../config/config.yaml"));
 
 
 Shooter shoot(LoadShooterConfig("../../config/config.yaml"));

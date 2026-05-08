@@ -23,6 +23,10 @@
 
 // std::array<RobotSize, 5> Robot::Size;
 
+Robot::Robot(const RobotConfig& config): 
+            ekfkalman( Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> >(config.gripper_to_world_matrix.data()) ),
+            lkfkalman( Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> >(config.gripper_to_world_matrix.data())){}
+
 void Robot::Init(const std::vector<ArmorPosi>& armors)
 {
     if(armors.empty()) return;

@@ -24,11 +24,7 @@ private:
         10000, 10000, 10000  // vxc, vyc, vzc 速度方差 (单位: (cm/s)^2)
     ).finished().asDiagonal();
     
-    Eigen::Matrix3d RCamera2Grip{
-        {-0.009549480539577278, -0.01953893000739315, 0.9997634908495061},
-            {-0.9999090215267193, -0.009338627954961053, -0.009733380573965271},
-            {0.009526599125766769, -0.9997654826218425, -0.01944797333944928}
-    };
+    Eigen::Matrix3d RCamera2Grip;
     // ================== 观测噪声参数 ==================
     const double Var_r = 100.0;       ///< 测距方差 (单位: cm^2)
     const double Var_dtheta = 0.0001; ///< 测角方差 (单位: rad^2)
@@ -44,7 +40,7 @@ private:
 
 public:
     /** @brief 默认构造函数 */
-    LKFKalman() = default;
+    explicit LKFKalman(const Eigen::Matrix3d& RCamera2Grip) : RCamera2Grip(RCamera2Grip) {};
 
     /**
      * @brief 初始化/重置滤波器状态协方差

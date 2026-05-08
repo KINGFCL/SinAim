@@ -17,30 +17,21 @@
 #include <opencv2/opencv.hpp>
 #include <cmath>
 
-struct RobotSize
-{
-//目标半径,0小半径,1大半径
-    std::array<double,2> radius{20.0,30.0}; 
-
-    RobotSize() = default;
-
-    void operator () (double r_small, double r_big)
-    {
-        radius[0] = r_small;
-        radius[1] = r_big;
-    }
-    
-};
 
 class Robot
 {
 public:
+    struct RobotConfig
+    {
+        std::array<double, 9> gripper_to_world_matrix;
+    };
+
     enum class KalmanMode : int
     {
         LKF = 0,
         EKF = 1
     };
-    Robot() = default;
+    explicit Robot(const RobotConfig& config);
 
     enum class ArmorView : bool
     {

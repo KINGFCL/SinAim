@@ -20,7 +20,7 @@ public:
     /*
     状态向量 State 为 14 维: [xc, yc, zc, vxc, vyc, vzc, theta_0, w, r,l,h,d_theta_1,d_theta_2,d_theta_3]
     */
-    EKFKalman() = default;
+    EKFKalman(const Eigen::Matrix3d& RCamera2Grip): RCamera2Grip(RCamera2Grip) {};
 
     void Init();
     
@@ -32,11 +32,7 @@ public:
     //观测噪声
     const double Var_r = 100.0, Var_yaw = 0.001, Var_dtheta = 0.01; // 观测yaw值方差
 
-    Eigen::Matrix3d RCamera2Grip{
-        {-0.009549480539577278, -0.01953893000739315, 0.9997634908495061},
-            {-0.9999090215267193, -0.009338627954961053, -0.009733380573965271},
-            {0.009526599125766769, -0.9997654826218425, -0.01944797333944928}
-    };
+    Eigen::Matrix3d RCamera2Grip;
     
     // 过程噪声参数
     const double Var_a_xy = 10000.0,  Var_a_z = 100.0, Var_alpha = 10;

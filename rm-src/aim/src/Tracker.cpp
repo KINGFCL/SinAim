@@ -1,4 +1,5 @@
 #include "Tracker.hpp"
+#include "TargetState.hpp"
 #include <Eigen/src/Geometry/Quaternion.h>
 #include <algorithm>
 #include <array>
@@ -9,11 +10,13 @@
 // 初始化静态成员
 std::array<size_t, 7> Tracker::Num = {0, 0, 0, 0, 0, 0, 0};
 
-Tracker::Tracker(size_t search_threshold,
+Tracker::Tracker(const Robot::RobotConfig& config,   
+                 size_t search_threshold,
                  size_t temp_lost_threshold,
                  size_t lost_threshold,
                  size_t switch_threshold)
-    : search_threshold(search_threshold),
+    : robot_instance(config),
+      search_threshold(search_threshold),
       temp_lost_threshold(temp_lost_threshold),
       lost_threshold(lost_threshold),
       switch_threshold(switch_threshold),
