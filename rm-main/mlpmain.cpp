@@ -94,8 +94,16 @@ int main()
         if (Frames.empty()) continue;
 
         FrameData frame;
-        while (!Frames.empty()) {
-            Frames.pop(frame);
+        bool successpop = Frames.pop(frame);
+
+        if(successpop){
+            while (true) {
+                bool ret = Frames.pop(frame);
+                if (!ret) break;
+            }
+        }
+        else{
+            Frames.wait_pop(frame);
         }
         if (frame.image.empty()) continue;
 
