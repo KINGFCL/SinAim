@@ -30,7 +30,7 @@ public:
     const double Threshold_Angle = 0.8;      // 角度误差容忍阈值 (单位: rad)
     const double Threshold_Angle_diff = 0.2; // 角度差误差容忍阈值 (单位: rad)
     //观测噪声
-    const double Var_r = 100.0, Var_yaw = 0.001, Var_dtheta = 0.01; // 观测yaw值方差
+    const double Var_r = 100.0, Var_yaw = 0.003, Var_dtheta = 0.01; // 观测yaw值方差
 
     Eigen::Matrix3d RCamera2Grip;
     

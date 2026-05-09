@@ -84,7 +84,7 @@ int main() {
 
     //3.0创建数据配对线程，并将数据发布到Frames环形队列
     std::thread match_thread = std::thread(rm::IMUAndImageMatchFunction, std::ref(Hik), std::ref(ser), std::ref(Frames));
-    std::thread plan_thread = std::thread(rm::MPCPlanFunction, std::ref(planner), std::ref(robotStates), std::ref(ser));
+    std::thread plan_thread([&]() { rm::MPCPlanFunction(planner, robotStates, ser, shoot); });
 
     // cv::namedWindow("frame");
         auto start = std::chrono::steady_clock::now();
@@ -161,23 +161,10 @@ int main() {
         {
             // 没有追踪到目标，跳过
             robotStates.push(nullptr);
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
-            rm::SendMessageToRobot(ser, 0.0, 0.0, false);
             continue;
         }
 
-        if(current_robot->GetMode() == Robot::KalmanMode::EKF)
-        {
-            robotStates.push(std::make_unique<RobotState>(*current_robot,frame.time));
-        }
-        else {
-            robotStates.push(nullptr);
-            double dt = shoot.FlyTime(current_robot->center);
-            Eigen::Vector3d aim = current_robot->center + current_robot->Speed.block<3,1>(0,0) * dt;
-             
-            std::array<double, 2> Pitch_and_Yaw = shoot(aim);
-            rm::SendMessageToRobot(ser, Pitch_and_Yaw[0], Pitch_and_Yaw[1], true);
-        }
+        robotStates.push(std::make_unique<RobotState>(*current_robot,frame.time));
         
 
         // 性能统计
@@ -224,4 +211,3 @@ void Test::show()
 {
     std::cout<< this->num / ( ( (double)this->total.count() ) * 1e-9 )<< "Hz\n" ;
 }
-
