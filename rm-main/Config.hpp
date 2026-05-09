@@ -72,6 +72,10 @@ inline Shooter::ShooterConfig LoadShooterConfig(const std::string& config_path)
     cfg.toward_yaw = tools::read<double>(yaml, "yaw_offset") / 180.0 * M_PI;
     cfg.toward_pitch = tools::read<double>(yaml, "pitch_offset") / 180.0 * M_PI;
 
+    cfg.low_speed_delay_time_shooter = tools::read<double>(yaml, "low_speed_delay_time_shooter");
+    cfg.high_speed_delay_time_shooter = tools::read<double>(yaml, "high_speed_delay_time_shooter");
+    cfg.decision_v_speed_shooter = tools::read<double>(yaml, "decision_v_speed_shooter");
+
     return cfg;
 }
 

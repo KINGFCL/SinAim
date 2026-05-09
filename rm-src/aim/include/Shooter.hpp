@@ -28,18 +28,22 @@ public:
         double low_speed_delay_time_shooter, high_speed_delay_time_shooter, decision_v_speed_shooter;
     };
 
-    Shooter(const Eigen::Matrix<double, 3, 1>& Vector):
-            toward(Vector.normalized()), 
-            toward_pitch(std::asin(toward(2,0))),
-            toward_yaw(std::atan2(toward(1,0), toward(0,0)))
-            {}
+    //只留一个构造函数，避免冲突
+    // Shooter(const Eigen::Matrix<double, 3, 1>& Vector):
+    //         toward(Vector.normalized()), 
+    //         toward_pitch(std::asin(toward(2,0))),
+    //         toward_yaw(std::atan2(toward(1,0), toward(0,0)))
+    //         {}
     
-    Shooter(double toward_yaw, double toward_pitch):
-    toward( std::cos(toward_pitch)*std::cos(toward_yaw), std::cos(toward_pitch)*std::sin(toward_yaw) , std::sin(toward_pitch) ),
-    toward_pitch(toward_pitch),
-    toward_yaw(toward_yaw){};
+    // Shooter(double toward_yaw, double toward_pitch):
+    // toward( std::cos(toward_pitch)*std::cos(toward_yaw), std::cos(toward_pitch)*std::sin(toward_yaw) , std::sin(toward_pitch) ),
+    // toward_pitch(toward_pitch),
+    // toward_yaw(toward_yaw){};
 
     explicit Shooter(const ShooterConfig& config):
+    low_speed_delay_time_(config.low_speed_delay_time_shooter), 
+    high_speed_delay_time_(config.high_speed_delay_time_shooter), 
+    decision_v_speed_(config.decision_v_speed_shooter),
     toward( std::cos(config.toward_pitch)*std::cos(config.toward_yaw), std::cos(config.toward_pitch)*std::sin(config.toward_yaw) , std::sin(config.toward_pitch) ),
     toward_pitch(config.toward_pitch),
     toward_yaw(config.toward_yaw){};
