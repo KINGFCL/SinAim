@@ -85,7 +85,7 @@ int main()
     Hik.continueCap(3);
 
     std::thread match_thread(rm::IMUAndImageMatchFunction, std::ref(Hik), std::ref(ser), std::ref(Frames));
-    std::thread plan_thread(rm::MPCPlanFunction, std::ref(planner), std::ref(RobotStates), std::ref(ser));
+    std::thread plan_thread([&]() { rm::MPCPlanFunction(planner, RobotStates, ser,shoot); });
 
     auto start = std::chrono::steady_clock::now();
     std::printf("Start MLP main loop\n");
@@ -109,22 +109,13 @@ int main()
         next_point = frame.time;
 
         Robot* current_robot = track.getCurrentRobot();
+
         if (current_robot == nullptr) {
             RobotStates.push(nullptr);
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
-            rm::SendMessageToRobot(ser, 0.0, 0.0, false);
             continue;
         }
 
-        if (current_robot->GetMode() == Robot::KalmanMode::EKF) {
-            RobotStates.push(std::make_unique<RobotState>(*current_robot, frame.time));
-        } else {
-            RobotStates.push(nullptr);
-            double fly_time = shoot.FlyTime(current_robot->center);
-            Eigen::Vector3d aim = current_robot->center + current_robot->Speed.block<3, 1>(0, 0) * fly_time;
-            std::array<double, 2> pitch_and_yaw = shoot(aim);
-            rm::SendMessageToRobot(ser, pitch_and_yaw[0], pitch_and_yaw[1], true);
-        }
+        RobotStates.push(std::make_unique<RobotState>(*current_robot, frame.time));
 
         test.count(std::chrono::steady_clock::now() - start);
         start = std::chrono::steady_clock::now();

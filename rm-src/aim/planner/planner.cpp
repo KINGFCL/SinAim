@@ -2,6 +2,7 @@
 #include <chrono>
 #include <cmath>
 #include <stdexcept>
+#include "TargetState.hpp"
 #include "yaml.hpp"
 
 using namespace std::chrono_literals;
@@ -110,8 +111,10 @@ Plan Planner::plan(const std::unique_ptr<RobotState>& target_ptr, double bullet_
   double delay_time = std::abs(target_ptr->Speed(3,0)) > decision_speed_ ? high_speed_delay_time_ : low_speed_delay_time_;
   auto future = std::chrono::steady_clock::now() + std::chrono::microseconds(int(delay_time * 1e6));
 
-  target_ptr->Predict(future);
-  return plan(*target_ptr, bullet_speed);
+  // 创建副本
+  RobotState copy_target = *target_ptr;
+  copy_target.Predict(future);
+  return plan(copy_target, bullet_speed);
 }
 
 void Planner::setup_yaw_solver(const std::string & config_path)

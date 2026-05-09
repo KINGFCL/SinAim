@@ -12,6 +12,11 @@ max_pitch_acc: 100
 Q_pitch: [9e6, 0]
 R_pitch: [1]
 
+#shooter:
+low_speed_delay_time_shooter: 0.0 # s
+high_speed_delay_time_shooter: 0.0 # s
+decision_v_speed_shooter: 5 # m/s
+
 
 #----------------Solver------------:
 # 相机内参矩阵 (Camera Matrix) 按行展开 3x3

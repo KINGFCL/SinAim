@@ -5,7 +5,8 @@
 
 // 修复构造函数：从 robot 实例中准确拷贝当前所有状态，初始化 StateTime，并推演当前时间的位姿
 RobotState::RobotState(const Robot& robot, const std::chrono::steady_clock::time_point& t) 
-    : Speed(robot.Speed),
+    : Mode(robot.GetMode()),
+      Speed(robot.Speed),
       Armors(robot.Armors),
       l_diff(robot.l_diff),
       h_diff(robot.h_diff),

@@ -3,6 +3,8 @@
 
 
 #include <eigen3/Eigen/Geometry>
+#include "Target.hpp"
+#include "TargetState.hpp"
 #include <array>
 #include <cmath>
 #include "iostream"
@@ -17,12 +19,13 @@ const double toward_pitch,toward_yaw;
 const double GRAVITY =  9.8, BULLET_SPEED  = 22.3; //重力加速度9.8m/s^2 弹速 22.8m/s;
 const double BULLET_SPEED_2 = 2.0 * BULLET_SPEED * BULLET_SPEED;
 
-
+double low_speed_delay_time_, high_speed_delay_time_, decision_v_speed_;
 
 public:
     struct ShooterConfig
     {
         double toward_yaw, toward_pitch;
+        double low_speed_delay_time_shooter, high_speed_delay_time_shooter, decision_v_speed_shooter;
     };
 
     Shooter(const Eigen::Matrix<double, 3, 1>& Vector):
@@ -41,6 +44,18 @@ public:
     toward_pitch(config.toward_pitch),
     toward_yaw(config.toward_yaw){};
     
+    std::array<double, 2> operator () (const std::unique_ptr<RobotState>& target_ptr) const 
+    {
+        if(target_ptr == nullptr) return {0.0,0.0};
+        RobotState copy_target = *target_ptr;
+        double delay_time = std::abs( (target_ptr->Speed.block<3,1>(0,0)*0.01).norm() ) > decision_v_speed_ ? high_speed_delay_time_ : low_speed_delay_time_;
+        copy_target.Predict(std::chrono::steady_clock::now() + std::chrono::microseconds(int(delay_time * 1e6)));
+        double fly_time = this->FlyTime(copy_target.center);
+        Eigen::Vector3d aim = copy_target.center + copy_target.Speed.block<3, 1>(0, 0) * fly_time;
+        return this->operator()(aim);
+    }
+
+
     /**
     @brief 计算射击目标，枪口需要转动的pitch和yaw(单位：rad)
     @param ShootPosi 射击位置的坐标(单位：cm)

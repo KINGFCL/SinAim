@@ -4,6 +4,7 @@
 
 struct RobotState
 {
+    Robot::KalmanMode Mode;
     //整车速度v_x,v_y,v_z,w
     Eigen::Matrix<double, 4, 1> Speed;
 

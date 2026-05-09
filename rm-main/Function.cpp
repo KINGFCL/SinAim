@@ -1,4 +1,5 @@
 #include "Function.hpp"
+#include "Target.hpp"
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -71,7 +72,59 @@ void rm::MPCPlanFunction(MPC::Planner& planner, FastQueue<std::unique_ptr<RobotS
         std::this_thread::sleep_for(std::chrono::milliseconds(10)); // 控制发送频率，避免过快发送
     }
 }
+void rm::MPCPlanFunction(MPC::Planner& planner, FastQueue<std::unique_ptr<RobotState>>& RobotStates, io::RTSerial<Packet>& ser, const Shooter& shoot)
+{
+    auto next_time = std::chrono::steady_clock::now();
+    // 控制周期：10ms
 
+    const auto PERIOD = std::chrono::milliseconds(10);
+
+    while (true) {
+
+        next_time += PERIOD;
+
+        auto now = std::chrono::steady_clock::now();
+
+        if (now >= next_time) {
+
+            std::cerr << "[Warning] MPC Loop Missed Deadline!\n";
+
+            next_time = now; // 放弃追赶，重置时间锚点
+
+            continue;
+        }
+
+        while (RobotStates.size() > 1) {
+            RobotStates.pop(); // 丢弃过时的状态，保持最新的状态进行MPC规划
+        }
+
+        const std::unique_ptr<RobotState>* target_ptr = RobotStates.peek();
+        
+        if(target_ptr == nullptr || *target_ptr == nullptr) 
+        {
+            rm::SendMessageToRobot(ser, 0.0, 0.0, false);
+            std::this_thread::sleep_until(next_time);
+            continue;
+        }
+
+        Robot::KalmanMode mode = (*target_ptr)->Mode;
+
+        if(mode == Robot::KalmanMode::EKF) 
+        {
+            MPC::Plan plan = planner.plan(*target_ptr, 22.0);
+
+            rm::SendMessageToRobot(ser, plan.pitch, plan.yaw, plan.fire);
+        
+            std::this_thread::sleep_until(next_time); // 控制发送频率，避免过快发送
+        }
+        else
+        {
+            std::array<double, 2> pitch_and_yaw = shoot(*target_ptr);
+            rm::SendMessageToRobot(ser, pitch_and_yaw[0], pitch_and_yaw[1], true);
+            std::this_thread::sleep_until(next_time); // 控制发送频率，避免过快发送
+        }
+    }
+}
 
 void rm::SendMessageToRobot(io::RTSerial<Packet> &ser, float pitch, float yaw, bool fire)
 {
