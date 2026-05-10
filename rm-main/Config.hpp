@@ -101,6 +101,7 @@ inline io::HikCamera::HikCameraConfig LoadHikCameraConfig(const std::string& con
     cfg.exposure_ms = tools::read<int>(yaml, "exposure_ms");
     cfg.gain = tools::read<int>(yaml, "gain");
     cfg.autocap = tools::read<bool>(yaml, "autocap");
+    cfg.IsFlip = tools::read<bool>(yaml, "IsFlip");
 
     return cfg;
 }

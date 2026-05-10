@@ -24,7 +24,7 @@ HikCamera::HikCamera(double exposure_ms,
 }
 
 HikCamera::HikCamera(const HikCameraConfig& config)
-    : HikCamera(config.exposure_ms, config.gain, config.autocap)
+    : HikCamera(config.exposure_ms, config.gain, config.autocap, config.IsFlip)
 {
 }
 
