@@ -4,7 +4,7 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
 
-// #define EKFKalmanDebug
+#define EKFKalmanDebug
 #ifdef EKFKalmanDebug
 #include <functional>
 using EKFDebugFn = void(*)(const Eigen::Matrix<double,14,1>&,
