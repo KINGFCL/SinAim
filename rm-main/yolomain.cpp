@@ -11,8 +11,17 @@
 #include <thread>
 #include <vector>
 
+// #define MainDebug
+#ifdef MainDebug
+#include "communicate/RerunVisualizer.hpp"
+RerunVisualizer viz("RoboMaster_AutoAim");
+double R_sum = 0.0;
+int R_count = 0;
+#endif
+
 namespace
 {
+
 constexpr const char* kConfigPath = "../../config/config.yaml";
 constexpr const char* kModelPath = "../../model/yolo11.xml";
 constexpr const char* kSerialDevice = "/dev/ttyACM0";
@@ -20,23 +29,32 @@ constexpr unsigned int kSerialBaud = 460800;
 
 struct Test
 {
+    explicit Test(int cycle):cycle(cycle){};
+private:
     int num = 0;
-    std::chrono::nanoseconds total{0};
-
-    void count(const std::chrono::nanoseconds& time)
+    const int cycle = 0;
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+public:
+    void count()
     {
-        ++num;
-        total += time;
+        ++this->num;
+        if(this->num == this->cycle)
+        {
+            this->show();
+            this->clear();
+        }
+        
     }
 
     void clear()
     {
         num = 0;
-        total = std::chrono::nanoseconds(0);
+        this->start = std::chrono::steady_clock::now();
     }
 
     void show() const
     {
+        auto total = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - this->start);
         std::cout << num / (static_cast<double>(total.count()) * 1e-9) << "Hz\n";
     }
 };
@@ -55,7 +73,7 @@ Solver Sov(LoadSolverConfig(kConfigPath));
 Tracker track(LoadRobotConfig(kConfigPath));
 Shooter shoot(LoadShooterConfig(kConfigPath));
 MPC::Planner planner(LoadPlannerConfig(kConfigPath));
-Test test;
+Test test(200);
 
 std::vector<ArmorPosi> DetectArmors(cv::Mat& image, const Eigen::Quaterniond& gripper_to_world)
 {
@@ -66,6 +84,14 @@ std::vector<ArmorPosi> DetectArmors(cv::Mat& image, const Eigen::Quaterniond& gr
 
 int main()
 {
+    #ifdef MainDebug
+    #ifdef EKFKalmanDebug
+    g_ekf_debug_cb = [](const Eigen::Matrix<double,14,1>& s,
+                        const Eigen::Matrix<double,4,1>& v, double dt) {
+        viz.EKFKalmanUpdate(s, v, dt);
+    };
+    #endif
+    #endif
     std::cout << sizeof(Packet) << std::endl;
 
     std::function<bool(const Packet&)> check_fuc = io::CRC8::Check<Packet>;
@@ -84,15 +110,20 @@ int main()
     std::thread match_thread(rm::IMUAndImageMatchFunction, std::ref(Hik), std::ref(ser), std::ref(Frames));
     std::thread plan_thread([&]() { rm::MPCPlanFunction(planner, RobotStates, ser, shoot); });
 
-    auto start = std::chrono::steady_clock::now();
     std::printf("Start YOLO main loop\n");
 
     while (true) {
-        if (Frames.empty()) continue;
-
         FrameData frame;
-        while (!Frames.empty()) {
-            Frames.pop(frame);
+        bool successpop = Frames.pop(frame);
+
+        if(successpop){
+            while (true) {
+                bool ret = Frames.pop(frame);
+                if (!ret) break;
+            }
+        }
+        else{
+            Frames.wait_pop(frame);
         }
         if (frame.image.empty()) continue;
 
@@ -106,6 +137,11 @@ int main()
         next_point = frame.time;
 
         Robot* current_robot = track.getCurrentRobot();
+
+        #ifdef MainDebug
+            test.count();
+        #endif
+
         if (current_robot == nullptr) {
             RobotStates.push(nullptr);
             continue;
@@ -113,13 +149,9 @@ int main()
 
         RobotStates.push(std::make_unique<RobotState>(*current_robot, frame.time));
 
-        test.count(std::chrono::steady_clock::now() - start);
-        start = std::chrono::steady_clock::now();
-
-        if (test.num % 200 == 0 && test.num != 0) {
-            test.show();
-            test.clear();
-        }
+        #ifdef MainDebug
+            viz.update(*current_robot, current_robot->Predict(0), dt, Gun);
+        #endif
     }
 
     match_thread.join();

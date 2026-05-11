@@ -1,4 +1,3 @@
-#define EKFKalmanDebug
 #include "EKFKalman.hpp"
 #include <cmath>
 #include <cstddef>
@@ -9,9 +8,6 @@
 #include "opencv2/core/cvdef.h"
 
 
-#ifdef EKFKalmanDebug
-// g_ekf_debug_cb 在 EKFKalman.hpp 中声明，由上层注册
-#endif
 void EKFKalman::Init()
 {
     this->CovState = this->CovStateInit;

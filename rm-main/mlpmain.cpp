@@ -11,10 +11,7 @@
 #include <thread>
 #include <vector>
 
-namespace
-{
-
-#define MainDebug
+// #define MainDebug
 #ifdef MainDebug
 #include "communicate/RerunVisualizer.hpp"
 RerunVisualizer viz("RoboMaster_AutoAim");
@@ -22,6 +19,8 @@ double R_sum = 0.0;
 int R_count = 0;
 #endif
 
+namespace
+{
 
 constexpr const char* kConfigPath = "../../config/config.yaml";
 constexpr const char* kModelPath = "../../model/mlp.onnx";
@@ -88,6 +87,15 @@ std::vector<ArmorPosi> DetectArmors(cv::Mat& image, const Eigen::Quaterniond& gr
 
 int main()
 {
+    #ifdef MainDebug
+    #ifdef EKFKalmanDebug
+    g_ekf_debug_cb = [](const Eigen::Matrix<double,14,1>& s,
+                        const Eigen::Matrix<double,4,1>& v, double dt) {
+        viz.EKFKalmanUpdate(s, v, dt);
+    };
+
+    #endif
+    #endif
     std::cout << sizeof(Packet) << std::endl;
 
     std::function<bool(const Packet&)> check_fuc = io::CRC8::Check<Packet>;
