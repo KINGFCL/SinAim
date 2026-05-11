@@ -1,97 +1,108 @@
 #pragma once
-#include <eigen3/Eigen/Geometry>
-#include <eigen3/Eigen/src/Geometry/Quaternion.h>
-#include <thread>
-#include "Data.hpp"
-#include "FastQueue.hpp"
-#include "LibXRRobotLink.hpp"
-#include "mcudata.hpp"
+
 #include <chrono>
 #include <cstddef>
 
+#include <Eigen/Geometry>
+
+#include "FastQueue.hpp"
+#include "mcudata.hpp"
+
 namespace io
 {
-template <size_t BufferSize = 50>
-class LibXRSerial(LibXR::HardwareContainer& hw,
-                  LibXR::ApplicationManager& appmgr)
+
+template <std::size_t BufferSize = 50>
+class LibXRSerial
 {
-private:
-    struct Packet
+ public:
+  LibXRSerial(LibXR::HardwareContainer& hw, LibXR::ApplicationManager& appmgr)
+      : buffer_queue_(BufferSize),
+        host_domain_("host"),
+        target_euler_("target_euler", sizeof(mcu::HostGimbalTarget), &host_domain_,
+                      true),
+        fire_notify_("fire_notify", sizeof(mcu::HostFireNotify), &host_domain_, true),
+        gimbal_gyro_("gimbal_gyro", sizeof(mcu::ImuSample), &host_domain_, true),
+        gimbal_accl_("gimbal_accl", sizeof(mcu::ImuSample), &host_domain_, true),
+        gimbal_quat_("gimbal_quat", sizeof(mcu::GimbalQuaternion), &host_domain_,
+                     true),
+        robot_game_ref_("robot_game_ref", sizeof(mcu::RobotGameRefereeSummary),
+                        &host_domain_, true),
+        shared_topic_rx_(hw, appmgr, "DevC-USB", 4096,
+                         {{"gimbal_gyro", "host"},
+                          {"gimbal_accl", "host"},
+                          {"gimbal_quat", "host"},
+                          {"robot_game_ref", "host"}}),
+        shared_topic_tx_(hw, appmgr, "DevC-USB", 256,
+                         {{"target_euler", "host"}, {"fire_notify", "host"}}),
+        gimbal_quat_callback_(LibXR::Topic::Callback::Create(
+            [](bool, LibXRSerial* self, const mcu::GimbalQuaternion& quat) {
+              self->OnGimbalQuaternion(quat);
+            },
+            this))
+  {
+    gimbal_quat_.RegisterCallback(gimbal_quat_callback_);
+  }
+
+  bool ReadData(Eigen::Quaterniond& quat,
+                std::chrono::steady_clock::time_point& time)
+  {
+    Packet packet;
+    const bool ret = buffer_queue_.pop(packet);
+    if (ret)
     {
-        std::chrono::steady_clock::time_point time;
-        mcu::GimbalQuaternion quat;
-    };
-    FastQueueNoWait<Packet> Buffer_Que_(BufferSize);
-    std::thread ReceiveThread_;
-
-    static LibXR::Topic::Domain host_domain("host");
-
-    static LibXR::Topic target_euler(
-        "target_euler", sizeof(HostGimbalTarget), &host_domain, true);
-    static LibXR::Topic fire_notify(
-        "fire_notify", sizeof(HostFireNotify), &host_domain, true);
-
-    static LibXR::Topic gimbal_gyro(
-        "gimbal_gyro", sizeof(ImuSample), &host_domain, true);
-    static LibXR::Topic gimbal_accl(
-        "gimbal_accl", sizeof(ImuSample), &host_domain, true);
-    static LibXR::Topic gimbal_quat(
-        "gimbal_quat", sizeof(GimbalQuaternion), &host_domain, true);
-    static LibXR::Topic robot_game_ref(
-        "robot_game_ref", sizeof(RobotGameRefereeSummary), &host_domain, true);
-
-    static SharedTopic shared_topic_rx(
-        hw, appmgr, "DevC-USB", 4096,
-        {{"gimbal_gyro", "host"},
-         {"gimbal_accl", "host"},
-         {"gimbal_quat", "host"},
-         {"robot_game_ref", "host"}});
-
-    static SharedTopicClient shared_topic_tx(
-        hw, appmgr, "DevC-USB", 256,
-        {{"target_euler", "host"},
-         {"fire_notify", "host"}});
-
-    LibXR::Topic::Domain& HostDomain()
-    {
-        static LibXR::Topic::Domain host_domain("host");
-        return host_domain;
+      quat = Eigen::Quaterniond(packet.quat.w, packet.quat.x, packet.quat.y,
+                                packet.quat.z);
+      time = packet.time;
     }
+    return ret;
+  }
 
-public:
+  bool ReadDate(Eigen::Quaterniond& quat,
+                std::chrono::steady_clock::time_point& time)
+  {
+    return ReadData(quat, time);
+  }
 
-    LibXRSerial() 
-    {
-        float latest_temp = 0.0f;
-        auto callback = LibXR::Topic::Callback::Create( 
-            [&(this->Buffer_Que_)](bool,LibXR::RawData& data) -> void
-                { 
-                    Packet data;
-                    data.time = std::chrono::steady_clock::now();
-                    data.quat = *reinterpret_cast<mcu::GimbalQuaternion*>(data.addr_);
-                    this->Buffer_Que_.push( data ); 
-                }, 
-                &latest_temp);
-                
-        LibXRSerial::gimbal_quat.RegisterCallback(callback);
-    }
+  void WriteData(mcu::HostGimbalTarget target, mcu::HostFireNotify fire_notify)
+  {
+    target_euler_.Publish(target);
+    fire_notify_.Publish(fire_notify);
+  }
 
+  void WriteDate(mcu::HostGimbalTarget target, mcu::HostFireNotify fire_notify)
+  {
+    WriteData(target, fire_notify);
+  }
 
-    bool ReadDate(Eigen::Quaterniond& quat,std::chrono::steady_clock::time_point& time)
-    {
-        Packet data;
-        bool ret = this->Buffer_Que_.pop(data);
+ private:
+  struct Packet
+  {
+    std::chrono::steady_clock::time_point time;
+    mcu::GimbalQuaternion quat;
+  };
 
-        if(ret){
-            quat = Eigen::Quaterniond(data.quat.w,data.quat.x,data.quat.y,data.quat.z);
-            time = data.time;
-        }
-        return ret;
-    }
-    void WriteDate(const HostGimbalTarget target, HostFireNotify fire_notify)
-    {
-        this->target_euler.Publish(target);
-        this->fire_notify.Publish(fire_notify);
-    }
+  void OnGimbalQuaternion(const mcu::GimbalQuaternion& quat)
+  {
+    Packet packet;
+    packet.time = std::chrono::steady_clock::now();
+    packet.quat = quat;
+    buffer_queue_.push(packet);
+  }
+
+  FastQueueNoWait<Packet> buffer_queue_;
+
+  LibXR::Topic::Domain host_domain_;
+
+  LibXR::Topic target_euler_;
+  LibXR::Topic fire_notify_;
+  LibXR::Topic gimbal_gyro_;
+  LibXR::Topic gimbal_accl_;
+  LibXR::Topic gimbal_quat_;
+  LibXR::Topic robot_game_ref_;
+
+  SharedTopic shared_topic_rx_;
+  SharedTopicClient shared_topic_tx_;
+  LibXR::Topic::Callback gimbal_quat_callback_;
 };
-}
+
+}  // namespace io

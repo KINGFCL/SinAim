@@ -17,12 +17,16 @@
 namespace rm
 {
     void IMUAndImageMatchFunction(io::HikCamera& Hik, io::RTSerial<Packet>& ser,FastQueue<FrameData>& Frames);
+    void IMUAndImageMatchFunction(io::HikCamera& Hik, io::LibXRSerial<>& ser, FastQueue<FrameData>& Frames);
 
     void MPCPlanFunction(MPC::Planner& planner, FastQueue<std::unique_ptr<RobotState>>& RobotStates, io::RTSerial<Packet>& ser);
 
     void MPCPlanFunction(MPC::Planner &planner, FastQueue<std::unique_ptr<RobotState>> &RobotStates, io::RTSerial<Packet> &ser, const Shooter& shooter);
+    void MPCPlanFunction(MPC::Planner &planner, FastQueue<std::unique_ptr<RobotState>> &RobotStates, io::LibXRSerial<> &ser, const Shooter& shooter);
 
     void SendMessageToRobot(io::RTSerial<Packet>& ser, float pitch, float yaw, bool fire);
+    void SendMessageToRobot(io::LibXRSerial<>& ser, float pitch, float yaw, bool fire);
+    void SendMessageToRobot(io::LibXRSerial<>& ser, const MPC::Plan& plan, bool fire);
     Eigen::Matrix<double, 4, 1> ChooseBestAimArmor(const Eigen::Matrix<double, 4, 4>& aims,
                                                    const Eigen::Matrix<double,4, 1>& Speed,
                                                    const Eigen::Matrix<double, 3, 1>& Gun);

@@ -1,5 +1,6 @@
 #include "RTSerial.hpp"
 #include "Data.hpp"
 #include "FastQueue.hpp"
+#include "LibXRSerial.hpp"
 #include "logger.hpp"
 #include "yaml.hpp"

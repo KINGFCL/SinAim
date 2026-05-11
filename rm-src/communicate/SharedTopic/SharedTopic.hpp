@@ -23,7 +23,7 @@ depends: []
 #include "libxr_def.hpp"
 #include "libxr_rw.hpp"
 #include "libxr_type.hpp"
-#include "logger.hpp"
+#include "../libxr/src/middleware/logger.hpp"
 #include "message.hpp"
 #include "semaphore.hpp"
 #include "thread.hpp"

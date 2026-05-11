@@ -2,7 +2,7 @@
 #define INCLUDE_DATA_HPP
 #include <cstdint>
 #include <chrono>
-#include "opencv2/core/quaternion.hpp"
+#include "eigen3/Eigen/Geometry"
 #include "opencv2/core/mat.hpp"
 #include "RTSerial.hpp"
 
@@ -61,15 +61,16 @@ struct __attribute__((packed)) ShootFire{
 };
 
 
+
 struct FrameData
 {
     cv::Mat image;
-    cv::Quatd quat;
+    Eigen::Quaterniond gripper_to_world;
     std::chrono::steady_clock::time_point time;
 
-    FrameData(const cv::Mat image, const cv::Quatd& quat,
+    FrameData(const cv::Mat image, const Eigen::Quaterniond& gripper_to_world,
               const std::chrono::steady_clock::time_point& time)
-        : image(image), quat(quat), time(time) {}
+        : image(image), gripper_to_world(gripper_to_world), time(time) {}
     FrameData(){}
 };
 

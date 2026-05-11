@@ -31,7 +31,8 @@ public:
             auto frame_time = base_time + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
                 std::chrono::duration<double>(accumulated));
 
-            FrameData fd(raw.clone(), cv::Quatd(dq.w, dq.x, dq.y, dq.z), frame_time);
+            FrameData fd(raw.clone(), Eigen::Quaterniond(dq.w, dq.x, dq.y, dq.z),
+                         frame_time);
             while (!frames.push(fd))
                 std::this_thread::sleep_for(std::chrono::microseconds(100));
             ++n;

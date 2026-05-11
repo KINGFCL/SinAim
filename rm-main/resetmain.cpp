@@ -1,6 +1,8 @@
 #include "Config.hpp"
 #include "Function.hpp"
 #include "ResNetNumClassifier.hpp"
+#include "libxr.hpp"
+#include "linux_uart.hpp"
 
 #include <array>
 #include <chrono>
@@ -64,7 +66,6 @@ static FastQueue<std::unique_ptr<RobotState>> RobotStates(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-io::RTSerial<Packet> ser(50);
 io::HikCamera Hik(LoadHikCameraConfig(kConfigPath));
 
 CVDetector detect(LoadCVDetectorConfig(kConfigPath));
@@ -96,22 +97,18 @@ int main()
     #endif
     #endif
 
-    std::cout << sizeof(Packet) << std::endl;
+    LibXR::PlatformInit();
+    LibXR::RamFS ramfs;
+    LibXR::LinuxUART uart(kSerialDevice, kSerialBaud);
+    LibXR::HardwareContainer hw(
+        LibXR::Entry<LibXR::LinuxUART>{uart, {"DevC-USB"}},
+        LibXR::Entry<LibXR::RamFS>{ramfs, {"ramfs"}});
+    LibXR::ApplicationManager appmgr;
+    io::LibXRSerial<> ser(hw, appmgr);
 
-    std::function<bool(const Packet&)> check_fuc = io::CRC8::Check<Packet>;
-    ser.setCheckfuc(check_fuc);
-    int ret = ser.openDevice(kSerialDevice, kSerialBaud);
-
-    if (ret == 1) {
-        std::cout << "serial open ok\n";
-    } else {
-        std::cerr << "serial open err: " << ret << "\n";
-    }
-
-    ser.startReceive(100);
     Hik.continueCap(3);
 
-    std::thread match_thread(rm::IMUAndImageMatchFunction, std::ref(Hik), std::ref(ser), std::ref(Frames));
+    std::thread match_thread([&]() { rm::IMUAndImageMatchFunction(Hik, ser, Frames); });
     std::thread plan_thread([&]() { rm::MPCPlanFunction(planner, RobotStates, ser, shoot); });
 
     std::printf("Start ResNet main loop\n");
@@ -131,13 +128,15 @@ int main()
         }
         if (frame.image.empty()) continue;
 
-        Eigen::Quaterniond gripper_to_world{frame.quat.w, frame.quat.x, frame.quat.y, frame.quat.z};
+        const Eigen::Quaterniond& gripper_to_world = frame.gripper_to_world;
+        const cv::Quatd tracker_quat(gripper_to_world.w(), gripper_to_world.x(),
+                                     gripper_to_world.y(), gripper_to_world.z());
         const Eigen::Matrix<double, 3, 1> Gun = shoot.GunDirection(gripper_to_world);
 
         std::vector<ArmorPosi> armors = DetectArmors(frame.image, gripper_to_world);
 
         double dt = rm::SolveDt(next_point, frame.time, 0.005);
-        track(armors, frame.quat, Gun, dt);
+        track(armors, tracker_quat, Gun, dt);
         next_point = frame.time;
 
         Robot* current_robot = track.getCurrentRobot();

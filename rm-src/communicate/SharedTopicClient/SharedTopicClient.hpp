@@ -21,6 +21,7 @@ depends: []
 #include "app_framework.hpp"
 #include "lockfree_pool.hpp"
 #include "lockfree_queue.hpp"
+#include "../libxr/src/middleware/logger.hpp"
 #include "message.hpp"
 #include "uart.hpp"
 
