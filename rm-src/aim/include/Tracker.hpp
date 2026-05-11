@@ -29,7 +29,7 @@ public:
 
     // 主处理函数
     void operator()(std::vector<ArmorPosi>& armors_posi,
-                    const cv::Quatd& gripper_to_world,
+                    const Eigen::Quaterniond& gripper_to_world,
                     const Eigen::Matrix<double, 3, 1>& Gun, 
                     double dt);
 
@@ -45,17 +45,17 @@ public:
 private:
     // 状态转换函数
     void handleSearching(std::vector<ArmorPosi>& armors_posi,
-                        const cv::Quatd& gripper_to_world,
+                        const Eigen::Quaterniond& gripper_to_world,
                         const Eigen::Matrix<double, 3, 1>& Gun,
                         double dt);
 
     void handleTracking(std::vector<ArmorPosi>& armors_posi,
-                       const cv::Quatd& gripper_to_world,
+                       const Eigen::Quaterniond& gripper_to_world,
                        const Eigen::Matrix<double, 3, 1>& Gun,
                        double dt);
 
     void handleTempLost(std::vector<ArmorPosi>& armors_posi,
-                       const cv::Quatd& gripper_to_world,
+                       const Eigen::Quaterniond& gripper_to_world,
                        double dt);
 
     // 辅助函数

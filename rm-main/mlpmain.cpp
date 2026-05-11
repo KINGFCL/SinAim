@@ -129,15 +129,12 @@ int main()
         }
         if (frame.image.empty()) continue;
 
-        const Eigen::Quaterniond& gripper_to_world = frame.gripper_to_world;
-        const cv::Quatd tracker_quat(gripper_to_world.w(), gripper_to_world.x(),
-                                     gripper_to_world.y(), gripper_to_world.z());
-        const Eigen::Matrix<double, 3, 1> Gun = shoot.GunDirection(gripper_to_world);
+        const Eigen::Matrix<double, 3, 1> Gun = shoot.GunDirection(frame.gripper_to_world);
 
-        std::vector<ArmorPosi> armors = DetectArmors(frame.image, gripper_to_world);
+        std::vector<ArmorPosi> armors = DetectArmors(frame.image, frame.gripper_to_world);
 
         double dt = rm::SolveDt(next_point, frame.time, 0.005);
-        track(armors, tracker_quat, Gun, dt);
+        track(armors, frame.gripper_to_world, Gun, dt);
         next_point = frame.time;
 
         Robot* current_robot = track.getCurrentRobot();
