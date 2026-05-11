@@ -55,8 +55,8 @@ void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::RTSerial<Packet> &ser,
 
     }
 }
-
-void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::LibXRSerial<> &ser, FastQueue<FrameData> &Frames)
+template <std::size_t BufferSize>
+void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::LibXRSerial<BufferSize> &ser, FastQueue<FrameData> &Frames)
 {
     while (true) {
 
@@ -170,7 +170,8 @@ void rm::MPCPlanFunction(MPC::Planner& planner, FastQueue<std::unique_ptr<RobotS
     }
 }
 
-void rm::MPCPlanFunction(MPC::Planner& planner, FastQueue<std::unique_ptr<RobotState>>& RobotStates, io::LibXRSerial<>& ser , const Shooter& shoot)
+template <std::size_t BufferSize>
+void rm::MPCPlanFunction(MPC::Planner& planner, FastQueue<std::unique_ptr<RobotState>>& RobotStates, io::LibXRSerial<BufferSize>& ser , const Shooter& shoot)
 {
     auto next_time = std::chrono::steady_clock::now();
     // 控制周期：10ms
@@ -237,7 +238,9 @@ void rm::SendMessageToRobot(io::RTSerial<Packet> &ser, float pitch, float yaw, b
     ser.writeBytes(&firemsg,sizeof(firemsg));
 }
 
-void rm::SendMessageToRobot(io::LibXRSerial<>& ser, float pitch, float yaw, bool fire)
+
+template <std::size_t BufferSize>
+void rm::SendMessageToRobot(io::LibXRSerial<BufferSize>& ser, float pitch, float yaw, bool fire)
 {
     MPC::Plan plan;
     plan.pitch = pitch;
@@ -245,7 +248,8 @@ void rm::SendMessageToRobot(io::LibXRSerial<>& ser, float pitch, float yaw, bool
     rm::SendMessageToRobot(ser, plan, fire);
 }
 
-void rm::SendMessageToRobot(io::LibXRSerial<>& ser, const MPC::Plan& plan, bool fire)
+template <std::size_t BufferSize>
+void rm::SendMessageToRobot(io::LibXRSerial<BufferSize>& ser, const MPC::Plan& plan, bool fire)
 {
     io::mcu::HostGimbalTarget target;
     io::mcu::HostFireNotify fire_notify;

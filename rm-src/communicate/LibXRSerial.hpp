@@ -2,7 +2,8 @@
 
 #include <chrono>
 #include <cstddef>
-
+#include "SharedTopic/SharedTopic.hpp"
+#include "SharedTopicClient/SharedTopicClient.hpp"
 #include <Eigen/Geometry>
 
 #include "FastQueue.hpp"
