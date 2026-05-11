@@ -55,48 +55,6 @@ void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::RTSerial<Packet> &ser,
 
     }
 }
-template <std::size_t BufferSize>
-void rm::IMUAndImageMatchFunction(io::HikCamera &Hik, io::LibXRSerial<BufferSize> &ser, FastQueue<FrameData> &Frames)
-{
-    while (true) {
-
-        // 读取相机数据
-        io::HikCamera::ImageData HikData;
-
-        Hik.read(HikData);
-        if(HikData.image.empty()) continue;
-
-        // 读取串口数据
-        std::chrono::steady_clock::time_point time ;
-        Eigen::Quaterniond gripper_to_world;
-        while( true )
-        {
-
-            bool ret = ser.ReadData(gripper_to_world, time);
-            if( !ret ) break;
-
-            const auto& t = ((double)(HikData.time - time).count()) * 1e-6;
-
-            //配对超时
-
-            //串口数据比相机数据早8ms以上
-            if( t > 8 ) {continue;}
-
-            //串口数据比相机数据早5ms以下
-            if( t < 5 ) {;break;}
-
-            //配对成功
-            
-            FrameData frame(HikData.image, gripper_to_world, HikData.time);
-
-            Frames.push(frame);
-            break;
-        }
-
-    }
-}
-
-
 void rm::MPCPlanFunction(MPC::Planner& planner, FastQueue<std::unique_ptr<RobotState>>& RobotStates, io::RTSerial<Packet>& ser)
 {
     while (true) {
@@ -170,65 +128,6 @@ void rm::MPCPlanFunction(MPC::Planner& planner, FastQueue<std::unique_ptr<RobotS
     }
 }
 
-template <std::size_t BufferSize>
-void rm::MPCPlanFunction(MPC::Planner& planner, FastQueue<std::unique_ptr<RobotState>>& RobotStates, io::LibXRSerial<BufferSize>& ser , const Shooter& shoot)
-{
-    auto next_time = std::chrono::steady_clock::now();
-    // 控制周期：10ms
-
-    const auto PERIOD = std::chrono::milliseconds(10);
-
-    while (true) {
-
-        next_time += PERIOD;
-
-        auto now = std::chrono::steady_clock::now();
-
-        if (now >= next_time) {
-
-            std::cerr << "[Warning] MPC Loop Missed Deadline!\n";
-
-            next_time = now; // 放弃追赶，重置时间锚点
-
-            continue;
-        }
-
-        while (RobotStates.size() > 1) {
-            RobotStates.pop(); // 丢弃过时的状态，保持最新的状态进行MPC规划
-        }
-
-        const std::unique_ptr<RobotState>* target_ptr = RobotStates.peek();
-        
-        if(target_ptr == nullptr || *target_ptr == nullptr) 
-        {
-            rm::SendMessageToRobot(ser, 0.0, 0.0, false);
-            std::this_thread::sleep_until(next_time);
-            continue;
-        }
-
-        Robot::KalmanMode mode = (*target_ptr)->Mode;
-
-        if(mode == Robot::KalmanMode::EKF) 
-        {
-            MPC::Plan plan = planner.plan(*target_ptr, 22.0);
-
-            rm::SendMessageToRobot(ser, plan, plan.fire);
-        
-            std::this_thread::sleep_until(next_time); // 控制发送频率，避免过快发送
-        }
-        else
-        {
-            std::array<double, 2> pitch_and_yaw = shoot(*target_ptr);
-            MPC::Plan plan;
-            plan.pitch = pitch_and_yaw[0];
-            plan.yaw = pitch_and_yaw[1];
-            rm::SendMessageToRobot(ser, plan, true);
-            std::this_thread::sleep_until(next_time); // 控制发送频率，避免过快发送
-        }
-    }
-}
-
-
 void rm::SendMessageToRobot(io::RTSerial<Packet> &ser, float pitch, float yaw, bool fire)
 {
     ShootPosi posimsg{pitch, yaw};
@@ -236,36 +135,6 @@ void rm::SendMessageToRobot(io::RTSerial<Packet> &ser, float pitch, float yaw, b
 
     ser.writeBytes(&posimsg,sizeof(posimsg));
     ser.writeBytes(&firemsg,sizeof(firemsg));
-}
-
-
-template <std::size_t BufferSize>
-void rm::SendMessageToRobot(io::LibXRSerial<BufferSize>& ser, float pitch, float yaw, bool fire)
-{
-    MPC::Plan plan;
-    plan.pitch = pitch;
-    plan.yaw = yaw;
-    rm::SendMessageToRobot(ser, plan, fire);
-}
-
-template <std::size_t BufferSize>
-void rm::SendMessageToRobot(io::LibXRSerial<BufferSize>& ser, const MPC::Plan& plan, bool fire)
-{
-    io::mcu::HostGimbalTarget target;
-    io::mcu::HostFireNotify fire_notify;
-
-    target.yaw = plan.yaw;
-    target.pit = plan.pitch;
-
-    target.yaw_dot = plan.yaw_vel;
-    target.pit_dot = plan.pitch_vel;
-
-    target.yaw_ddot = plan.yaw_acc;
-    target.pit_ddot = plan.pitch_acc;
-
-    fire_notify.isfire = fire;
-
-    ser.WriteData(target, fire_notify);
 }
 
 

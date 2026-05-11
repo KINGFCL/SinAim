@@ -7,10 +7,16 @@
 #include "Communicate"
 #include "Shooter.hpp"
 
+#include <array>
+#include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <deque>
 #include <eigen3/Eigen/Core>
+#include <iostream>
+#include <memory>
 #include <opencv2/core/types.hpp>
+#include <thread>
 #include <vector>
 
 //IMU与图像配对线程逻辑
@@ -60,6 +66,108 @@ namespace rm
                              const Solver::SolverConfig& solver_config,
                              Tracker::State state,
                              const Robot* current_robot);
+}
+
+template <std::size_t BufferSize>
+void rm::IMUAndImageMatchFunction(io::HikCamera& Hik, io::LibXRSerial<BufferSize>& ser, FastQueue<FrameData>& Frames)
+{
+    while (true) {
+        io::HikCamera::ImageData HikData;
+
+        Hik.read(HikData);
+        if (HikData.image.empty()) continue;
+
+        std::chrono::steady_clock::time_point time;
+        Eigen::Quaterniond gripper_to_world;
+        while (true) {
+            bool ret = ser.ReadData(gripper_to_world, time);
+            if (!ret) break;
+
+            const auto& t = (static_cast<double>((HikData.time - time).count())) * 1e-6;
+
+            if (t > 8) continue;
+            if (t < 5) break;
+
+            FrameData frame(HikData.image, gripper_to_world, HikData.time);
+            Frames.push(frame);
+            break;
+        }
+    }
+}
+
+template <std::size_t BufferSize>
+void rm::MPCPlanFunction(MPC::Planner& planner,
+                         FastQueue<std::unique_ptr<RobotState>>& RobotStates,
+                         io::LibXRSerial<BufferSize>& ser,
+                         const Shooter& shoot)
+{
+    auto next_time = std::chrono::steady_clock::now();
+    const auto PERIOD = std::chrono::milliseconds(10);
+
+    while (true) {
+        next_time += PERIOD;
+
+        auto now = std::chrono::steady_clock::now();
+        if (now >= next_time) {
+            std::cerr << "[Warning] MPC Loop Missed Deadline!\n";
+            next_time = now;
+            continue;
+        }
+
+        while (RobotStates.size() > 1) {
+            RobotStates.pop();
+        }
+
+        const std::unique_ptr<RobotState>* target_ptr = RobotStates.peek();
+        if (target_ptr == nullptr || *target_ptr == nullptr) {
+            rm::SendMessageToRobot(ser, 0.0, 0.0, false);
+            std::this_thread::sleep_until(next_time);
+            continue;
+        }
+
+        Robot::KalmanMode mode = (*target_ptr)->Mode;
+        if (mode == Robot::KalmanMode::EKF) {
+            MPC::Plan plan = planner.plan(*target_ptr, 22.0);
+            rm::SendMessageToRobot(ser, plan, plan.fire);
+            std::this_thread::sleep_until(next_time);
+        } else {
+            std::array<double, 2> pitch_and_yaw = shoot(*target_ptr);
+            MPC::Plan plan;
+            plan.pitch = pitch_and_yaw[0];
+            plan.yaw = pitch_and_yaw[1];
+            rm::SendMessageToRobot(ser, plan, true);
+            std::this_thread::sleep_until(next_time);
+        }
+    }
+}
+
+template <std::size_t BufferSize>
+void rm::SendMessageToRobot(io::LibXRSerial<BufferSize>& ser, float pitch, float yaw, bool fire)
+{
+    MPC::Plan plan;
+    plan.pitch = pitch;
+    plan.yaw = yaw;
+    rm::SendMessageToRobot(ser, plan, fire);
+}
+
+template <std::size_t BufferSize>
+void rm::SendMessageToRobot(io::LibXRSerial<BufferSize>& ser, const MPC::Plan& plan, bool fire)
+{
+    io::mcu::HostGimbalTarget target;
+    io::mcu::HostFireNotify fire_notify;
+
+    target.yaw = plan.yaw;
+    target.pit = plan.pitch;
+
+    target.yaw_dot = plan.yaw_vel;
+    target.pit_dot = plan.pitch_vel;
+
+    target.yaw_ddot = plan.yaw_acc;
+    target.pit_ddot = plan.pitch_acc;
+
+    fire_notify.isfire = fire;
+
+    ser.WriteData(target, fire_notify);
 }
 
 
