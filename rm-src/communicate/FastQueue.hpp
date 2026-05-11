@@ -109,4 +109,82 @@ private:
 };
 
 
+template <typename T>
+class FastQueueNoWait {
+public:
+    /// 构造函数
+    /// @param max_queue_len  队列最大容量（与原版语义一致）
+    explicit FastQueueNoWait(size_t max_queue_len)
+        : queue_(max_queue_len)
+    {
+    }
+
+    // ── 禁止拷贝 ──
+    FastQueueNoWait(const FastQueueNoWait&) = delete;
+    FastQueueNoWait& operator=(const FastQueueNoWait&) = delete;
+
+    // ── 允许移动 ──
+    FastQueueNoWait(FastQueueNoWait&& other) noexcept = default;
+    FastQueueNoWait& operator=(FastQueueNoWait&& other) noexcept = default;
+
+    /// 弹出队首元素到 dst，队列为空时返回 false
+    bool pop(T& dst)
+    {
+        return queue_.try_dequeue(dst);
+    }
+
+
+    /// 弹出队首元素（不获取值），队列为空时返回 false
+    bool pop()
+    {
+        return queue_.pop();
+    }
+
+    /// 压入元素（拷贝），队列满时返回 false（不会分配新内存）
+    bool push(const T& src)
+    {
+        return queue_.try_enqueue(src);
+    }
+
+    /// 压入元素（移动），队列满时返回 false（不会分配新内存）
+    bool push(T&& src)
+    {
+        return queue_.try_enqueue(std::move(src));
+    }
+
+    /// 队列是否为空
+    bool empty() const
+    {
+        return queue_.size_approx() == 0;
+    }
+
+    /// 返回队列中元素的（近似）数量
+    size_t size() const
+    {
+        return queue_.size_approx();
+    }
+
+    /// 查看队首元素（即下一个将被 pop 的元素）的指针。
+    /// 队列为空时返回 nullptr。
+    /// 仅消费者线程可调用。
+    T* peek()
+    {
+        return queue_.peek();
+    }
+
+    const T* peek() const
+    {
+        return queue_.peek();
+    }
+
+    /// 返回队列在不触发新内存分配的前提下能容纳的最大元素数
+    size_t max_capacity() const
+    {
+        return queue_.max_capacity();
+    }
+private:
+    moodycamel::ReaderWriterQueue<T> queue_;    
+};
+
+
 
