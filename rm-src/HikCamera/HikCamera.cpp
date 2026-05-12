@@ -66,14 +66,13 @@ void HikCamera::read(ImageData& imgdata)
     {PixelType_Gvsp_BayerGB8, cv::COLOR_BayerGB2RGB},
     {PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2RGB}};
   cv::cvtColor(img, dst_image, type_map.at(pixel_type));
-  img = dst_image;
 
   ret = MV_CC_FreeImageBuffer(handle_, &raw);
   if (ret != MV_OK) {
     tools::logger()->warn("MV_CC_FreeImageBuffer failed: {:#x}", ret);
   }
 
-  imgdata = {img, timestamp};
+  imgdata = {dst_image, timestamp};
 }
 
 
