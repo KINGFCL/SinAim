@@ -27,14 +27,11 @@ inline Solver::SolverConfig LoadSolverConfig(const std::string& config_path)
     auto dist = tools::read<std::vector<double>>(yaml, "distortion_coeffs");
     auto R = tools::read<std::vector<double>>(yaml, "R_Cam_to_gripper");
     auto T = tools::read<std::vector<double>>(yaml, "T_Cam_to_gripper");
-
+    cfg.reproj_threshold = tools::read<double>(yaml, "reproj_threshold");
     std::copy_n(cam.begin(),  9, cfg.camera_matrix.begin());
     std::copy_n(dist.begin(), 5, cfg.distortion_coeffs.begin());
     std::copy_n(R.begin(),    9, cfg.R_Cam_to_gripper.begin());
     std::copy_n(T.begin(),    3, cfg.T_Cam_to_gripper.begin());
-
-    if (yaml["reproj_threshold"])
-        cfg.reproj_threshold = yaml["reproj_threshold"].as<double>();
 
     return cfg;
 }
@@ -98,8 +95,8 @@ inline io::HikCamera::HikCameraConfig LoadHikCameraConfig(const std::string& con
 
     io::HikCamera::HikCameraConfig cfg;
 
-    cfg.exposure_ms = tools::read<int>(yaml, "exposure_ms");
-    cfg.gain = tools::read<int>(yaml, "gain");
+    cfg.exposure_ms = tools::read<double>(yaml, "exposure_ms");
+    cfg.gain = tools::read<double>(yaml, "gain");
     cfg.autocap = tools::read<bool>(yaml, "autocap");
     cfg.IsFlip = tools::read<bool>(yaml, "IsFlip");
 

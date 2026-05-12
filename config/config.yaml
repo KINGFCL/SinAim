@@ -55,7 +55,7 @@ roi_height: 32
 #---------------HikCamera---------:
 # io::HikCamera::HikCameraConfig
 exposure_ms: 1        # 曝光时间 单位：ms
-gain: 16              # 增益
+gain: 10              # 增益
 autocap: true         # true: 自由采集; false: 外部硬件触发
 IsFlip: true          # true: 相机倒放翻转回来
 
