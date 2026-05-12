@@ -48,6 +48,12 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
         std::array<double,2> yaw_small, yaw_big, reproj_small, reproj_big;
         bool isInRange_small = true, isInRange_big = true;
 
+        std::array<double, 2> cos2_pitch_small;
+        std::array<double, 2> cos2_pitch_big;
+
+        std::array<double, 2> cos2_roll_small;
+        std::array<double, 2> cos2_roll_big;
+
         // 小装甲板
         {
             std::vector<cv::Mat> rvecs, tvecs;
@@ -62,6 +68,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 Eigen::Matrix3d R_arm2cam(Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(R_cv.ptr<double>()));
                 Eigen::Vector3d T_cam(Eigen::Map<Eigen::Vector3d>(tvecs[s].ptr<double>()));
                 Eigen::Vector3d toward_world = R_cam2world * R_arm2cam.col(2);
+                Eigen::Vector3d Side_world = R_cam2world * R_arm2cam.col(0);
 
                 // 2D 叉积判断法向量在视线左/右侧：
                 // cross2d < 0 → 法向量在视线右侧
@@ -75,13 +82,20 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 center_small.col(idx) = R_cam2world * T_cam + photocenter_world;
                 yaw_small[idx] = std::atan2(-toward_world.y(), -toward_world.x());
                 reproj_small[idx] = reprojErr[s];
+                // 小装甲板角度判断
+                cos2_pitch_small[idx] = toward_world(0) * toward_world(0) + toward_world(1) * toward_world(1);
+
+                cos2_roll_small[idx] = Side_world(0) * Side_world(0) + Side_world(1) * Side_world(1);
             }
         }
         if(center_small.col(0).z() > range.max_high || center_small.col(0).z() < range.min_high ||
            center_small.col(1).z() > range.max_high || center_small.col(1).z() < range.min_high ||
            (reproj_small[0] > reproj_threshold && reproj_small[1] > reproj_threshold) ||
+            (cos2_pitch_small[0] < range.cos2_pitch && cos2_pitch_small[1] < range.cos2_pitch)||
+            (cos2_roll_small[0] < range.cos2_roll && cos2_roll_small[1] < range.cos2_roll) ||
            center_small.col(0).norm() > range.max_distence || center_small.col(1).norm() > range.max_distence)
             isInRange_small = false;
+
 
         // 大装甲板
         {
@@ -98,6 +112,8 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 Eigen::Vector3d T_cam(Eigen::Map<Eigen::Vector3d>(tvecs[s].ptr<double>()));
 
                 Eigen::Vector3d toward_world = R_cam2world * R_arm2cam.col(2);
+                Eigen::Vector3d Side_world = R_cam2world * R_arm2cam.col(0);
+
                 Eigen::Vector3d T_base = R_cam2world * T_cam;
                 double cross2d = T_base(0) * toward_world(1) - T_base(1) * toward_world(0);
                 if(idx == 3) idx = (cross2d < 0) ? 0 : 1;
@@ -106,11 +122,18 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 center_big.col(idx) = R_cam2world * T_cam + photocenter_world;
                 yaw_big[idx] = std::atan2(-toward_world.y(), -toward_world.x());
                 reproj_big[idx] = reprojErr[s];
+
+                // 小装甲板角度判断
+                cos2_pitch_big[idx] = toward_world(0) * toward_world(0) + toward_world(1) * toward_world(1);
+
+                cos2_roll_big[idx] = Side_world(0) * Side_world(0) + Side_world(1) * Side_world(1);
             }
         }
         if(center_big.col(0).z() > range.max_high || center_big.col(0).z() < range.min_high ||
            center_big.col(1).z() > range.max_high || center_big.col(1).z() < range.min_high ||
            (reproj_big[0] > reproj_threshold && reproj_big[1] > reproj_threshold) ||
+            (cos2_pitch_small[0] < range.cos2_pitch && cos2_pitch_small[1] < range.cos2_pitch)||
+            (cos2_roll_small[0] < range.cos2_roll && cos2_roll_small[1] < range.cos2_roll) ||
            center_big.col(0).norm() > range.max_distence || center_big.col(1).norm() > range.max_distence)
             isInRange_big = false;
 

@@ -40,6 +40,12 @@ private:
         double max_high = 50.0; // 最大高度，单位：厘米
         double min_high = -20.0; // 最小高度，单位：厘米
         double max_distence = 800.0; // 最大距离，单位：厘米
+
+        double pitch = M_PI/6;
+        double roll  = M_PI/6;
+
+        double cos2_pitch = std::cos(this->pitch) * std::cos(this->pitch);
+        double cos2_roll  = std::cos(this->roll) * std::cos(this->roll);
     } const range;
 
     const double reproj_threshold;
