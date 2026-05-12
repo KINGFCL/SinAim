@@ -1,7 +1,9 @@
 #include "HikCamera.hpp"
-#include "fastqueue.hpp"
-#include "RTSerial.hpp"
-#include <opencv2/core/quaternion.hpp>
+#include "LibXRSerial.hpp"
+#include "libxr.hpp"
+#include "linux_uart.hpp"
+
+#include <Eigen/Geometry>
 #include <opencv2/core/types.hpp>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/highgui.hpp>
@@ -16,30 +18,21 @@
 
 //空格键保存图像，ESC键退出程序
 
-struct __attribute__((packed)) Packet{
-
-    uint8_t header;       // 0xA5
-    uint8_t target_id;    // 0xEA
-    uint8_t length;       // 0x1A (26)
-    uint8_t cmd_id;       // 0x35
-    uint8_t head_chk;     // 0xA6
-    uint32_t timestamp;   // 0x7A100000 (Little Endian) or ID
-    float q0;             // x
-    float q1;             // y
-    float q2;             // z
-    float q3;             // w
-    uint8_t checksum;     // 校验和
-} ;
+namespace
+{
+constexpr const char* kSerialDevice = "/dev/ttyACM0";
+constexpr unsigned int kSerialBaud = 460800;
+}
 
 struct FrameData
 {
     cv::Mat image;
-    cv::Quatd quat;
+    Eigen::Quaterniond gripper_to_world;
     std::chrono::steady_clock::time_point time;
 
-    FrameData(const cv::Mat image, const cv::Quatd& quat,
+    FrameData(const cv::Mat image, const Eigen::Quaterniond& gripper_to_world,
               const std::chrono::steady_clock::time_point& time)
-        : image(image), quat(quat), time(time) {}
+        : image(image), gripper_to_world(gripper_to_world), time(time) {}
     FrameData(){}
 };
 
@@ -55,11 +48,11 @@ struct Test
 };
 
 //IMU与图像配对线程
-void IMUAndImageMatchThread(io::HikCamera& Hik, io::RTSerial<Packet>& ser,FastQueue<FrameData>& Frames);
+template <std::size_t BufferSize>
+void IMUAndImageMatchThread(io::HikCamera& Hik, io::LibXRSerial<BufferSize>& ser,FastQueue<FrameData>& Frames);
 
 
 io::HikCamera Hik(2,10);
-io::RTSerial<Packet> ser(20);
 static FastQueue<FrameData> Frames(10);
 
 
@@ -77,6 +70,15 @@ std::string generate_filename(int &Num) {
 }
 
 int main() {
+    LibXR::PlatformInit();
+    LibXR::RamFS ramfs;
+    LibXR::LinuxUART uart(kSerialDevice, kSerialBaud);
+    LibXR::HardwareContainer hw(
+        LibXR::Entry<LibXR::LinuxUART>{uart, {"DevC-USB"}},
+        LibXR::Entry<LibXR::RamFS>{ramfs, {"ramfs"}});
+    LibXR::ApplicationManager appmgr;
+    io::LibXRSerial<> ser(hw, appmgr);
+
     // 1. 定义数据保存目录
     std::string output_dir = "../Data/images";
     std::string config_path = "../Data/Calibration_R_T.yaml";
@@ -97,25 +99,14 @@ int main() {
 
 
     //1.0初始化串口
-    std::cout<<sizeof(Packet)<<std::endl;
-
-    std::function<bool(const Packet&)> check_fuc = io::CRC8::Check<Packet>;
-    ser.setCheckfuc(check_fuc);
-    int ret = ser.openDevice("/dev/ttyACM1", 460800);
-    
-    if(ret == 1)
-        std::cout<<"serial open ok"<<"\n";
-    else
-        std::cerr<<"serial open err: "<<ret<<"\n";
-    
-    ser.startReceive(100);
+    std::cout<<"serial init ok: "<<kSerialDevice<<" @ "<<kSerialBaud<<"\n";
 
 
     //2.0初始化相机
     Hik.continueCap(5);
 
     //3.0创建数据配对线程，并将数据发布到Frames环形队列
-    std::thread match_thread = std::thread(IMUAndImageMatchThread, std::ref(Hik), std::ref(ser), std::ref(Frames));
+    std::thread match_thread([&]() { IMUAndImageMatchThread(Hik, ser, Frames); });
     
     cv::namedWindow("frame");
 
@@ -144,7 +135,15 @@ int main() {
 
             // 保存当前帧为PNG图片
             bool saved = cv::imwrite(filepath+".png", frame.image);
-            cv::Mat R_grip_to_world(frame.quat.toRotMat3x3());
+            const Eigen::Matrix3d R_grip_to_world_eigen =
+                frame.gripper_to_world.toRotationMatrix();
+            cv::Mat R_grip_to_world(3, 3, CV_64F);
+            for (int row = 0; row < 3; ++row) {
+                for (int col = 0; col < 3; ++col) {
+                    R_grip_to_world.at<double>(row, col) =
+                        R_grip_to_world_eigen(row, col);
+                }
+            }
             cv::Mat R_world_to_grip = R_grip_to_world.t();
 
             fs << filename << R_world_to_grip;
@@ -176,7 +175,8 @@ int main() {
 
 
 //IMU与图像配对线程
-void IMUAndImageMatchThread(io::HikCamera& Hik, io::RTSerial<Packet>& ser,FastQueue<FrameData>& Frames)
+template <std::size_t BufferSize>
+void IMUAndImageMatchThread(io::HikCamera& Hik, io::LibXRSerial<BufferSize>& ser,FastQueue<FrameData>& Frames)
 {
     while (true) {
 
@@ -188,10 +188,10 @@ void IMUAndImageMatchThread(io::HikCamera& Hik, io::RTSerial<Packet>& ser,FastQu
 
         // 读取串口数据
         std::chrono::steady_clock::time_point time ;
-        Packet IMU;
+        Eigen::Quaterniond gripper_to_world;
         while( true )
         {
-            bool ret = ser.readPacket(IMU, time);
+            bool ret = ser.ReadData(gripper_to_world, time);
             if( !ret ) break;
 
             const auto& t = ((double)(HikData.time - time).count()) * 1e-6;
@@ -205,8 +205,7 @@ void IMUAndImageMatchThread(io::HikCamera& Hik, io::RTSerial<Packet>& ser,FastQu
             if( t < 5 ) break;
 
             //配对成功
-            cv::Quatd quat( IMU.q3, IMU.q0, IMU.q1, IMU.q2 );
-            FrameData frame(HikData.image, quat, HikData.time);
+            FrameData frame(HikData.image, gripper_to_world, HikData.time);
 
             Frames.push(frame);
             break;
@@ -233,4 +232,3 @@ void Test::show()
 {
     std::cout<< this->num / ( ( (double)this->total.count() ) * 1e-9 )<< "Hz\n" ;
 }
-
