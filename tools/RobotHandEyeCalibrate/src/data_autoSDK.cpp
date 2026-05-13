@@ -1,4 +1,4 @@
-#include "HikCamera.hpp"
+#include <HikCamera.hpp>
 #include "LibXRSerial.hpp"
 #include "libxr.hpp"
 #include "linux_uart.hpp"

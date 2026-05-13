@@ -25,33 +25,28 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(RM_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../rm-src")
 add_subdirectory(${RM_SRC_DIR}/communicate ${CMAKE_CURRENT_BINARY_DIR}/communicate)
+add_subdirectory(${RM_SRC_DIR}/HikCamera ${CMAKE_CURRENT_BINARY_DIR}/HikCamera)
 
 add_executable(data_autoSDK 
-    src/HikCamera.cpp
-    src/logger.cpp
     src/data_autoSDK.cpp
 )
 add_executable(Calibration src/Calibration.cpp)
 
 target_include_directories(data_autoSDK PUBLIC
-    ${MVS_INCLUDE_DIRS}
     ${RM_SRC_DIR}/communicate
+    ${RM_SRC_DIR}/HikCamera
 )
 target_link_libraries(data_autoSDK
-    ${OpenCV_LIBS}
-    fmt::fmt
-    spdlog::spdlog
-    ${MVS_LIBS}
+    rm_hikcamera
     rm_communicate
     Eigen3::Eigen
-    yaml-cpp
+    fmt::fmt
+    spdlog::spdlog
 )
 # add the executable target
 
 #link the OpenCV libraries to the executable
 target_link_libraries(Calibration ${OpenCV_LIBS}) # Link OpenCV libraries to the cv executable
-
-
 
 
 

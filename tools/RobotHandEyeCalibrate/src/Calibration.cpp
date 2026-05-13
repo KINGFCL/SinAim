@@ -15,7 +15,7 @@ using namespace std;
 cv::Point3d rotationMatrixToEulerAngles(const cv::Mat &R);
 
 //pitch轴是否有误差
-#define R_error 
+// #define R_error 
 const double R_err = 1.4; //cm
 
 int main()
