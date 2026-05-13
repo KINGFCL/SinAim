@@ -28,6 +28,12 @@ public:
 
     void Clear();
     bool IsInit() const { return this->is_init; }
+    void ResetState(const Eigen::Vector3d& center,
+                    double yaw,
+                    double w,
+                    double r,
+                    double d_h1,
+                    double d_h2);
 
     void Update(const std::vector<ArmorPosi>& armors, const Eigen::Quaterniond& gripper_to_world, double dt);
     void Update(double dt);

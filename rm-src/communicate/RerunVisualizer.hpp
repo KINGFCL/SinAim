@@ -12,6 +12,7 @@
 
 // 包含你的 Robot 定义
 #include "Target.hpp" 
+#include "OutPust.hpp"
 
 class RerunVisualizer {
 private:
@@ -195,6 +196,101 @@ public:
         // 4. 记录蓝线：旋转速度
         rec.log("world/speed/w", rerun::SeriesLines().with_colors({0, 0, 255, 255})); // 指定颜色为蓝色
         rec.log("world/speed/w", rerun::Scalars((float)rotation_speed));                   // 传入数据
+    }
+
+    void outpust(const OutPust& outpost,
+                 const Eigen::Matrix<double, 4, 3>& truth,
+                 const std::vector<ArmorPosi>& observations,
+                 double dt)
+    {
+        rec.log("outpust/debug/dt", rerun::Scalars((float)dt));
+        rec.log("outpust/state/w", rerun::Scalars((float)outpost.w));
+        rec.log("outpust/state/r", rerun::Scalars((float)outpost.r));
+        rec.log("outpust/state/d_h1", rerun::Scalars((float)outpost.d_h1));
+        rec.log("outpust/state/d_h2", rerun::Scalars((float)outpost.d_h2));
+
+        Eigen::Matrix<double, 4, 3> modeled = outpost.Predict(0.0);
+        std::vector<rerun::Position3D> modeled_visible;
+        std::vector<rerun::Position3D> modeled_hidden;
+        std::vector<rerun::Position3D> modeled_origins;
+        std::vector<rerun::Position3D> modeled_normals;
+        std::vector<rerun::Position3D> truth_points;
+        std::vector<rerun::Position3D> observation_points;
+
+        auto is_visible = [](double x, double y, double yaw) {
+            Eigen::Matrix<double, 3, 1> los{x, y, 0.0};
+            if (los.norm() < 1e-9) return false;
+            los.normalize();
+
+            Eigen::Matrix<double, 3, 1> normal{std::cos(yaw), std::sin(yaw), 0.0};
+            return -normal.dot(los) >= std::cos(80.0 * CV_PI / 180.0);
+        };
+
+        for (int i = 0; i < 3; ++i) {
+            truth_points.push_back({(float)truth(0, i), (float)truth(1, i), (float)truth(2, i)});
+
+            double x = modeled(0, i);
+            double y = modeled(1, i);
+            double z = modeled(2, i);
+            double yaw = modeled(3, i);
+            rerun::Position3D p{(float)x, (float)y, (float)z};
+            if (is_visible(x, y, yaw)) {
+                modeled_visible.push_back(p);
+            } else {
+                modeled_hidden.push_back(p);
+            }
+            modeled_origins.push_back(p);
+            modeled_normals.push_back({(float)std::cos(yaw) * 15.0f, (float)std::sin(yaw) * 15.0f, 0.0f});
+        }
+
+        for (const auto& obs : observations) {
+            size_t side = obs.reproj[0] < obs.reproj[1] ? 0 : 1;
+            observation_points.push_back({
+                (float)obs.center(0, side),
+                (float)obs.center(1, side),
+                (float)obs.center(2, side)
+            });
+        }
+
+        rec.log("outpust/truth/armors",
+            rerun::Points3D(truth_points)
+                .with_colors({{0, 255, 0, 255}})
+                .with_radii({2.5f}));
+
+        if (!modeled_visible.empty()) {
+            rec.log("outpust/model/visible",
+                rerun::Points3D(modeled_visible)
+                    .with_colors({{255, 0, 0, 255}})
+                    .with_radii({3.0f}));
+        }
+
+        if (!modeled_hidden.empty()) {
+            rec.log("outpust/model/hidden",
+                rerun::Points3D(modeled_hidden)
+                    .with_colors({{150, 150, 150, 100}})
+                    .with_radii({2.0f}));
+        }
+
+        if (!observation_points.empty()) {
+            rec.log("outpust/observations",
+                rerun::Points3D(observation_points)
+                    .with_colors({{0, 128, 255, 255}})
+                    .with_radii({4.0f}));
+        }
+
+        rec.log("outpust/model/normals",
+            rerun::Arrows3D::from_vectors(modeled_normals)
+                .with_origins(modeled_origins)
+                .with_colors({{255, 255, 255, 200}}));
+
+        rec.log("outpust/model/center",
+            rerun::Points3D({{
+                (float)outpost.center(0),
+                (float)outpost.center(1),
+                (float)outpost.center(2)
+            }})
+                .with_colors({{255, 255, 255, 255}})
+                .with_radii({2.0f}));
     }
 
     void EKFKalmanUpdate(const Eigen::Matrix<double, 14, 1>& State,
