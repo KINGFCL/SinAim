@@ -118,7 +118,6 @@ std::vector<ArmorPosi> ResNetNumClassifier::operator()(
         // idx=0: 小装甲板解算结果，idx=1: 大装甲板解算结果
         ArmorPosi::Type type = ArmorPosi::Type::Unknow;
         int idx = 0;
-
         switch (ans[i].id) {
             case 0: type = ArmorPosi::Type::hero;    idx = 1; break; // 英雄，大装甲板
             case 1: type = ArmorPosi::Type::two;     idx = 0; break; // 工程

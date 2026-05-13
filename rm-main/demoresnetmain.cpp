@@ -24,7 +24,7 @@ DemoReader demo("../../demo/damo.avi");
 namespace
 {
 constexpr const char* kConfigPath = "../../config/config.yaml";
-constexpr const char* kModelPath = "../../model/mlp.onnx";
+constexpr const char* kModelPath = "../../model/tiny_resnet.onnx";
 
 struct Test
 {
@@ -63,7 +63,7 @@ static FastQueue<FrameData> Frames(10);
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
 CVDetector detect(LoadCVDetectorConfig(kConfigPath));
-MlpNumClassifier mlp(kModelPath);
+ResNetNumClassifier resnet(kModelPath);
 
 Solver Sov(LoadSolverConfig(kConfigPath));
 Tracker track(LoadRobotConfig(kConfigPath));
@@ -73,9 +73,9 @@ Test test(200);
 std::vector<ArmorPosi> DetectArmors(cv::Mat& image, const Eigen::Quaterniond& gripper_to_world)
 {
     std::vector<cv::Mat> armors_pattern;
-    auto opencv_armors = detect(image, armors_pattern, CVDetector::ROIType::MLP);
+    auto opencv_armors = detect(image, armors_pattern, CVDetector::ROIType::ResNet);
     auto armors_2 = Sov(opencv_armors, gripper_to_world);
-    return mlp(armors_2, armors_pattern);
+    return resnet(armors_2, armors_pattern);
 }
 }  // namespace
 
@@ -118,8 +118,6 @@ int main() {
         const Eigen::Matrix<double, 3, 1> Gun = shoot.GunDirection(frame.gripper_to_world);
 
         std::vector<ArmorPosi> armors = DetectArmors(frame.image, frame.gripper_to_world);
-
-        // std::cout << "armors: " << armors.size() << std::endl;  // debug armor
 
         double dt = rm::SolveDt(next_point, frame.time, 0.005);
         track(armors, frame.gripper_to_world, Gun, dt);
