@@ -60,7 +60,8 @@ static FastQueue<FrameData> Frames(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
-YOLODetector yolo(kModelPath, YOLODetector::Camp::Blue);
+YOLODetector yolo(kModelPath, YOLODetector::Camp::Blue, 0.5f, 0.2f, "AUTO");
+CVDetector opencv_detector(LoadCVDetectorConfig(kConfigPath));
 Solver Sov(LoadSolverConfig(kConfigPath));
 Tracker track(LoadRobotConfig(kConfigPath));
 Shooter shoot(LoadShooterConfig(kConfigPath));
@@ -68,8 +69,14 @@ Test test(200);
 
 std::vector<ArmorPosi> DetectArmors(cv::Mat& image, const Eigen::Quaterniond& gripper_to_world)
 {
+    opencv_detector.rgb_img = image;
+    cv::Mat binary_img = opencv_detector.preprocessImage(image);
+    std::vector<CVArmor> opencv_armors = opencv_detector.FindArmor(opencv_detector.FindLight(binary_img));
+
     std::vector<YoloArmor> yolo_armors = yolo(image);
-    return Sov(yolo_armors, gripper_to_world);
+    std::vector<YoloArmor> fused_armors = rm::MatchYoloAndOpenCV(opencv_armors, yolo_armors);
+
+    return Sov(fused_armors, gripper_to_world);
 }
 }  // namespace
 
