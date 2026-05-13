@@ -2,6 +2,8 @@ add_subdirectory(planner)
 
 add_library(rm_aim STATIC
     src/EKFKalman.cpp
+    src/OPEKFKalman.cpp
+    src/OutPust.cpp
     src/Solver.cpp
     src/Target.cpp
     src/TargetState.cpp
