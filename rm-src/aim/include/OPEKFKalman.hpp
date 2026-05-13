@@ -16,6 +16,7 @@ public:
     void Init();
 
     StateVector Predict(const StateVector& state, double dt);
+    StateVector operator()(const StateVector& state, double dt);
 
     StateVector Correct(const StateVector& state,
                         const Eigen::Matrix<double, 4, 1>& view,
@@ -24,6 +25,13 @@ public:
                         double delta_angle,
                         size_t armor_id,
                         double dt);
+    StateVector operator()(const StateVector& state,
+                           const Eigen::Matrix<double, 4, 1>& view,
+                           const Eigen::Vector3d& scs,
+                           const Eigen::Quaterniond& gripper_to_world,
+                           double delta_angle,
+                           size_t armor_id,
+                           double dt);
 
     Eigen::Matrix<double, 4, 1> StateToView(const StateVector& state, size_t armor_id) const;
 

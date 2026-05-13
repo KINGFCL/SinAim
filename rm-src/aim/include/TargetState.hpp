@@ -1,5 +1,6 @@
 #ifndef INCLUDE_TARGET_STATE_HPP
 #define INCLUDE_TARGET_STATE_HPP
+#include "OutPust.hpp"
 #include "Target.hpp"
 
 struct RobotState
@@ -40,5 +41,25 @@ struct RobotState
 
     void Predict(const std::chrono::steady_clock::time_point& t);
 };
+struct OutPustState
+{
+    Eigen::Matrix<double, 4, 1> Speed;
+    Eigen::Matrix<double, 3, 3> Armors;
+    Eigen::Matrix<double, 4, 3> ArmorsPosi;
 
+    Eigen::Matrix<double, 3, 1> center;
+    double yaw = 0.0;
+    double w = 0.0;
+    double r = 0.0;
+    double d_h1 = 0.0;
+    double d_h2 = 0.0;
+
+    std::chrono::steady_clock::time_point StateTime;
+
+    OutPustState(const OutPust& outpust, const std::chrono::steady_clock::time_point& t);
+
+    Eigen::Matrix<double, 4, 3> Predict(double dt) const;
+
+    void Predict(const std::chrono::steady_clock::time_point& t);
+};
 #endif

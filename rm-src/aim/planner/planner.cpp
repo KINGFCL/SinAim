@@ -117,6 +117,83 @@ Plan Planner::plan(const std::unique_ptr<RobotState>& target_ptr, double bullet_
   return plan(copy_target, bullet_speed);
 }
 
+Plan Planner::plan(OutPustState& target, double bullet_speed)
+{
+  if (bullet_speed < 10 || bullet_speed > 25) {
+    bullet_speed = 22;
+  }
+
+  Eigen::Vector3d xyz;
+  auto min_dist = 1e10;
+
+  for (int i = 0; i < 3; i++) {
+    Eigen::Vector2d xy = target.ArmorsPosi.block<2, 1>(0, i);
+    double dist = xy.norm();
+    if (dist < min_dist) {
+      min_dist = dist;
+      xyz << xy.x(), xy.y(), target.ArmorsPosi(2, i);
+    }
+  }
+
+  Bullet::Trajectory bullet_traj = Bullet::Trajectory(bullet_speed, min_dist, xyz.z());
+  auto fly_dur = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+      std::chrono::duration<double>(bullet_traj.fly_time));
+  target.Predict(target.StateTime + fly_dur);
+
+  double yaw0;
+  Trajectory traj;
+  try {
+    yaw0 = aim(target.ArmorsPosi, bullet_speed)(0);
+    traj = get_trajectory(target, yaw0, bullet_speed);
+  } catch (const std::exception& e) {
+    tools::logger()->warn("Unsolvable outpust target {:.2f}", bullet_speed);
+    return {false};
+  }
+
+  Eigen::VectorXd x0(2);
+  x0 << traj(0, 0), traj(1, 0);
+  tiny_set_x0(yaw_solver_, x0);
+  yaw_solver_->work->Xref = traj.block(0, 0, 2, HORIZON);
+  tiny_solve(yaw_solver_);
+
+  x0 << traj(2, 0), traj(3, 0);
+  tiny_set_x0(pitch_solver_, x0);
+  pitch_solver_->work->Xref = traj.block(2, 0, 2, HORIZON);
+  tiny_solve(pitch_solver_);
+
+  Plan plan;
+  plan.control = true;
+  plan.target_yaw = std::remainder(traj(0, HALF_HORIZON) + yaw0, 2 * M_PI);
+  plan.target_pitch = traj(2, HALF_HORIZON);
+
+  plan.yaw = std::remainder(yaw_solver_->work->x(0, HALF_HORIZON) + yaw0, 2 * M_PI);
+  plan.yaw_vel = yaw_solver_->work->x(1, HALF_HORIZON);
+  plan.yaw_acc = yaw_solver_->work->u(0, HALF_HORIZON);
+
+  plan.pitch = std::remainder(pitch_solver_->work->x(0, HALF_HORIZON), 2 * M_PI);
+  plan.pitch_vel = pitch_solver_->work->x(1, HALF_HORIZON);
+  plan.pitch_acc = pitch_solver_->work->u(0, HALF_HORIZON);
+
+  auto shoot_offset = 2;
+  plan.fire =
+    std::hypot(
+      traj(0, HALF_HORIZON + shoot_offset) - yaw_solver_->work->x(0, HALF_HORIZON + shoot_offset),
+      traj(2, HALF_HORIZON + shoot_offset) -
+        pitch_solver_->work->x(0, HALF_HORIZON + shoot_offset)) < fire_thresh_;
+  return plan;
+}
+
+Plan Planner::plan(const std::unique_ptr<OutPustState>& target_ptr, double bullet_speed)
+{
+  if (target_ptr == nullptr) return {false};
+  double delay_time = std::abs(target_ptr->Speed(3, 0)) > decision_speed_ ? high_speed_delay_time_ : low_speed_delay_time_;
+  auto future = std::chrono::steady_clock::now() + std::chrono::microseconds(int(delay_time * 1e6));
+
+  OutPustState copy_target = *target_ptr;
+  copy_target.Predict(future);
+  return plan(copy_target, bullet_speed);
+}
+
 void Planner::setup_yaw_solver(const std::string & config_path)
 {
   auto yaml = tools::load(config_path);
@@ -229,6 +306,32 @@ Eigen::Matrix<double, 2, 1> Planner::aim(const Eigen::Matrix<double, 4, 4>& armo
   return {std::remainder(azim - this->yaw_offset_, 2 * M_PI), std::remainder(bullet_traj.pitch - this->pitch_offset_, 2 * M_PI)};
 }
 
+Eigen::Matrix<double, 2, 1> Planner::aim(const Eigen::Matrix<double, 4, 3>& armors_posi, double bullet_speed)
+{
+  Eigen::Vector3d xyz;
+  double yaw = 0;
+  auto min_dist = 1e10;
+
+  for (int i = 0; i < 3; i++) {
+    Eigen::Vector2d xy = armors_posi.block<2, 1>(0, i);
+    auto dist = xy.norm();
+    if (dist < min_dist) {
+      min_dist = dist;
+      xyz << xy.x(), xy.y(), armors_posi(2, i);
+      yaw = armors_posi(3, i);
+    }
+  }
+
+  debug_xyza = Eigen::Vector4d(xyz.x(), xyz.y(), xyz.z(), yaw);
+
+  auto azim = std::atan2(xyz.y(), xyz.x());
+  auto bullet_traj = Bullet::Trajectory(bullet_speed, min_dist, xyz.z());
+  if (bullet_traj.unsolvable) throw std::runtime_error("Unsolvable bullet trajectory!");
+
+  return {std::remainder(azim - this->yaw_offset_, 2 * M_PI),
+          std::remainder(bullet_traj.pitch - this->pitch_offset_, 2 * M_PI)};
+}
+
 Trajectory Planner::get_trajectory(const RobotState & target, double yaw0, double bullet_speed)
 {
   Trajectory traj;
@@ -248,6 +351,32 @@ Trajectory Planner::get_trajectory(const RobotState & target, double yaw0, doubl
     auto pitch_vel = std::remainder(yaw_pitch_next(1) - yaw_pitch_last(1), 2 * M_PI) / (2 * DT);
 
     traj.col(i) << std::remainder(yaw_pitch(0) - yaw0, 2 * M_PI), yaw_vel, std::remainder(yaw_pitch(1), 2 * M_PI), pitch_vel;
+
+    yaw_pitch_last = yaw_pitch;
+    yaw_pitch = yaw_pitch_next;
+  }
+
+  return traj;
+}
+
+Trajectory Planner::get_trajectory(const OutPustState& target, double yaw0, double bullet_speed)
+{
+  Trajectory traj;
+
+  auto yaw_pitch_last = aim(target.Predict(-DT * (HALF_HORIZON + 1)), bullet_speed);
+  auto yaw_pitch = aim(target.Predict(-DT * HALF_HORIZON), bullet_speed);
+
+  for (int i = 0; i < HORIZON; i++) {
+    double dt = DT * (i - HALF_HORIZON + 1);
+    auto yaw_pitch_next = aim(target.Predict(dt), bullet_speed);
+
+    auto yaw_vel = std::remainder(yaw_pitch_next(0) - yaw_pitch_last(0), 2 * M_PI) / (2 * DT);
+    auto pitch_vel = std::remainder(yaw_pitch_next(1) - yaw_pitch_last(1), 2 * M_PI) / (2 * DT);
+
+    traj.col(i) << std::remainder(yaw_pitch(0) - yaw0, 2 * M_PI),
+      yaw_vel,
+      std::remainder(yaw_pitch(1), 2 * M_PI),
+      pitch_vel;
 
     yaw_pitch_last = yaw_pitch;
     yaw_pitch = yaw_pitch_next;

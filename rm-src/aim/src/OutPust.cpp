@@ -61,7 +61,7 @@ void OutPust::Update(double dt)
 {
     if (!this->is_init) return;
 
-    StateVector ans = this->ekfkalman.Predict(this->MakeState(), dt);
+    StateVector ans = this->ekfkalman(this->MakeState(), dt);
     this->ApplyState(ans);
 }
 
@@ -161,8 +161,8 @@ void OutPust::OneArmor(const ArmorPosi& armor, const Eigen::Quaterniond& gripper
     for (auto& v : this->View) v = ArmorView::Invisual;
     this->View[id] = ArmorView::Visual;
 
-    StateVector ans = this->ekfkalman.Correct(this->MakeState(), view, armor.SCS.col(side),
-                                             gripper_to_world, armor.yaw_abs[side], id, dt);
+    StateVector ans = this->ekfkalman(this->MakeState(), view, armor.SCS.col(side),
+                                      gripper_to_world, armor.yaw_abs[side], id, dt);
     this->ApplyState(ans);
 }
 

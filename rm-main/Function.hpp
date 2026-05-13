@@ -33,6 +33,8 @@ namespace rm
 
     template <std::size_t BufferSize>
     void MPCPlanFunction(MPC::Planner &planner, FastQueue<std::unique_ptr<RobotState>> &RobotStates, io::LibXRSerial<BufferSize> &ser, const Shooter& shooter);
+    template <std::size_t BufferSize>
+    void MPCPlanFunction(MPC::Planner &planner, FastQueue<std::unique_ptr<RobotState>> &RobotStates, FastQueue<std::unique_ptr<OutPustState>> &OutPustStates, io::LibXRSerial<BufferSize> &ser, const Shooter& shooter);
 
     void SendMessageToRobot(io::RTSerial<Packet>& ser, float pitch, float yaw, bool fire);
 
@@ -92,6 +94,64 @@ void rm::IMUAndImageMatchFunction(io::HikCamera& Hik, io::LibXRSerial<BufferSize
             Frames.push(frame);
             break;
         }
+    }
+}
+
+template <std::size_t BufferSize>
+void rm::MPCPlanFunction(MPC::Planner& planner,
+                         FastQueue<std::unique_ptr<RobotState>>& RobotStates,
+                         FastQueue<std::unique_ptr<OutPustState>>& OutPustStates,
+                         io::LibXRSerial<BufferSize>& ser,
+                         const Shooter& shoot)
+{
+    auto next_time = std::chrono::steady_clock::now();
+    const auto PERIOD = std::chrono::milliseconds(10);
+
+    while (true) {
+        next_time += PERIOD;
+
+        auto now = std::chrono::steady_clock::now();
+        if (now >= next_time) {
+            std::cerr << "[Warning] MPC Loop Missed Deadline!\n";
+            next_time = now;
+            continue;
+        }
+
+        while (RobotStates.size() > 1) {
+            RobotStates.pop();
+        }
+
+        const std::unique_ptr<RobotState>* robot_ptr = RobotStates.peek();
+        if (robot_ptr != nullptr && *robot_ptr != nullptr) {
+            Robot::KalmanMode mode = (*robot_ptr)->Mode;
+            if (mode == Robot::KalmanMode::EKF) {
+                MPC::Plan plan = planner.plan(*robot_ptr, 22.0);
+                rm::SendMessageToRobot(ser, plan, plan.fire);
+            } else {
+                std::array<double, 2> pitch_and_yaw = shoot(*robot_ptr);
+                MPC::Plan plan;
+                plan.pitch = pitch_and_yaw[0];
+                plan.yaw = pitch_and_yaw[1];
+                rm::SendMessageToRobot(ser, plan, true);
+            }
+            std::this_thread::sleep_until(next_time);
+            continue;
+        }
+
+        while (OutPustStates.size() > 1) {
+            OutPustStates.pop();
+        }
+
+        const std::unique_ptr<OutPustState>* outpust_ptr = OutPustStates.peek();
+        if (outpust_ptr != nullptr && *outpust_ptr != nullptr) {
+            MPC::Plan plan = planner.plan(*outpust_ptr, 22.0);
+            rm::SendMessageToRobot(ser, plan, plan.fire);
+            std::this_thread::sleep_until(next_time);
+            continue;
+        }
+
+        rm::SendMessageToRobot(ser, 0.0, 0.0, false);
+        std::this_thread::sleep_until(next_time);
     }
 }
 

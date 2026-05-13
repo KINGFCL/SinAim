@@ -16,12 +16,14 @@ Tracker::Tracker(const Robot::RobotConfig& config,
                  size_t lost_threshold,
                  size_t switch_threshold)
     : robot_instance(config),
+      outpust_instance(OutPust::OutPustConfig{config.gripper_to_world_matrix}),
       search_threshold(search_threshold),
       temp_lost_threshold(temp_lost_threshold),
       lost_threshold(lost_threshold),
       switch_threshold(switch_threshold),
       current_state(State::Searching),
       current_robot(nullptr),
+      current_outpust(nullptr),
       current_target_type(ArmorPosi::Type::base),
       lost_count(0),
       center_target_count(0),
@@ -115,16 +117,30 @@ void Tracker::handleSearching(std::vector<ArmorPosi>& armors_posi,
             // 找到稳定目标，进入追踪状态
             current_target_type = static_cast<ArmorPosi::Type>(i);
             current_state = State::Tracking;
-            current_robot = &this->robot_instance;
+            if (this->isOutPustType(current_target_type)) {
+                current_robot = nullptr;
+                current_outpust = &this->outpust_instance;
+                current_outpust->Clear();
+            } else {
+                current_robot = &this->robot_instance;
+                current_outpust = nullptr;
+            }
 
             std::cout << "[Tracker] 进入追踪状态，目标类型: " << i << "\n";
 
-            current_robot->Init(this->search_data_buffers[i][0]);
-            // 使用缓冲区中的所有数据初始化 Robot
-            for (size_t j = 1; j < this->search_data_buffers[i].size(); ++j)
-            {
-                // i 是外部循环已经确定的目标类型索引，j 是帧序列号
-                current_robot->Update(this->search_data_buffers[i][j],gripper_to_world, this->search_time_buffers[i][j]);
+            if (current_outpust) {
+                for (size_t j = 0; j < this->search_data_buffers[i].size(); ++j) {
+                    current_outpust->Update(
+                        this->search_data_buffers[i][j], gripper_to_world, this->search_time_buffers[i][j]);
+                }
+            } else if (current_robot) {
+                current_robot->Init(this->search_data_buffers[i][0]);
+                // 使用缓冲区中的所有数据初始化 Robot
+                for (size_t j = 1; j < this->search_data_buffers[i].size(); ++j)
+                {
+                    // i 是外部循环已经确定的目标类型索引，j 是帧序列号
+                    current_robot->Update(this->search_data_buffers[i][j],gripper_to_world, this->search_time_buffers[i][j]);
+                }
             }
 
             // 进入追踪模式，只有可能因为丢失而进入丢失状态
@@ -156,7 +172,11 @@ void Tracker::handleTracking(std::vector<ArmorPosi>& armors_posi,
             return ;
         }
         // 使用线性更新
-        if (current_robot)
+        if (current_outpust)
+        {
+            current_outpust->Update(dt);
+        }
+        else if (current_robot)
         {
             current_robot->Update( dt );
         }
@@ -167,7 +187,11 @@ void Tracker::handleTracking(std::vector<ArmorPosi>& armors_posi,
         lost_count = 0;
 
         // 更新机器人状态
-        if (current_robot)
+        if (current_outpust)
+        {
+            current_outpust->Update(target_armors, gripper_to_world, dt);
+        }
+        else if (current_robot)
         {
             current_robot->Update(target_armors,gripper_to_world, dt);
         }
@@ -200,12 +224,25 @@ void Tracker::handleTracking(std::vector<ArmorPosi>& armors_posi,
                                   << static_cast<int>(center_armor->type) << "\n";
 
                         current_target_type = center_armor->type;
-                        current_robot->Clear();
 
                         auto new_target_armors = filterByType(armors_posi, current_target_type);
-                        if (!new_target_armors.empty())
-                        {
-                            current_robot->Init(new_target_armors);
+                        if (this->isOutPustType(current_target_type)) {
+                            if (current_robot) current_robot->Clear();
+                            current_robot = nullptr;
+                            current_outpust = &this->outpust_instance;
+                            current_outpust->Clear();
+                            if (!new_target_armors.empty()) {
+                                current_outpust->Update(new_target_armors, gripper_to_world, dt);
+                            }
+                        } else {
+                            if (current_outpust) current_outpust->Clear();
+                            current_outpust = nullptr;
+                            current_robot = &this->robot_instance;
+                            current_robot->Clear();
+                            if (!new_target_armors.empty())
+                            {
+                                current_robot->Init(new_target_armors);
+                            }
                         }
 
                         center_target_count = 0;
@@ -250,7 +287,11 @@ void Tracker::handleTempLost(std::vector<ArmorPosi>& armors_posi,
         }
 
         // 使用线性更新
-        if (current_robot)
+        if (current_outpust)
+        {
+            current_outpust->Update(dt);
+        }
+        else if (current_robot)
         {
             current_robot->Update(dt);
         }
@@ -263,7 +304,11 @@ void Tracker::handleTempLost(std::vector<ArmorPosi>& armors_posi,
         std::cout << "[Tracker] 恢复追踪状态" << std::endl;
 
         // 更新机器人状态
-        if (current_robot)
+        if (current_outpust)
+        {
+            current_outpust->Update(target_armors, gripper_to_world, dt);
+        }
+        else if (current_robot)
         {
             current_robot->Update(target_armors,gripper_to_world, dt);
         }
@@ -341,14 +386,24 @@ std::vector<ArmorPosi> Tracker::filterByType(const std::vector<ArmorPosi>& armor
     return filtered;
 }
 
+bool Tracker::isOutPustType(ArmorPosi::Type type) const
+{
+    return type == ArmorPosi::Type::outpost;
+}
+
 void Tracker::reset()
 {
     if (current_robot)
     {
         current_robot->Clear();
     }
+    if (current_outpust)
+    {
+        current_outpust->Clear();
+    }
     current_state = State::Searching;
     current_robot = nullptr;
+    current_outpust = nullptr;
     lost_count = 0;
     center_target_count = 0;
 

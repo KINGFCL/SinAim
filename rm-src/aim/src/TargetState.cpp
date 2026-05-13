@@ -79,3 +79,48 @@ void RobotState::Predict(const std::chrono::steady_clock::time_point& t)
     this->Armors(2,2) += vz * dt;
     this->Armors(2,3) += vz * dt;
 }
+
+OutPustState::OutPustState(const OutPust& outpust, const std::chrono::steady_clock::time_point& t)
+    : Speed(outpust.Speed),
+      Armors(outpust.Armors),
+      center(outpust.center),
+      yaw(outpust.yaw),
+      w(outpust.w),
+      r(outpust.r),
+      d_h1(outpust.d_h1),
+      d_h2(outpust.d_h2),
+      StateTime(t)
+{
+    this->ArmorsPosi = this->Predict(0.0);
+}
+
+Eigen::Matrix<double, 4, 3> OutPustState::Predict(double dt) const
+{
+    Eigen::Matrix<double, 4, 3> ans;
+
+    const double yaw0 = std::remainder(this->yaw + this->w * dt, 2.0 * CV_PI);
+    for (int id = 0; id < 3; ++id) {
+        const double yaw_i = std::remainder(yaw0 + id * 2.0 * CV_PI / 3.0, 2.0 * CV_PI);
+        ans(0, id) = this->center(0) + this->r * std::cos(yaw_i);
+        ans(1, id) = this->center(1) + this->r * std::sin(yaw_i);
+        ans(2, id) = this->center(2) + (id == 1 ? this->d_h1 : (id == 2 ? this->d_h2 : 0.0));
+        ans(3, id) = yaw_i;
+    }
+
+    ans.block<3, 3>(0, 0) *= 0.01;
+    return ans;
+}
+
+void OutPustState::Predict(const std::chrono::steady_clock::time_point& t)
+{
+    std::chrono::duration<double> diff = t - this->StateTime;
+    const double dt = diff.count();
+
+    this->ArmorsPosi = this->Predict(dt);
+    this->StateTime = t;
+
+    this->yaw = std::remainder(this->yaw + this->w * dt, 2.0 * CV_PI);
+    for (int id = 0; id < 3; ++id) {
+        this->Armors(0, id) = std::remainder(this->yaw + id * 2.0 * CV_PI / 3.0, 2.0 * CV_PI);
+    }
+}

@@ -44,6 +44,11 @@ OPEKFKalman::StateVector OPEKFKalman::Predict(const StateVector& state, double d
     return x_curr;
 }
 
+OPEKFKalman::StateVector OPEKFKalman::operator()(const StateVector& state, double dt)
+{
+    return this->Predict(state, dt);
+}
+
 OPEKFKalman::StateVector OPEKFKalman::Correct(
     const StateVector& state,
     const Eigen::Matrix<double, 4, 1>& view,
@@ -91,6 +96,18 @@ OPEKFKalman::StateVector OPEKFKalman::Correct(
     this->CovState = I_KH * this->CovState * I_KH.transpose() + K * cov_view * K.transpose();
 
     return x_next;
+}
+
+OPEKFKalman::StateVector OPEKFKalman::operator()(
+    const StateVector& state,
+    const Eigen::Matrix<double, 4, 1>& view,
+    const Eigen::Vector3d& scs,
+    const Eigen::Quaterniond& gripper_to_world,
+    double delta_angle,
+    size_t armor_id,
+    double dt)
+{
+    return this->Correct(state, view, scs, gripper_to_world, delta_angle, armor_id, dt);
 }
 
 Eigen::Matrix<double, 4, 1> OPEKFKalman::StateToView(const StateVector& state, size_t armor_id) const

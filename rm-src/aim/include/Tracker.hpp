@@ -1,6 +1,7 @@
 #ifndef TRACKER_HPP
 #define TRACKER_HPP
 #include "Armor.hpp"
+#include "OutPust.hpp"
 #include "Target.hpp"
 #include <array>
 #include <cstddef>
@@ -35,6 +36,8 @@ public:
 
     // 获取当前追踪的机器人
     Robot* getCurrentRobot() { return current_robot; }
+    OutPust* getCurrentOutPust() { return current_outpust; }
+    bool isTrackingOutPust() const { return current_outpust != nullptr; }
 
     // 获取当前状态
     State getState() const { return current_state; }
@@ -67,6 +70,8 @@ private:
     std::vector<ArmorPosi> filterByType(const std::vector<ArmorPosi>& armors,
                                         ArmorPosi::Type type);
 
+    bool isOutPustType(ArmorPosi::Type type) const;
+
     // 目标计数：[hero, infantry, sentry] 等
     static std::array<size_t, 7> Num;
 
@@ -76,6 +81,8 @@ private:
     // 当前追踪的机器人
     Robot* current_robot;
     Robot robot_instance;
+    OutPust* current_outpust;
+    OutPust outpust_instance;
 
     // 当前追踪的目标类型
     ArmorPosi::Type current_target_type;

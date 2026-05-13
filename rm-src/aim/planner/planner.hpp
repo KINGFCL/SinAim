@@ -2,6 +2,7 @@
 #define AUTO_AIM__PLANNER_HPP
 
 #include <eigen3/Eigen/Core>
+#include <memory>
 #include <optional>
 
 #include "../include/TargetState.hpp"
@@ -57,6 +58,8 @@ public:
 
   Plan plan(RobotState& target, double bullet_speed);
   Plan plan(const std::unique_ptr<RobotState>& target_ptr, double bullet_speed);
+  Plan plan(OutPustState& target, double bullet_speed);
+  Plan plan(const std::unique_ptr<OutPustState>& target_ptr, double bullet_speed);
 
 private:
   double yaw_offset_;
@@ -74,7 +77,9 @@ private:
   void setup_pitch_solver(double max_pitch_acc,const std::vector<double>& Q_pitch, const std::vector<double>& R_pitch );
 
   Eigen::Matrix<double, 2, 1> aim(const Eigen::Matrix<double, 4, 4>& armors_posi, double bullet_speed);
+  Eigen::Matrix<double, 2, 1> aim(const Eigen::Matrix<double, 4, 3>& armors_posi, double bullet_speed);
   Trajectory get_trajectory(const RobotState & target, double yaw0, double bullet_speed);
+  Trajectory get_trajectory(const OutPustState & target, double yaw0, double bullet_speed);
 };
 
 }  // namespace MPC
