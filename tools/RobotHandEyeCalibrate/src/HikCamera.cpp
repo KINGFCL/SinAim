@@ -1,22 +1,31 @@
 #include "HikCamera.hpp"
+#include "FastQueue.hpp"
 #include "logger.hpp"
 #include <chrono>
+#include <memory>
 #include <thread>
 
 namespace io
 {
-HikCamera::HikCamera(double exposure_ms, 
+HikCamera::HikCamera(double exposure_ms,
                      double gain,
-                     bool autocap)
+                     bool autocap,
+                     bool IsFlip)
                      :HikState(Hik::Stopped)
 {
 
     this->parame.exposure_ms = exposure_ms*1e3;
     this->parame.gain = gain;
     this->parame.autocap = autocap;
+    this->parame.IsFlip = IsFlip;
 
     this->capture_init();
     this->ProtectRunning();
+}
+
+HikCamera::HikCamera(const HikCameraConfig& config)
+    : HikCamera(config.exposure_ms, config.gain, config.autocap, config.IsFlip)
+{
 }
 
 HikCamera::~HikCamera()
@@ -29,7 +38,7 @@ void HikCamera::read(ImageData& imgdata)
 {
   if(this->conCapOpen)
   {
-    this->Frames.pop(imgdata);
+    this->Frames_ptr->wait_pop(imgdata);
     return;
   }
   
@@ -57,14 +66,13 @@ void HikCamera::read(ImageData& imgdata)
     {PixelType_Gvsp_BayerGB8, cv::COLOR_BayerGB2RGB},
     {PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2RGB}};
   cv::cvtColor(img, dst_image, type_map.at(pixel_type));
-  img = dst_image;
 
   ret = MV_CC_FreeImageBuffer(handle_, &raw);
   if (ret != MV_OK) {
     tools::logger()->warn("MV_CC_FreeImageBuffer failed: {:#x}", ret);
   }
 
-  imgdata = {img, timestamp};
+  imgdata = {dst_image, timestamp};
 }
 
 
@@ -94,6 +102,23 @@ void HikCamera::capture_init()
   if (ret != MV_OK) {
     tools::logger()->warn("MV_CC_OpenDevice failed: {:#x}", ret);
     return;
+  }
+  //设置翻转
+  if(this->parame.IsFlip)
+  {
+    // 1. 设置水平翻转 (ReverseX) 为 true
+    ret = MV_CC_SetBoolValue(handle_, "ReverseX", true);
+    if (MV_OK != ret) {
+      tools::logger()->warn("ReverseX failed: {:#x}", ret);
+      return;
+    }
+
+    // 2. 设置垂直翻转 (ReverseY) 为 true
+    ret = MV_CC_SetBoolValue(handle_, "ReverseY", true);
+    if (MV_OK != ret) {
+      tools::logger()->warn("ReverseY failed: {:#x}", ret);
+      return;
+    }
   }
 
   unsigned int nImageNodeNum = 3;
@@ -139,7 +164,7 @@ void HikCamera::capture_init()
         return;
     }
   }else{
-    //将触发模式设置为开启 (On)
+    //将触发模式设置为开启 (Off)
     //参数 "TriggerMode" 的值: 0 表示 Off, 1 表示 On
     ret = MV_CC_SetEnumValue(handle_, "TriggerMode", 0); 
     if (MV_OK != ret) {
@@ -167,9 +192,14 @@ void HikCamera::capture_init()
   set_float_value("ExposureTime", this->parame.exposure_ms);
   set_float_value("Gain", this->parame.gain);
 
+  // 1. 先开启帧率控制使能 (必须先设为 true)
+  ret = MV_CC_SetBoolValue(handle_, "AcquisitionFrameRateEnable", true);
+  if (ret != MV_OK) {
+      tools::logger()->warn("MV_CC_SetBoolValue(AcquisitionFrameRateEnable) failed: {:#x}", ret);
+      // 注意：有些特殊型号这里如果报错，不一定非要 return 直接退出，可以视作非致命错误
+  }
 
-
-  ret = MV_CC_SetFloatValue(handle_, "AcquisitionFrameRate", 249);
+  ret = MV_CC_SetFloatValue(handle_, "AcquisitionFrameRate", 200);
   if (ret != MV_OK) {
     tools::logger()->warn("MV_CC_SetFloatValue(set framerate) failed: {:#x}", ret);
     return;
@@ -187,16 +217,17 @@ void HikCamera::continueCap(size_t MaxframeNum)
 {
   this->conCapOpen =true;
   this->MaxframeNum = MaxframeNum;
-  this->Frames.setSize(this->MaxframeNum);
+  this->Frames_ptr = std::make_unique< FastQueue<ImageData> >(this->MaxframeNum); 
+  FastQueue<ImageData>& Frames = *(this->Frames_ptr);
 
   if(this->HikState == Hik::Stopped) return;
 
-  this->HikSDKthread = std::thread{[this] {
+  this->HikSDKthread = std::thread{[this,&Frames]() {
 
     tools::logger()->info("HikRobot's capture thread started."); 
     MV_FRAME_OUT raw;
 
-    MV_CC_PIXEL_CONVERT_PARAM cvt_param;
+    // MV_CC_PIXEL_CONVERT_PARAM cvt_param;
 
     while (true) {
       // std::this_thread::sleep_for(1ms);
@@ -222,9 +253,8 @@ void HikCamera::continueCap(size_t MaxframeNum)
         {PixelType_Gvsp_BayerGB8, cv::COLOR_BayerGB2RGB},
         {PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2RGB}};
       cv::cvtColor(img, dst_image, type_map.at(pixel_type));
-
-      cv::rotate(dst_image, img, cv::ROTATE_180); // 水平翻转
-      Frames.push({img, timestamp});
+      // img = dst_image;
+      Frames.push({dst_image, timestamp});
 
       ret = MV_CC_FreeImageBuffer(handle_, &raw);
       if (ret != MV_OK) {

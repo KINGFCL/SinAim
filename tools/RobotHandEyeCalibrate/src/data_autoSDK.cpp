@@ -102,9 +102,6 @@ int main() {
     std::cout<<"serial init ok: "<<kSerialDevice<<" @ "<<kSerialBaud<<"\n";
 
 
-    //2.0初始化相机
-    Hik.continueCap(5);
-
     //3.0创建数据配对线程，并将数据发布到Frames环形队列
     std::thread match_thread([&]() { IMUAndImageMatchThread(Hik, ser, Frames); });
     

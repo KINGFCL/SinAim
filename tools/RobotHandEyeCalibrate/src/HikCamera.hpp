@@ -3,11 +3,13 @@
 
 #include <atomic>
 #include <chrono>
+#include <memory>
 #include <string>
 #include <thread>
 #include <condition_variable>
 #include <chrono>
 
+#include "FastQueue.hpp"
 #include "MvCameraControl.h"
 #include "opencv2/opencv.hpp"
 #include "thread_safe_queue.hpp"
@@ -24,9 +26,20 @@ public:
         cv::Mat image;
         std::chrono::steady_clock::time_point time;
     };
-    HikCamera(double exposure_ms, 
+
+    struct HikCameraConfig
+    {
+        double exposure_ms;
+        double gain;
+        bool   autocap = true;
+        bool   IsFlip = false;
+    };
+
+    HikCamera(double exposure_ms,
               double gain,
-              bool autocap=true);
+              bool autocap=true,
+              bool IsFlip = false);
+    explicit HikCamera(const HikCameraConfig& config);
 
     void read(ImageData& imgdata);
     void continueCap(size_t MaxframeNum);
@@ -41,6 +54,7 @@ private:
         double exposure_ms;
         double gain;
         bool autocap;
+        bool IsFlip = false;
     };
     struct protect
     {
@@ -62,7 +76,7 @@ private:
     std::atomic<Hik> HikState;
     std::thread HikSDKthread;
     size_t MaxframeNum=0;
-    tools::ThreadSafeQueue<ImageData,true> Frames{0};
+    std::unique_ptr<FastQueue<ImageData>> Frames_ptr;
 
     void ProtectRunning();
 
