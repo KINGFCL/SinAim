@@ -126,17 +126,20 @@ int main() {
         next_point = frame.time;
 
         Robot* current_robot = track.getCurrentRobot();
+        OutPust* current_outpust = track.getCurrentOutPust();
         // std::cout << (std::chrono::steady_clock::now()-a1).count()*1e-6<< "ms\n";
         #ifdef MainDebug
             test.count();
         #endif
 
-        if (current_robot == nullptr) {
+        if (current_robot == nullptr && current_outpust == nullptr) {
             continue;
         }
 
         #ifdef MainDebug
+        if (current_robot != nullptr) {
             viz.update(*current_robot, current_robot->Predict(0), dt, Gun);
+        }
         #endif
     }
 
