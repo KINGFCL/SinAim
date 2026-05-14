@@ -159,6 +159,8 @@ int main()
         if (current_robot != nullptr) {
             viz.update(*current_robot, current_robot->Predict(0), dt, Gun);
         }
+        if (current_outpust != nullptr) {
+            viz.outpust(*current_outpust, current_outpust->Predict(0), armors, dt);
         #endif
     }
 
