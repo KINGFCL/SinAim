@@ -161,6 +161,7 @@ int main()
         }
         if (current_outpust != nullptr) {
             viz.outpust(*current_outpust, current_outpust->Predict(0), armors, dt);
+        }
         #endif
     }
 

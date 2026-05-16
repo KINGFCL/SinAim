@@ -18,26 +18,6 @@ void OutPust::Clear()
     this->View = {ArmorView::Invisual, ArmorView::Invisual, ArmorView::Invisual};
 }
 
-void OutPust::ResetState(const Eigen::Vector3d& center,
-                         double yaw,
-                         double w,
-                         double r,
-                         double d_h1,
-                         double d_h2)
-{
-    this->is_init = true;
-    this->has_preinit_armor = false;
-    this->ekfkalman.Init();
-
-    this->center = center;
-    this->yaw = std::remainder(yaw, CV_PI * 2.0);
-    this->w = w;
-    this->r = r;
-    this->d_h1 = d_h1;
-    this->d_h2 = d_h2;
-    this->Speed << 0.0, 0.0, 0.0, this->w;
-    this->UpdateArmorState();
-}
 
 void OutPust::Update(const std::vector<ArmorPosi>& armors, const Eigen::Quaterniond& gripper_to_world, double dt)
 {
