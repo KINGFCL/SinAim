@@ -26,7 +26,6 @@ namespace
 
 constexpr const char* kConfigPath = "../../config/config.yaml";
 constexpr const char* kModelPath = "../../model/mlp.onnx";
-constexpr const char* kSerialDevice = "/dev/ttyACM0";
 constexpr unsigned int kSerialBaud = 460800;
 
 struct Test
@@ -100,7 +99,7 @@ int main()
     #endif
     LibXR::PlatformInit();
     LibXR::RamFS ramfs;
-    LibXR::LinuxUART uart(kSerialDevice, kSerialBaud);
+    LibXR::LinuxUART uart("0x16d0","0x1492", kSerialBaud);
     LibXR::HardwareContainer hw(
         LibXR::Entry<LibXR::LinuxUART>{uart, {"DevC-USB"}},
         LibXR::Entry<LibXR::RamFS>{ramfs, {"ramfs"}});
