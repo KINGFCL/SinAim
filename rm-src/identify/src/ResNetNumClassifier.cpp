@@ -24,14 +24,19 @@ ResNetNumClassifier::ResNetNumClassifier(std::string model_path, float confidenc
     shapes[model->input().get_any_name()] = ov::PartialShape{MAX_BATCH, 1, 32, 32};
     model->reshape(shapes);
 
-    // 编译到 GPU，LATENCY 模式优先降低单次推理延迟
+    // 编译到 GPU，LATENCY 模式优先降低单次推理延迟；没有可用 GPU 时回退到 CPU，方便离线测试。
     ov::AnyMap props;
     props[ov::hint::performance_mode.name()] = ov::hint::PerformanceMode::LATENCY;
     props[ov::cache_dir.name()] = "./gpu_cache"; // 缓存编译结果，加快下次启动
-    compiled_model = core.compile_model(model, "GPU", props);
+    try {
+        compiled_model = core.compile_model(model, "GPU", props);
+        std::cout << "[ResNetNumClassifier] GPU loaded\n";
+    } catch (const ov::Exception& e) {
+        std::cerr << "[ResNetNumClassifier] GPU unavailable, fallback to CPU: " << e.what() << '\n';
+        compiled_model = core.compile_model(model, "CPU", props);
+        std::cout << "[ResNetNumClassifier] CPU loaded\n";
+    }
     infer_request = compiled_model.create_infer_request();
-
-    std::cout << "[ResNetNumClassifier] GPU loaded\n";
 }
 
 std::vector<ResNetNumClassifier::Ans> ResNetNumClassifier::Classify(const std::vector<std::array<ArmorPosi, 2>>& armors,const std::vector<cv::Mat>& armors_pattern)
@@ -118,6 +123,7 @@ std::vector<ArmorPosi> ResNetNumClassifier::operator()(
         // idx=0: 小装甲板解算结果，idx=1: 大装甲板解算结果
         ArmorPosi::Type type = ArmorPosi::Type::Unknow;
         int idx = 0;
+        std::cout << "ans[i].id:" << ans[i].id << std::endl;
         switch (ans[i].id) {
             case 0: type = ArmorPosi::Type::hero;    idx = 1; break; // 英雄，大装甲板
             case 1: type = ArmorPosi::Type::two;     idx = 0; break; // 工程
