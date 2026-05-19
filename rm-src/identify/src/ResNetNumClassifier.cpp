@@ -24,14 +24,14 @@ ResNetNumClassifier::ResNetNumClassifier(std::string model_path, float confidenc
     shapes[model->input().get_any_name()] = ov::PartialShape{MAX_BATCH, 1, 32, 32};
     model->reshape(shapes);
 
-    // 编译到 GPU，LATENCY 模式优先降低单次推理延迟
+    // 编译到 CPU，LATENCY 模式优先降低单次推理延迟
     ov::AnyMap props;
     props[ov::hint::performance_mode.name()] = ov::hint::PerformanceMode::LATENCY;
-    props[ov::cache_dir.name()] = "./gpu_cache"; // 缓存编译结果，加快下次启动
-    compiled_model = core.compile_model(model, "GPU", props);
+    props[ov::cache_dir.name()] = "./cpu_cache"; // 缓存编译结果，加快下次启动
+    compiled_model = core.compile_model(model, "CPU", props);
     infer_request = compiled_model.create_infer_request();
 
-    std::cout << "[ResNetNumClassifier] GPU loaded\n";
+    std::cout << "[ResNetNumClassifier] CPU loaded\n";
 }
 
 std::vector<ResNetNumClassifier::Ans> ResNetNumClassifier::Classify(const std::vector<std::array<ArmorPosi, 2>>& armors,const std::vector<cv::Mat>& armors_pattern)
