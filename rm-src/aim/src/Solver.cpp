@@ -132,8 +132,8 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
         if(center_big.col(0).z() > range.max_high || center_big.col(0).z() < range.min_high ||
            center_big.col(1).z() > range.max_high || center_big.col(1).z() < range.min_high ||
            (reproj_big[0] > reproj_threshold && reproj_big[1] > reproj_threshold) ||
-            (cos2_pitch_small[0] < range.cos2_pitch && cos2_pitch_small[1] < range.cos2_pitch)||
-            (cos2_roll_small[0] < range.cos2_roll && cos2_roll_small[1] < range.cos2_roll) ||
+            (cos2_pitch_big[0] < range.cos2_pitch && cos2_pitch_big[1] < range.cos2_pitch)||
+            (cos2_roll_big[0] < range.cos2_roll && cos2_roll_big[1] < range.cos2_roll) ||
            center_big.col(0).norm() > range.max_distence || center_big.col(1).norm() > range.max_distence)
             isInRange_big = false;
 

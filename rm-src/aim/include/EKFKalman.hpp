@@ -4,7 +4,7 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
 
-#define EKFKalmanDebug
+// #define EKFKalmanDebug
 #ifdef EKFKalmanDebug
 #include <functional>
 using EKFDebugFn = void(*)(const Eigen::Matrix<double,14,1>&,
@@ -35,14 +35,14 @@ public:
     Eigen::Matrix3d RCamera2Grip;
     
     // 过程噪声参数
-    const double Var_a_xy = 10000.0,  Var_a_z = 100.0, Var_alpha = 10;
+    const double Var_a_xy = 1000000.0,  Var_a_z = 100.0, Var_alpha = 10;
     
     // 初始化协方差
     const Eigen::Matrix<double, 14, 14> CovStateInit = (Eigen::Matrix<double, 14, 1>() << 
         100, 100, 100,       // xc, yc, zc 位置方差
-        10000, 10000, 10000, // vxc, vyc, vzc 速度方差
-        0.01, 5,           // theta, w 角度与角速度方差
-        5.0, 5.0, 3.0,           // r, l, h 几何结构初始方差
+        1000000, 1000000, 1000000, // vxc, vyc, vzc 速度方差
+        0.01, 100,           // theta, w 角度与角速度方差
+        3.0, 3.0, 3.0,           // r, l, h 几何结构初始方差
         0.0001, 0.0001, 0.0001  //d_theta_1,d_theta_2,d_theta_3
     ).finished().asDiagonal();
 

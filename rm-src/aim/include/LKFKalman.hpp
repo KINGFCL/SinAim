@@ -2,8 +2,6 @@
 
 #include <Eigen/Core>
 #include <Eigen/Dense> 
-#include <Eigen/src/Core/Matrix.h>
-#include <Eigen/src/Geometry/Quaternion.h>
 #include <cmath>
 
 /**
@@ -20,8 +18,8 @@ private:
      * 对角线元素分别对应: [xc, yc, zc, vxc, vyc, vzc] 的初始方差
      */
     const Eigen::Matrix<double, 6, 6> CovStateInit = (Eigen::Matrix<double, 6, 1>() << 
-        100, 100, 100,       // xc, yc, zc 位置方差 (单位: cm^2)
-        10000, 10000, 10000  // vxc, vyc, vzc 速度方差 (单位: (cm/s)^2)
+        1000, 1000, 1000,       // xc, yc, zc 位置方差 (单位: cm^2)
+        1000000, 1000000, 1000000  // vxc, vyc, vzc 速度方差 (单位: (cm/s)^2)
     ).finished().asDiagonal();
     
     Eigen::Matrix3d RCamera2Grip;
