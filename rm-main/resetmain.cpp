@@ -16,7 +16,7 @@
 #define MainDebug
 #ifdef MainDebug
 #include "communicate/RerunVisualizer.hpp"
-RerunVisualizer viz("RoboMaster_AutoAim");
+RerunVisualizer viz(true);
 double R_sum = 0.0;
 int R_count = 0;
 #endif
