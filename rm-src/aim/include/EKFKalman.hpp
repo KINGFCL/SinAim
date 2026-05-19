@@ -35,19 +35,19 @@ public:
     Eigen::Matrix3d RCamera2Grip;
     
     // 过程噪声参数
-    const double Var_a_xy = 100000.0,  Var_a_z = 100.0, Var_alpha = 10;
+    const double Var_a_xy = 1000000.0,  Var_a_z = 100.0, Var_alpha = 10;
     
     // 初始化协方差
     const Eigen::Matrix<double, 14, 14> CovStateInit = (Eigen::Matrix<double, 14, 1>() << 
         100, 100, 100,       // xc, yc, zc 位置方差
-        10000, 10000, 10000, // vxc, vyc, vzc 速度方差
-        0.01, 5,           // theta, w 角度与角速度方差
+        1000000, 1000000, 1000000, // vxc, vyc, vzc 速度方差
+        0.01, 100,           // theta, w 角度与角速度方差
         3.0, 3.0, 3.0,           // r, l, h 几何结构初始方差
         0.0001, 0.0001, 0.0001  //d_theta_1,d_theta_2,d_theta_3
     ).finished().asDiagonal();
 
     Eigen::Matrix<double, 3, 3> CovViewCamera = (Eigen::Matrix<double, 3, 1>() << 
-    this->Var_r, 0.009, 0.009  // 相机中球坐标系下的方差，r,theta,phi 的观测噪声
+    this->Var_r, 0.0004, 0.0004  // 相机中球坐标系下的方差，r,theta,phi 的观测噪声
     ).finished().asDiagonal();
     
     // 结构参数收敛噪声极小

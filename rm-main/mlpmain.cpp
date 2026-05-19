@@ -16,7 +16,7 @@
 // #define MainDebug
 #ifdef MainDebug
 #include "communicate/RerunVisualizer.hpp"
-RerunVisualizer viz("RoboMaster_AutoAim");
+RerunVisualizer viz(true);
 double R_sum = 0.0;
 int R_count = 0;
 #endif
@@ -26,7 +26,6 @@ namespace
 
 constexpr const char* kConfigPath = "../../config/config.yaml";
 constexpr const char* kModelPath = "../../model/mlp.onnx";
-constexpr const char* kSerialDevice = "/dev/ttyACM0";
 constexpr unsigned int kSerialBaud = 460800;
 
 struct Test
@@ -63,7 +62,6 @@ public:
 
 static FastQueue<FrameData> Frames(10);
 static FastQueue<std::unique_ptr<RobotState>> RobotStates(10);
-static FastQueue<std::unique_ptr<OutPustState>> OutPustStates(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
@@ -100,7 +98,7 @@ int main()
     #endif
     LibXR::PlatformInit();
     LibXR::RamFS ramfs;
-    LibXR::LinuxUART uart(kSerialDevice, kSerialBaud);
+    LibXR::LinuxUART uart("16d0","1492", kSerialBaud);
     LibXR::HardwareContainer hw(
         LibXR::Entry<LibXR::LinuxUART>{uart, {"DevC-USB"}},
         LibXR::Entry<LibXR::RamFS>{ramfs, {"ramfs"}});
@@ -109,7 +107,7 @@ int main()
 
 
     std::thread match_thread([&]() { rm::IMUAndImageMatchFunction(Hik, ser, Frames); });
-    std::thread plan_thread([&]() { rm::MPCPlanFunction(planner, RobotStates, OutPustStates, ser, shoot); });
+    std::thread plan_thread([&]() { rm::MPCPlanFunction(planner, RobotStates, ser, shoot); });
 
    
     std::printf("Start MLP main loop\n");
@@ -146,13 +144,8 @@ int main()
 
         if (current_robot != nullptr) {
             RobotStates.push(std::make_unique<RobotState>(*current_robot, frame.time));
-            OutPustStates.push(nullptr);
-        } else if (current_outpust != nullptr) {
+        }else {
             RobotStates.push(nullptr);
-            OutPustStates.push(std::make_unique<OutPustState>(*current_outpust, frame.time));
-        } else {
-            RobotStates.push(nullptr);
-            OutPustStates.push(nullptr);
         }
 
         #ifdef MainDebug

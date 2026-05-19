@@ -13,7 +13,7 @@
 #include <thread>
 #include <vector>
 
-// #define MainDebug
+#define MainDebug
 #ifdef MainDebug
 #include "communicate/RerunVisualizer.hpp"
 RerunVisualizer viz(true);
@@ -26,7 +26,6 @@ namespace
 
 constexpr const char* kConfigPath = "../../config/config.yaml";
 constexpr const char* kModelPath = "../../model/tiny_resnet.onnx";
-constexpr const char* kSerialDevice = "/dev/ttyACM0";
 constexpr unsigned int kSerialBaud = 460800;
 
 struct Test
@@ -63,7 +62,6 @@ public:
 
 static FastQueue<FrameData> Frames(10);
 static FastQueue<std::unique_ptr<RobotState>> RobotStates(10);
-static FastQueue<std::unique_ptr<OutPustState>> OutPustStates(10);
 
 std::chrono::steady_clock::time_point next_point = std::chrono::steady_clock::now();
 
@@ -83,7 +81,6 @@ std::vector<ArmorPosi> DetectArmors(cv::Mat& image, const Eigen::Quaterniond& gr
     std::vector<cv::Mat> armors_pattern;
     auto opencv_armors = detect(image, armors_pattern, CVDetector::ROIType::ResNet);
     auto armors_2 = Sov(opencv_armors, gripper_to_world);
-        // std::cout << armors_2.size()<<"\n";
     return resnet(armors_2, armors_pattern);
 }
 }  // namespace
@@ -101,7 +98,7 @@ int main()
 
     LibXR::PlatformInit();
     LibXR::RamFS ramfs;
-    LibXR::LinuxUART uart(kSerialDevice, kSerialBaud);
+    LibXR::LinuxUART uart("16d0","1492", kSerialBaud);
     LibXR::HardwareContainer hw(
         LibXR::Entry<LibXR::LinuxUART>{uart, {"DevC-USB"}},
         LibXR::Entry<LibXR::RamFS>{ramfs, {"ramfs"}});
@@ -110,7 +107,7 @@ int main()
 
 
     std::thread match_thread([&]() { rm::IMUAndImageMatchFunction(Hik, ser, Frames); });
-    std::thread plan_thread([&]() { rm::MPCPlanFunction(planner, RobotStates, OutPustStates, ser, shoot); });
+    std::thread plan_thread([&]() { rm::MPCPlanFunction(planner, RobotStates, ser, shoot); });
 
     std::printf("Start ResNet main loop\n");
 
@@ -133,14 +130,12 @@ int main()
         const Eigen::Matrix<double, 3, 1> Gun = shoot.GunDirection(frame.gripper_to_world);
 
         std::vector<ArmorPosi> armors = DetectArmors(frame.image, frame.gripper_to_world);
-        // std::cout << armors.size()<<"\n";
 
         double dt = rm::SolveDt(next_point, frame.time, 0.005);
         track(armors, frame.gripper_to_world, Gun, dt);
         next_point = frame.time;
 
         Robot* current_robot = track.getCurrentRobot();
-        OutPust* current_outpust = track.getCurrentOutPust();
 
         #ifdef MainDebug
             test.count();
@@ -148,23 +143,14 @@ int main()
 
         if (current_robot != nullptr) {
             RobotStates.push(std::make_unique<RobotState>(*current_robot, frame.time));
-            OutPustStates.push(nullptr);
-        } else if (current_outpust != nullptr) {
+        }else {
             RobotStates.push(nullptr);
-            OutPustStates.push(std::make_unique<OutPustState>(*current_outpust, frame.time));
-        } else {
-            RobotStates.push(nullptr);
-            OutPustStates.push(nullptr);
         }
 
         #ifdef MainDebug
         if (current_robot != nullptr) {
             viz.update(*current_robot, current_robot->Predict(0), dt, Gun);
         }
-        if (current_outpust != nullptr) {
-            viz.outpust(*current_outpust, current_outpust->Predict(0), armors, dt);
-        }
-        
         #endif
     }
 

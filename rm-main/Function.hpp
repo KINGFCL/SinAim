@@ -84,7 +84,6 @@ void rm::IMUAndImageMatchFunction(io::HikCamera& Hik, io::LibXRSerial<BufferSize
         while (true) {
             bool ret = ser.ReadData(gripper_to_world, time);
             if (!ret) break;
-            // std::cout << "have uart\n";
 
             const auto& t = (static_cast<double>((HikData.time - time).count())) * 1e-6;
 
@@ -110,7 +109,7 @@ void rm::MPCPlanFunction(MPC::Planner& planner,
 
     while (true) {
         next_time += PERIOD;
-        // std::cout << "cout have live\n";
+
         auto now = std::chrono::steady_clock::now();
         if (now >= next_time) {
             std::cerr << "[Warning] MPC Loop Missed Deadline!\n";
@@ -145,7 +144,7 @@ void rm::MPCPlanFunction(MPC::Planner& planner,
 
         const std::unique_ptr<OutPustState>* outpust_ptr = OutPustStates.peek();
         if (outpust_ptr != nullptr && *outpust_ptr != nullptr) {
-            MPC::Plan plan = planner.plan(*outpust_ptr, 19.0);
+            MPC::Plan plan = planner.plan(*outpust_ptr, 19.3);
             rm::SendMessageToRobot(ser, plan, plan.fire);
             std::this_thread::sleep_until(next_time);
             continue;
@@ -188,14 +187,11 @@ void rm::MPCPlanFunction(MPC::Planner& planner,
 
         Robot::KalmanMode mode = (*target_ptr)->Mode;
         if (mode == Robot::KalmanMode::EKF) {
-            MPC::Plan plan = planner.plan(*target_ptr, 22.0);
+            MPC::Plan plan = planner.plan(*target_ptr, 19.3);
             rm::SendMessageToRobot(ser, plan, plan.fire);
             std::this_thread::sleep_until(next_time);
         } else {
-            double fly_time = shoot.FlyTime((*target_ptr)->center);
-            Eigen::Vector3d aim = (*target_ptr)->center + (*target_ptr)->Speed.block<3, 1>(0, 0) * fly_time;
-
-            std::array<double, 2> pitch_and_yaw = shoot(aim);
+            std::array<double, 2> pitch_and_yaw = shoot(*target_ptr);
             MPC::Plan plan;
             plan.pitch = pitch_and_yaw[0];
             plan.yaw = pitch_and_yaw[1];
@@ -230,8 +226,6 @@ void rm::SendMessageToRobot(io::LibXRSerial<BufferSize>& ser, const MPC::Plan& p
     target.pit_ddot = plan.pitch_acc;
 
     fire_notify.isfire = fire;
-
-    // std::cout << "yaw: " << target.yaw << "pitch: " << target.pit << "\n";
 
     ser.WriteData(target, fire_notify);
 }

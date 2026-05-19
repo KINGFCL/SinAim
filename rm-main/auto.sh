@@ -5,18 +5,18 @@
 # ==========================================
 
 # 1. 程序的唯一标识，用于检查它是否存活
-APP_NAME="resetmain"
+APP_NAME="mlpmain"
 
 # 2. 程序的启动命令 (当检测到程序死亡时，执行此命令)
 # 建议写绝对路径，避免环境变量问题，例如: "/usr/bin/python3 /home/user/my_app.py"
-START_CMD="./resetmain"
+START_CMD="./mlpmain"
+CD_PATH="/home/kin/Desktop/rm2/rm-main/build/"
 
 # 3. 轮询间隔 (单位：秒，例如 10秒 检查一次)
 CHECK_INTERVAL=5
 
-CD_PATH="/home/kin/Desktop/rm/rm-main/build/"
 # 4. 监控程序的日志文件路径 (记录什么时候挂掉、什么时候重启)
-MONITOR_LOG="/home/kin/Desktop/log/mon.log"
+MONITOR_LOG="/home/kin/Desktop/log/autosh.log"
 
 # 5. 业务程序的输出日志文件
 APP_LOG="/home/kin/Desktop/log/app.log"
@@ -40,8 +40,9 @@ while true; do
         NOW=$(date +"%Y-%m-%d %H:%M:%S")
         
         echo "[$NOW] ⚠️ 警告: 检测到 $APP_NAME 未运行，准备拉起..." | tee -a "$MONITOR_LOG"
+
+        cd "$CD_PATH" || { echo "无法切换到目录 $CD_PATH"; exit 1; }
         
-        cd $CD_PATH
         # 执行启动命令，放入后台，并将输出重定向
         nohup $START_CMD > "$APP_LOG" 2>&1 &
         
