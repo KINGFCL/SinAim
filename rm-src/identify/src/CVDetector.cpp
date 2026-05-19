@@ -307,14 +307,6 @@ std::vector<CVArmor> CVDetector::FindArmor(const std::deque<Light> & lights)
     return result;
 }
 
-
-
-/**
- * @brief      获取装甲板的裁剪后图像
- * @details    输入装甲板std::deque<Armor>，返回裁剪后图像std::vector<cv::Mat>
- * @param      armors 装甲板std::deque<Armor>
- * @return     裁剪后图像std::vector<cv::Mat>
- */
 std::vector<cv::Mat> CVDetector::ResNetROIPattern(const std::vector<CVArmor> & armors)
 {
     std::vector<cv::Mat> armors_pattern;
@@ -385,6 +377,15 @@ std::vector<cv::Mat> CVDetector::ResNetROIPattern(const std::vector<CVArmor> & a
     
     return armors_pattern;
 }
+
+
+/**
+ * @brief      获取装甲板的裁剪后图像
+ * @details    输入装甲板std::deque<Armor>，返回裁剪后图像std::vector<cv::Mat>
+ * @param      armors 装甲板std::deque<Armor>
+ * @return     裁剪后图像std::vector<cv::Mat>
+ */
+
 
 std::vector<cv::Mat> CVDetector::MlpROIPattern(const std::vector<CVArmor> & armors)
 {

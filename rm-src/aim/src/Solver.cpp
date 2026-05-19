@@ -123,7 +123,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
                 yaw_big[idx] = std::atan2(-toward_world.y(), -toward_world.x());
                 reproj_big[idx] = reprojErr[s];
 
-                // 小装甲板角度判断
+                // 大装甲板角度判断
                 cos2_pitch_big[idx] = toward_world(0) * toward_world(0) + toward_world(1) * toward_world(1);
 
                 cos2_roll_big[idx] = Side_world(0) * Side_world(0) + Side_world(1) * Side_world(1);
@@ -135,7 +135,7 @@ std::vector< std::array<ArmorPosi,2> > Solver::operator () (const std::vector<CV
             (cos2_pitch_big[0] < range.cos2_pitch && cos2_pitch_big[1] < range.cos2_pitch)||
             (cos2_roll_big[0] < range.cos2_roll && cos2_roll_big[1] < range.cos2_roll) ||
            center_big.col(0).norm() > range.max_distence || center_big.col(1).norm() > range.max_distence)
-            isInRange_big = false;
+            isInRange_big = false; // 大装甲板解算失败不代表小装甲板解算失败，仍然保留小装甲板的结果
 
         std::array<ArmorPosi,2> armor_result;
         if(isInRange_small)
