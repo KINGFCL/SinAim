@@ -101,7 +101,7 @@ int main()
     #endif
     LibXR::PlatformInit();
     LibXR::RamFS ramfs;
-    LibXR::LinuxUART uart("0x16d0","0x1492", kSerialBaud);
+    LibXR::LinuxUART uart("16d0","1492", kSerialBaud);
     LibXR::HardwareContainer hw(
         LibXR::Entry<LibXR::LinuxUART>{uart, {"DevC-USB"}},
         LibXR::Entry<LibXR::RamFS>{ramfs, {"ramfs"}});
