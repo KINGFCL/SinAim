@@ -125,18 +125,14 @@ void rm::MPCPlanFunction(MPC::Planner& planner,
         if (robot_ptr != nullptr && *robot_ptr != nullptr) {
             Robot::KalmanMode mode = (*robot_ptr)->Mode;
             if (mode == Robot::KalmanMode::EKF) {
-                MPC::Plan plan = planner.plan(*robot_ptr, 21.0);
+                MPC::Plan plan = planner.plan(*robot_ptr, 22.0);
                 rm::SendMessageToRobot(ser, plan, plan.fire);
             } else {
-            double fly_time = shoot.FlyTime((*robot_ptr)->center);
-            Eigen::Vector3d aim = (*robot_ptr)->center + (*robot_ptr)->Speed.block<3, 1>(0, 0) * fly_time;
-
-            std::array<double, 2> pitch_and_yaw = shoot(aim);
-            MPC::Plan plan;
-            plan.pitch = pitch_and_yaw[0];
-            plan.yaw = pitch_and_yaw[1];
-            rm::SendMessageToRobot(ser, plan, true);
-            std::this_thread::sleep_until(next_time);
+                std::array<double, 2> pitch_and_yaw = shoot(*robot_ptr);
+                MPC::Plan plan;
+                plan.pitch = pitch_and_yaw[0];
+                plan.yaw = pitch_and_yaw[1];
+                rm::SendMessageToRobot(ser, plan, true);
             }
             std::this_thread::sleep_until(next_time);
             continue;
@@ -148,7 +144,7 @@ void rm::MPCPlanFunction(MPC::Planner& planner,
 
         const std::unique_ptr<OutPustState>* outpust_ptr = OutPustStates.peek();
         if (outpust_ptr != nullptr && *outpust_ptr != nullptr) {
-            MPC::Plan plan = planner.plan(*outpust_ptr, 21.0);
+            MPC::Plan plan = planner.plan(*outpust_ptr, 22.0);
             rm::SendMessageToRobot(ser, plan, plan.fire);
             std::this_thread::sleep_until(next_time);
             continue;
@@ -191,14 +187,11 @@ void rm::MPCPlanFunction(MPC::Planner& planner,
 
         Robot::KalmanMode mode = (*target_ptr)->Mode;
         if (mode == Robot::KalmanMode::EKF) {
-            MPC::Plan plan = planner.plan(*target_ptr, 21.0);
+            MPC::Plan plan = planner.plan(*target_ptr, 22.0);
             rm::SendMessageToRobot(ser, plan, plan.fire);
             std::this_thread::sleep_until(next_time);
         } else {
-            double fly_time = shoot.FlyTime((*target_ptr)->center);
-            Eigen::Vector3d aim = (*target_ptr)->center + (*target_ptr)->Speed.block<3, 1>(0, 0) * fly_time;
-
-            std::array<double, 2> pitch_and_yaw = shoot(aim);
+            std::array<double, 2> pitch_and_yaw = shoot(*target_ptr);
             MPC::Plan plan;
             plan.pitch = pitch_and_yaw[0];
             plan.yaw = pitch_and_yaw[1];

@@ -323,27 +323,64 @@ std::vector<cv::Mat> CVDetector::ResNetROIPattern(const std::vector<CVArmor> & a
     
     for(auto& armor : armors)
     {
-       
-        const cv::Size roi_sz = this->ROISize; //裁剪后图像大小
-        const cv::Size armor_sz(38,32);
-        const int extendLen = 9;
-        const int contractWid = 0;
+        // 1. 方向向量：从上指向下
+        cv::Point2f left_top2bottom = armor.left.bottom - armor.left.top;
+        cv::Point2f right_top2bottom = armor.right.bottom - armor.right.top;
         
-        std::vector<cv::Point2f> aim_rect{
-            cv::Point2f(-contractWid,extendLen),
-            cv::Point2f(armor_sz.width - contractWid - 1, extendLen),
-            cv::Point2f(armor_sz.width - contractWid - 1, armor_sz.height - extendLen - 1),
-            cv::Point2f(-contractWid, roi_sz.height - extendLen - 1)
-        };
+        // 2. 延长灯条获得装甲板真实的四个虚拟角点
+        // 1.125 = 0.5 * 126mm / 56mm (装甲板高度与灯条长度的比例系数)
+        auto tl = armor.left.center - left_top2bottom * 1.125f;
+        auto bl = armor.left.center + left_top2bottom * 1.125f;
+        auto tr = armor.right.center - right_top2bottom * 1.125f;
+        auto br = armor.right.center + right_top2bottom * 1.125f;
+
+        // 3. 计算能完全包围这四个角的正矩形 (Bounding Box)
+        // 使用 std::min/max 列表找出绝对边界，防止大角度倾斜时的坐标交叉错乱
+        int roi_left   = std::max<int>(0, std::floor(std::min({tl.x, bl.x, tr.x, br.x})));
+        int roi_top    = std::max<int>(0, std::floor(std::min({tl.y, bl.y, tr.y, br.y})));
+        int roi_right  = std::min<int>(this->rgb_img.cols, std::ceil(std::max({tl.x, bl.x, tr.x, br.x})));
+        int roi_bottom = std::min<int>(this->rgb_img.rows, std::ceil(std::max({tl.y, bl.y, tr.y, br.y})));
         
-        // 计算透视变换矩阵
-        cv::Mat M = cv::getPerspectiveTransform(armor.Lightcorners, aim_rect,cv::INTER_NEAREST);
+        cv::Rect roi(cv::Point(roi_left, roi_top), cv::Point(roi_right, roi_bottom));
+
+        // 防止极端情况下算出长宽为 0 或负数的非法矩形导致崩溃
+        if (roi.width <= 0 || roi.height <= 0) {
+            continue;
+        }
+
+        // 4. 从原图中截取 ROI (零拷贝操作，极快)
+        cv::Mat armor_roi = this->gray_img(roi);
         
-        // 应用透视变换
-        cv::Mat armor_roi;
-        cv::warpPerspective(this->gray_img, armor_roi, M, roi_sz);
+        // ========================================================
+        // 5. 保持原比例缩放 (等比缩放) + 纯黑背景填充逻辑
+        // ========================================================
         
-        armors_pattern.push_back(armor_roi);
+        // 5.1 创建指定目标尺寸的全黑背景 Mat
+        // 假设 target 图像通道数为 1 (因为来源是 gray_img)
+        cv::Mat pattern = cv::Mat(this->ROISize, CV_8UC1, cv::Scalar(0));
+        
+        // 5.2 计算 X 和 Y 方向的缩放比例
+        double x_scale = static_cast<double>(this->ROISize.width) / armor_roi.cols;
+        double y_scale = static_cast<double>(this->ROISize.height) / armor_roi.rows;
+        
+        // 5.3 取最小比例，确保缩放后的图像能完全放入目标区域且不丢失比例
+        double scale = std::min(x_scale, y_scale);
+        int w = static_cast<int>(armor_roi.cols * scale);
+        int h = static_cast<int>(armor_roi.rows * scale);
+        
+        // 预防极端缩放导致宽高为 0 的异常
+        if (w == 0 || h == 0) {
+            continue; 
+        }
+
+        // 5.4 智能选择插值算法（缩小用 INTER_AREA，放大用 INTER_LINEAR）
+        int interp_method = (armor_roi.cols > this->ROISize.width) ? cv::INTER_AREA : cv::INTER_LINEAR;
+        
+        // 5.5 将等比缩放后的图像放置到纯黑背景的左上角 (0, 0)
+        cv::Rect paste_roi(0, 0, w, h);
+        cv::resize(armor_roi, pattern(paste_roi), cv::Size(w, h), 0, 0, interp_method);
+        
+        armors_pattern.push_back(pattern);
     }
     
     return armors_pattern;
