@@ -16,7 +16,7 @@ private:
 
 const Eigen::Matrix<double, 3, 1> toward;
 const double toward_pitch,toward_yaw;
-const double GRAVITY =  9.8, BULLET_SPEED  = 19.3; //重力加速度9.8m/s^2 弹速 22.8m/s;
+const double GRAVITY =  9.8, BULLET_SPEED  = 19; //重力加速度9.8m/s^2 弹速 22.8m/s;
 const double BULLET_SPEED_2 = 2.0 * BULLET_SPEED * BULLET_SPEED;
 
 double low_speed_delay_time_, high_speed_delay_time_, decision_v_speed_;

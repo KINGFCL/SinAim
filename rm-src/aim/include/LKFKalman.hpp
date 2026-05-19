@@ -2,6 +2,8 @@
 
 #include <Eigen/Core>
 #include <Eigen/Dense> 
+#include <Eigen/src/Core/Matrix.h>
+#include <Eigen/src/Geometry/Quaternion.h>
 #include <cmath>
 
 /**
@@ -18,8 +20,8 @@ private:
      * 对角线元素分别对应: [xc, yc, zc, vxc, vyc, vzc] 的初始方差
      */
     const Eigen::Matrix<double, 6, 6> CovStateInit = (Eigen::Matrix<double, 6, 1>() << 
-        1000, 1000, 1000,       // xc, yc, zc 位置方差 (单位: cm^2)
-        1000000, 1000000, 1000000  // vxc, vyc, vzc 速度方差 (单位: (cm/s)^2)
+        100, 100, 100,       // xc, yc, zc 位置方差 (单位: cm^2)
+        10000, 10000, 10000  // vxc, vyc, vzc 速度方差 (单位: (cm/s)^2)
     ).finished().asDiagonal();
     
     Eigen::Matrix3d RCamera2Grip;
@@ -33,7 +35,7 @@ private:
     ).finished().asDiagonal();
 
     // ================== 过程噪声参数 ==================
-    const double Var_a_xy = 10000.0;  ///< XY 平面加速度扰动方差 (单位: (cm/s^2)^2)
+    const double Var_a_xy = 100000.0;  ///< XY 平面加速度扰动方差 (单位: (cm/s^2)^2)
     const double Var_a_z = 10.0;      ///< Z 轴加速度扰动方差 (假定 Z 轴运动较平缓)
 
 public:

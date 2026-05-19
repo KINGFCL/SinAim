@@ -15,7 +15,7 @@ void OPEKFKalman::Init()
     this->CovState = (StateVector() <<
         100.0, 100.0, 100.0,
         0.01, 5.0,
-        200, 200, 200
+        100, 100, 100
     ).finished().asDiagonal();
 }
 
