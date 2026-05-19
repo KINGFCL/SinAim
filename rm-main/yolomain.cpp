@@ -108,8 +108,6 @@ int main()
     LibXR::ApplicationManager appmgr;
     io::LibXRSerial<> ser(hw, appmgr);
 
-    Hik.continueCap(3);
-
     std::thread match_thread([&]() { rm::IMUAndImageMatchFunction(Hik, ser, Frames); });
     std::thread plan_thread([&]() { rm::MPCPlanFunction(planner, RobotStates, ser, shoot); });
 
