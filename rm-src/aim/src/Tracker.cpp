@@ -168,7 +168,7 @@ void Tracker::handleTracking(std::vector<ArmorPosi>& armors_posi,
         {
             // 进入暂丢状态
             current_state = State::TempLost;
-            std::cout << "[Tracker] 进入暂丢状态" << std::endl;
+            // std::cout << "[Tracker] 进入暂丢状态" << std::endl;
             return ;
         }
         // 使用线性更新
