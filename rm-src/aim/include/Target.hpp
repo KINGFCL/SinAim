@@ -152,7 +152,7 @@ private:
 
     KalmanMode Mode = KalmanMode::LKF;
 
-    const double matcherrthresh = 100.0;//单位：cm 
+    const double matcherrthresh = 20.0;//单位：cm 
 
     //记录是否初始化
     bool is_init = false;
