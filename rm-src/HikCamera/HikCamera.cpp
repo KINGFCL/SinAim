@@ -121,6 +121,26 @@ void HikCamera::capture_init()
     }
   }
 
+  // 1. 用 SetBoolValue 开启 Gamma
+  ret = MV_CC_SetBoolValue(handle_, "GammaEnable", true);
+  if (ret != MV_OK) {
+      tools::logger()->warn("GammaEnable (bool) failed: {:#x}", ret);
+      // 如果仍然失败，可能是该相机型号不支持 Gamma，可忽略
+  } else {
+      // 2. 将选择器设为“用户自定义模式”
+      //    MV_GAMMA_SELECTOR_USER 的枚举值通常为 1（以实际头文件为准）
+      ret = MV_CC_SetEnumValue(handle_, "GammaSelector", 1); 
+      if (ret != MV_OK) {
+          tools::logger()->warn("GammaSelector failed: {:#x}", ret);
+      }
+
+      // 3. 写入你想要的 Gamma 值（如 0.7）
+      ret = MV_CC_SetFloatValue(handle_, "Gamma", 0.7);
+      if (ret != MV_OK) {
+          tools::logger()->warn("Gamma set value failed: {:#x}", ret);
+      }
+  }
+  
   unsigned int nImageNodeNum = 3;
   ret = MV_CC_SetImageNodeNum(handle_, nImageNodeNum);
   if (MV_OK != ret)
