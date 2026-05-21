@@ -26,7 +26,7 @@ public:
             size_t search_threshold = 20,
             size_t temp_lost_threshold = 10,
             size_t lost_threshold = 30,
-            size_t switch_threshold = 8);
+            size_t switch_threshold = 20);
 
     // 主处理函数
     void operator()(std::vector<ArmorPosi>& armors_posi,

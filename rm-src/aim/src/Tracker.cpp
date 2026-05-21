@@ -301,7 +301,7 @@ void Tracker::handleTempLost(std::vector<ArmorPosi>& armors_posi,
         // 重新找到目标，恢复追踪
         current_state = State::Tracking;
         lost_count = 0;
-        std::cout << "[Tracker] 恢复追踪状态" << std::endl;
+        // std::cout << "[Tracker] 恢复追踪状态" << std::endl;
 
         // 更新机器人状态
         if (current_outpust)
